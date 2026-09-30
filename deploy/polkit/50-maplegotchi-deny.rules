@@ -1,0 +1,9 @@
+// /etc/polkit-1/rules.d/50-maplegotchi-deny.rules — root:root 0644.
+// Defense in depth (CLAUDE.md §4.2): Maple's service account may never be
+// authorized for any polkit action (unit start/stop/restart, reboot, ...).
+// Maple's code only reads systemd state over D-Bus and needs no authorization.
+polkit.addRule(function (action, subject) {
+    if (subject.user === "maple-svc") {
+        return polkit.Result.NO;
+    }
+});

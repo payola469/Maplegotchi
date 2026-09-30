@@ -10,7 +10,7 @@ from maplegotchi.core.observations import (
     ObservationStatus,
     ServiceState,
 )
-from maplegotchi.runtime.senses import Senses, paolo_core_senses
+from maplegotchi.runtime.senses import PAOLO_CORE_SERVICES, Senses, paolo_core_senses
 from maplegotchi.sensors.fake import FakeHostProbe
 from maplegotchi.sensors.interface import MetricUnavailable
 from maplegotchi.sensors.observe import observe_paolo_core
@@ -89,11 +89,16 @@ def test_fake_snapshots_are_deterministic() -> None:
 def test_real_senses_on_this_machine_are_honest(tmp_path) -> None:  # type: ignore[no-untyped-def]
     senses = paolo_core_senses(monitor_db=tmp_path / "metrics.db")
     snap = senses.observe(datetime.now(UTC))
-    services = [o for o in snap.observations if o.metric is Metric.SERVICE_STATE]
-    # Nothing surveyed or configured yet: every service is honestly unknown.
-    assert len(services) == len(INTENDED_SERVICES)
-    assert all(o.status is ObservationStatus.UNKNOWN for o in services)
-    assert all(
-        o.reason == "monitor_db:not_surveyed;systemd_dbus:unit_not_configured" for o in services
-    )
+    services = {o.subject: o for o in snap.observations if o.metric is Metric.SERVICE_STATE}
+    assert list(services) == [t.service_id for t in PAOLO_CORE_SERVICES]
+    # No metrics.db here, and none of paolo-core's units exist on a dev/CI machine
+    # (or there is no system bus at all): honestly unknown, never invented.
+    assert all(o.status is ObservationStatus.UNKNOWN for o in services.values())
+    assert services["grafana"].reason == "not_observable:docker_container"
+    assert services["lycan_watch"].reason == "not_observable:no_systemd_unit"
+    assert services["metrics_collector"].reason is not None
+    assert services["metrics_collector"].reason.startswith("monitor_db:source_missing;")
+    for service_id in ("maplegotchi", "backup"):
+        reason = services[service_id].reason
+        assert reason is not None and reason.startswith("monitor_db:not_recorded;systemd_dbus:")
     assert snap.get(Metric.MEMORY_USAGE, "memory") is not None

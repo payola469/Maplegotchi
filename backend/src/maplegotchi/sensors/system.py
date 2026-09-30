@@ -27,6 +27,8 @@ PREFERRED_TEMPERATURE_CHIPS = (
     "soc_thermal",
     "acpitz",
 )
+# Within a chip, the whole-package sensor is the most representative reading.
+PACKAGE_LABEL = "Package id 0"
 
 
 class PsutilHostProbe:
@@ -75,7 +77,11 @@ class PsutilHostProbe:
         if not chips:
             raise MetricUnavailable("no_temperature_sensors")
         for name in (*PREFERRED_TEMPERATURE_CHIPS, *sorted(chips)):
-            readings = [float(entry.current) for entry in chips.get(name, [])]
+            entries = chips.get(name, [])
+            package = [float(e.current) for e in entries if e.label == PACKAGE_LABEL]
+            if package:  # paolo-core: coretemp "Package id 0" (Stage A survey)
+                return package[0]
+            readings = [float(entry.current) for entry in entries]
             if readings:
                 return max(readings)
         raise MetricUnavailable("no_temperature_sensors")

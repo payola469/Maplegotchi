@@ -111,7 +111,7 @@ def test_connection_is_read_only_and_query_only(db: Path) -> None:
 
 def test_public_api_has_no_write_capability() -> None:
     public = {n for n, _ in inspect.getmembers(SqliteMetricsSource) if not n.startswith("_")}
-    assert public == {"describe_schema", "sample_rows", "close"}
+    assert public == {"describe_schema", "sample_rows", "max_value", "close"}
     fake_public = {n for n in dir(FakeMetricsSource) if not n.startswith("_")}
     for name in public | fake_public:
         assert not any(
@@ -172,3 +172,42 @@ def test_check_schema_reports_problems(db: Path) -> None:
     wrong = SchemaExpectation(required=(("cpu", ("ts", "host")), ("memory", ("ts",))))
     assert check_schema(report, fits) == ()
     assert check_schema(report, wrong) == ("missing_column:cpu.host", "missing_table:memory")
+
+
+# ---------------------------------------------------------------- max_value
+
+
+def test_max_value_of_a_discovered_column(db: Path) -> None:
+    before = digest(db)
+    with SqliteMetricsSource(db) as source:
+        assert source.max_value("cpu", "ts") == "2026-01-01T00:07"
+        assert source.max_value("cpu", "value") == 7 * 1.5
+        assert source.max_value('odd "name"', "x") is None  # empty table
+    assert digest(db) == before
+
+
+@pytest.mark.parametrize(
+    ("table", "column", "code"),
+    [
+        ("nope", "ts", "unknown_table"),
+        ("sqlite_master", "name", "unknown_table"),
+        ("cpu", "nope", "unknown_column"),
+        ("cpu", "ts) FROM cpu; DROP TABLE cpu; --", "unknown_column"),
+        ("cpu; DROP TABLE cpu", "ts", "unknown_table"),
+    ],
+)
+def test_max_value_only_reads_discovered_identifiers(
+    db: Path, table: str, column: str, code: str
+) -> None:
+    before = digest(db)
+    with SqliteMetricsSource(db) as source, pytest.raises(ExternalSourceError) as caught:
+        source.max_value(table, column)
+    assert caught.value.code == code
+    assert digest(db) == before
+
+
+def test_max_value_after_close(db: Path) -> None:
+    source = SqliteMetricsSource(db)
+    source.close()
+    with pytest.raises(ExternalSourceError):
+        source.max_value("cpu", "ts")

@@ -4,8 +4,10 @@
 service. The first `available` answer wins. If none can answer, the service is
 reported `unknown` with every provider's reason, never inferred.
 
-Unit names are deployment facts from the paolo-core survey (D12, D15); until
-they are configured, targets carry only a logical id and read as unknown.
+Unit names are deployment facts from the paolo-core survey (D12, D15). A target
+without them reads as unknown; a target the survey found no read-only way to
+observe (e.g. a Docker container) carries an explicit `unobservable` reason and
+is reported unknown without asking any provider.
 """
 
 from __future__ import annotations
@@ -26,21 +28,40 @@ from maplegotchi.core.observations import (
 
 _SERVICE_ID = re.compile(r"[a-z][a-z0-9_]{0,31}")
 _UNIT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.(?:service|timer)")
+_TIMER_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.@:-]{0,190}\.timer")
+_REASON_CODE = re.compile(r"[a-z0-9_]{1,48}")
 
 
 @dataclass(frozen=True, slots=True)
 class ServiceTarget:
     service_id: str  # stable logical name, e.g. "grafana"
-    unit_name: str | None = None  # verified systemd unit, from deployment config
+    unit_name: str | None = None  # verified systemd unit, from the deployment service map
+    timer_name: str | None = None  # verified timer that schedules unit_name (a oneshot job)
+    unobservable: str | None = None  # reason code: the survey found no read-only source
 
     def __post_init__(self) -> None:
         if not _SERVICE_ID.fullmatch(self.service_id):
             raise ValueError(f"invalid service id {self.service_id!r}")
         if self.unit_name is not None and not _UNIT_NAME.fullmatch(self.unit_name):
             raise ValueError(f"invalid unit name {self.unit_name!r}")
+        if self.timer_name is not None:
+            if not _TIMER_NAME.fullmatch(self.timer_name):
+                raise ValueError(f"invalid timer name {self.timer_name!r}")
+            if self.unit_name is None or not self.unit_name.endswith(".service"):
+                raise ValueError("a timer schedules a .service unit_name")
+        if self.unobservable is not None:
+            if not _REASON_CODE.fullmatch(self.unobservable):
+                raise ValueError(f"invalid reason code {self.unobservable!r}")
+            if self.unit_name is not None:
+                raise ValueError("an unobservable target has no unit names")
+
+    @property
+    def units(self) -> tuple[str, ...]:
+        return tuple(u for u in (self.unit_name, self.timer_name) if u is not None)
 
 
-# D12 intent. Unit names are deliberately absent until the survey verifies them.
+# D12 intent. Unit names are deliberately absent here; the verified production
+# map (after the Stage A survey) lives with the runtime wiring.
 INTENDED_SERVICES: tuple[ServiceTarget, ...] = (
     ServiceTarget("maplegotchi"),
     ServiceTarget("metrics_collector"),
@@ -67,7 +88,9 @@ class ServiceReading:
 class ServiceHealthProvider(Protocol):
     source: str
 
-    def read(self, targets: Sequence[ServiceTarget]) -> Mapping[str, ServiceReading]: ...
+    def read(
+        self, targets: Sequence[ServiceTarget], *, now: datetime
+    ) -> Mapping[str, ServiceReading]: ...
 
 
 def get_service_health(
@@ -76,15 +99,28 @@ def get_service_health(
     *,
     now: datetime,
 ) -> tuple[Observation, ...]:
+    observable = [t for t in targets if t.unobservable is None]
     answers: list[Mapping[str, ServiceReading] | str] = []
     for provider in providers:
         try:
-            answers.append(provider.read(targets))
+            answers.append(provider.read(observable, now=now) if observable else {})
         except Exception as exc:  # one broken provider must not hide the others
             answers.append(f"provider_error_{type(exc).__name__.lower()}")
 
     observations: list[Observation] = []
     for target in targets:
+        if target.unobservable is not None:
+            observations.append(
+                not_measured(
+                    Metric.SERVICE_STATE,
+                    target.service_id,
+                    ObservationStatus.UNKNOWN,
+                    f"not_observable:{target.unobservable}",
+                    observed_at=now,
+                    source="service_health",
+                )
+            )
+            continue
         reasons: list[str] = []
         found: Observation | None = None
         for provider, answer in zip(providers, answers, strict=True):

@@ -4,7 +4,7 @@
 evidence behind it as phases land (test names, systemd unit review, the
 Phase 3 paolo-core survey, and `check_boundaries.py` output).
 
-## Enforced today (Phases 0–5)
+## Enforced today (Phases 0–7 Stage B)
 
 | Control | Where |
 |---|---|
@@ -22,7 +22,10 @@ Phase 3 paolo-core survey, and `check_boundaries.py` output).
 | `sqlite3` only inside storage; external monitoring DB read via read-only `storage.external` datasource, never from sensors (D18) | scanner (`external` mode: may read SQLite, may not write), import-linter (sensors → only `storage.external.interface`; external ↔ Maple storage separated), `tests/security/test_phase3_boundaries.py` |
 | External DB opened `mode=ro` + `query_only`; write SQL refused by SQLite; no write/execute/schema method in the API; no write-SQL text in `storage/external` | `tests/storage/test_external_metrics.py`, `tests/security/test_phase3_boundaries.py` |
 | Sensors import no `sqlite3`/`subprocess`/`shutil`/`tempfile`/`socket`/writable storage | `test_sensors_never_import_sqlite3_subprocess_or_writable_storage` |
-| D-Bus client can send only `GetUnit` and `Get(Unit.ActiveState)` for allowlisted units | `tests/sensors/test_systemd_dbus.py` |
+| D-Bus client and dbus-fast transport can send only `GetUnit` and `Get(Unit.ActiveState)` for allowlisted units; only the transport imports dbus_fast | `tests/sensors/test_systemd_dbus.py`, `tests/security/test_phase3_boundaries.py` |
+| Production settings refuse fake senses, non-https origins, non-loopback binds | `tests/api/test_api_security.py` |
+| systemd unit: `User=maple-svc`, no capabilities, `ProtectSystem=strict`, `/data` hidden except `/data/maple` (rw) and `/data/monitor` (ro), loopback-only IP, syscall filter | `tests/deploy/test_unit_file.py`; on the host `deploy/verify/sandbox_probe.sh`, `check_boundaries.py` |
+| Backup staging never writes Maple's DB and publishes only an integrity-checked copy | `tests/deploy/test_maple_db_snapshot.py` |
 | Survey script linted (ruff) and type-checked (mypy strict) in normal CI, plus security tests | `.github/workflows/ci.yml`, `backend/pyproject.toml` (mypy files), `tests/security/test_phase3_boundaries.py` |
 | No `systemctl` in any executable string in `backend/src` or the survey | `test_no_systemctl_anywhere_in_executable_text`, `test_survey_script_uses_no_forbidden_or_writing_apis` |
 | Only the built-in RuleBrain can run (exact class); external/impostor Brains refused before storage opens | `runtime/life.py: require_rule_brain`, `tests/runtime/test_journal_runtime.py` |
@@ -39,3 +42,16 @@ Phase 3 paolo-core survey, and `check_boundaries.py` output).
 | Layer dependency rules (CLAUDE.md §3.3) | import-linter contracts (`backend/pyproject.toml`) |
 | No `eval` / `new Function` / raw HTML sinks in the UI | `frontend/eslint.config.js` |
 | All of the above in CI on every push/PR | `.github/workflows/ci.yml` |
+
+## Production boundary (Phase 7)
+
+The deployment design and its verification are in `docs/deployment.md`
+(ADR-0020 … ADR-0024). Maple runs as `maple-svc` (no shell, no home, no groups,
+no capabilities, no_new_privs, seccomp) inside a mount namespace where the OS is
+read-only, `/home` and `/root` are hidden, `/data` is an empty read-only tmpfs
+except `/data/maple` (read-write) and `/data/monitor` (read-only), and container
+runtime sockets are inaccessible. It binds 127.0.0.1:8470 only, egress/ingress is
+limited to localhost, and Tailscale Serve (Funnel off) is the only way in. polkit
+denies every action to `maple-svc`. Evidence on the host comes from
+`deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh`
+(Stage C); their parsers and verdicts are unit-tested in `tests/deploy/`.

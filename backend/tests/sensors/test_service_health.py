@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -112,3 +113,81 @@ def test_service_reading_invariants() -> None:
         ServiceReading(U, state=ServiceState.ACTIVE, reason="x")
     with pytest.raises(ValueError):
         ServiceReading(U)
+
+
+# ---------------------------------------------------------------- Stage A service map
+
+
+def test_timer_driven_target_lists_both_units() -> None:
+    job = ServiceTarget("backup", "paolo-core-backup.service", timer_name="paolo-core-backup.timer")
+    assert job.units == ("paolo-core-backup.service", "paolo-core-backup.timer")
+
+
+@pytest.mark.parametrize(
+    ("unit", "timer", "unobservable"),
+    [
+        (None, "paolo-core-backup.timer", None),  # a timer needs the service it runs
+        ("a.timer", "b.timer", None),  # a timer schedules a .service
+        ("a.service", "b.service", None),  # timer_name must be a timer
+        ("grafana.service", None, "docker_container"),  # unobservable has no units
+        (None, None, "Docker Container"),  # reason codes are lowercase words
+    ],
+)
+def test_invalid_targets_are_refused(
+    unit: str | None, timer: str | None, unobservable: str | None
+) -> None:
+    with pytest.raises(ValueError):
+        ServiceTarget("backup", unit, timer_name=timer, unobservable=unobservable)
+
+
+def test_unobservable_targets_are_unknown_without_asking_providers() -> None:
+    asked: list[list[str]] = []
+
+    class Spy(FakeServiceHealth):
+        def read(
+            self, targets: Sequence[ServiceTarget], *, now: datetime
+        ) -> Mapping[str, ServiceReading]:
+            asked.append([t.service_id for t in targets])
+            return super().read(targets, now=now)
+
+    spy = Spy({"backup": active()}, source="systemd_dbus")
+    targets = [
+        ServiceTarget("grafana", unobservable="docker_container"),
+        ServiceTarget("backup", "paolo-core-backup.service"),
+    ]
+    grafana, backup = get_service_health(targets, [spy], now=T)
+    assert (grafana.status, grafana.reason, grafana.source) == (
+        U,
+        "not_observable:docker_container",
+        "service_health",
+    )
+    assert backup.status is A
+    assert asked == [["backup"]]
+    get_service_health(targets[:1], [spy], now=T)
+    assert asked == [["backup"]]  # nothing observable: providers are not called at all
+
+
+def test_paolo_core_service_map_matches_the_stage_a_findings() -> None:
+    from maplegotchi.runtime.senses import PAOLO_CORE_SERVICES, allowed_units
+
+    by_id = {t.service_id: t for t in PAOLO_CORE_SERVICES}
+    assert list(by_id) == ["maplegotchi", "metrics_collector", "grafana", "lycan_watch", "backup"]
+    assert "qbittorrent" not in by_id and "jellyfin" not in by_id  # not found on paolo-core
+    assert by_id["maplegotchi"] == ServiceTarget("maplegotchi", "maplegotchi.service")
+    assert by_id["metrics_collector"] == ServiceTarget(
+        "metrics_collector", "personal-ai-monitor.service", timer_name="personal-ai-monitor.timer"
+    )
+    assert by_id["backup"] == ServiceTarget(
+        "backup", "paolo-core-backup.service", timer_name="paolo-core-backup.timer"
+    )
+    assert by_id["grafana"].unobservable == "docker_container"
+    assert by_id["lycan_watch"].unobservable == "no_systemd_unit"
+    # The D-Bus allowlist is exactly these five units: no monitor-v2, no Docker, nothing else.
+    assert allowed_units(PAOLO_CORE_SERVICES) == {
+        "maplegotchi.service",
+        "personal-ai-monitor.service",
+        "personal-ai-monitor.timer",
+        "paolo-core-backup.service",
+        "paolo-core-backup.timer",
+    }
+    assert set(by_id) <= {t.service_id for t in INTENDED_SERVICES}  # within D12 intent

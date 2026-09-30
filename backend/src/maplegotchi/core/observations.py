@@ -11,6 +11,11 @@ Status semantics:
                (not configured, not surveyed, source missing or stale)
 - error        a source failed or returned an invalid value
 Only `available` carries a value; every other status carries a reason code.
+
+A reason starting with `not_observable:` marks a gap that exists by design: the
+deployment has no read-only way to observe that subject (e.g. a service running
+in a Docker container Maple gets no socket for). It is shown as unknown, but it
+is a known limit of Maple's senses, not a sign that something is wrong now.
 """
 
 from __future__ import annotations
@@ -95,6 +100,7 @@ _SOURCE = re.compile(r"[a-z][a-z0-9_]{0,31}")
 _REASON_PART = r"[a-z0-9_]+(?::[a-z0-9_.]+)?"
 _REASON = re.compile(rf"{_REASON_PART}(?:;{_REASON_PART})*")
 MAX_REASON_LENGTH = 200
+NOT_OBSERVABLE_PREFIX = "not_observable:"
 
 
 def _is_number(value: object) -> bool:
@@ -147,6 +153,10 @@ class Observation:
     @property
     def unit(self) -> Unit:
         return METRICS[self.metric].unit
+
+    @property
+    def unobservable_by_design(self) -> bool:
+        return self.reason is not None and self.reason.startswith(NOT_OBSERVABLE_PREFIX)
 
 
 def _in_range(metric: Metric, value: float) -> bool:

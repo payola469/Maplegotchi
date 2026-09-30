@@ -1,9 +1,9 @@
 """The read-only external metrics datasource contract. No sqlite3 here.
 
-The paolo-core monitoring schema is not known yet (D11, D15). Until the Phase 3
-survey is run on the real server, this contract offers only read-only schema
-discovery and bounded sampling; metric queries are added once the schema is
-documented.
+The Stage A survey documented paolo-core's monitoring schema (deploy/survey/
+findings.md). The contract offers read-only schema discovery, bounded sampling,
+and one aggregate read (`max_value`) over a table and column that must exist in
+the discovered schema. There is no generic SQL entry point.
 """
 
 from __future__ import annotations
@@ -74,5 +74,9 @@ class MetricsSource(Protocol):
     def describe_schema(self, *, row_counts: bool = False) -> SchemaReport: ...
 
     def sample_rows(self, table: str, limit: int = 3) -> tuple[tuple[object, ...], ...]: ...
+
+    def max_value(self, table: str, column: str) -> object:
+        """MAX(column) of a discovered table and column; None for an empty table."""
+        ...
 
     def close(self) -> None: ...

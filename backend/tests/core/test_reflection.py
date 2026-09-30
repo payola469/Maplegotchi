@@ -127,6 +127,27 @@ def test_numeric_conditions_have_hysteresis() -> None:
 # ---------------------------------------------------------------- summaries
 
 
+def test_by_design_gaps_do_not_make_the_picture_unclear() -> None:
+    t = at_local(21)
+    cpu = measured(Metric.CPU_USAGE, "cpu", 10, observed_at=t, source="fake")
+
+    def gap(name: str, reason: str) -> Observation:
+        return not_measured(
+            Metric.SERVICE_STATE, name, ObservationStatus.UNKNOWN, reason,
+            observed_at=t, source="service_health",
+        )  # fmt: skip
+
+    docker = gap("grafana", "not_observable:docker_container")
+    assert docker.unobservable_by_design
+    calm = snap(t, cpu, svc("backup", ServiceState.ACTIVE, t), docker)
+    assert server_summary(INITIAL_REFLECTION, calm)[0] is ServerSummary.CALM
+    # A real gap (stale collector data, a bus error) still leaves Maple unsure.
+    stale = gap("metrics_collector", "monitor_db:stale_data;systemd_dbus:dbus_timeout")
+    assert not stale.unobservable_by_design
+    unsure = snap(t, cpu, docker, stale)
+    assert server_summary(INITIAL_REFLECTION, unsure)[0] is ServerSummary.UNCLEAR
+
+
 def test_server_summary_is_honest() -> None:
     t = at_local(21)
     calm = snap(

@@ -162,3 +162,42 @@ def test_survey_reports_missing_metrics_db(tmp_path: Path) -> None:
 @pytest.mark.parametrize("keyword", ["grafana", "jellyfin", "qbittorrent", "lycan", "backup"])
 def test_survey_looks_for_every_intended_service(keyword: str) -> None:
     assert keyword in _load_survey().UNIT_KEYWORDS
+
+
+# ---------------------------------------------------------------- Phase 7: D-Bus transport
+
+
+def test_only_the_transport_module_touches_dbus() -> None:
+    """dbus_fast is imported in exactly one place, which re-checks the call allowlist."""
+    importers = sorted(
+        path.relative_to(SRC).as_posix()
+        for path in SRC.rglob("*.py")
+        if any(m.startswith("dbus_fast") for m in imported_modules(path))
+    )
+    transport = "maplegotchi/sensors/service_health/dbus_transport.py"
+    assert importers == [transport]
+    source = (SRC / transport).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    lazy = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "dbus_fast.aio"
+        for alias in node.names
+    }
+    assert lazy == {"MessageBus"}
+    # The transport never names a mutating systemd method.
+    for word in (
+        "StartUnit",
+        "StopUnit",
+        "RestartUnit",
+        "ReloadUnit",
+        "KillUnit",
+        "Enable",
+        "Disable",
+        "SetProperties",
+        "GetAll",
+        "LoadUnit",
+        "Reboot",
+        "PowerOff",
+    ):
+        assert word not in source, word  # fmt: skip

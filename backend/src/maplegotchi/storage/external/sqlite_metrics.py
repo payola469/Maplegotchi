@@ -4,8 +4,11 @@ Guarantees:
 - opened with `mode=ro` (SQLite never writes or creates the file) and
   `PRAGMA query_only = ON` (every write statement is refused), verified;
 - defensive mode and `trusted_schema = OFF`;
-- the public API is schema discovery and bounded sampling of discovered
-  tables only: no arbitrary SQL, no write, schema, or migration method.
+- the public API is schema discovery, bounded sampling of discovered tables,
+  and MAX() of a discovered column: no arbitrary SQL, no write, schema, or
+  migration method;
+- a hot rollback journal left by the writer cannot be replayed through a
+  read-only connection: that surfaces as `unreadable`, never as a repair.
 """
 
 from __future__ import annotations
@@ -127,6 +130,23 @@ class SqliteMetricsSource:
         except sqlite3.Error as exc:
             raise ExternalSourceError("unreadable", str(exc)) from exc
         return tuple(tuple(row) for row in rows)
+
+    def max_value(self, table: str, column: str) -> object:
+        """MAX(column) of a table and column discovered in the schema (None if empty)."""
+        if table not in self._table_names():
+            raise ExternalSourceError("unknown_table", table)
+        conn = self._connection()
+        try:
+            columns = {
+                r[0] for r in conn.execute("SELECT name FROM pragma_table_info(?)", (table,))
+            }
+            if column not in columns:
+                raise ExternalSourceError("unknown_column", f"{table}.{column}")
+            query = f"SELECT max({_quote_identifier(column)}) FROM {_quote_identifier(table)}"  # noqa: S608
+            row = conn.execute(query).fetchone()
+        except sqlite3.Error as exc:
+            raise ExternalSourceError("unreadable", str(exc)) from exc
+        return None if row is None else row[0]
 
     def close(self) -> None:
         if self._conn is not None:

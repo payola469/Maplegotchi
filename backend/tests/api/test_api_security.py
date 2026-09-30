@@ -147,7 +147,7 @@ def test_settings_from_env(tmp_path: Path) -> None:
     prod = settings_from_env({
         "MAPLE_DATA_DIR": str(tmp_path), "MAPLE_MODE": "production",
         "MAPLE_ALLOWED_ORIGINS": "https://maple.tailnet.example, https://paolo-core.tailnet.example",
-        "MAPLE_HEARTBEAT_SECONDS": "300", "MAPLE_SENSES": "fake",
+        "MAPLE_HEARTBEAT_SECONDS": "300",
     })  # fmt: skip
     assert prod.allowed_origins == (
         "https://maple.tailnet.example",
@@ -156,6 +156,27 @@ def test_settings_from_env(tmp_path: Path) -> None:
     assert prod.docs_enabled is False
     with pytest.raises(SettingsError):
         settings_from_env({})
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"MAPLE_SENSES": "fake"},  # fake senses never reach production
+        {"MAPLE_ALLOWED_ORIGINS": "http://paolo-core.tailnet.example"},  # Serve is https
+        {"MAPLE_BIND_HOST": "0.0.0.0"},  # noqa: S104 - loopback only (D5)
+    ],
+)
+def test_production_settings_refuse_unsafe_values(
+    tmp_path: Path, overrides: dict[str, str]
+) -> None:
+    env = {
+        "MAPLE_DATA_DIR": str(tmp_path),
+        "MAPLE_MODE": "production",
+        "MAPLE_ALLOWED_ORIGINS": "https://paolo-core.tailnet.example",
+        **overrides,
+    }
+    with pytest.raises(SettingsError):
+        settings_from_env(env)
 
 
 # ---------------------------------------------------------------- static frontend

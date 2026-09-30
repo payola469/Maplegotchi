@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-5 complete (2026-09-30); milestone M1 reached. Phase 6 (Maple Room UI) implemented, awaiting review. Phase 7+ NOT authorized.**
+> **Status: Phases 0-5 complete (2026-09-30), M1 reached; Phase 6 (Maple Room UI) implemented, M2 local build. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -33,6 +33,11 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D16 | 2026-09-30 | paolo-core local time is **Asia/Bangkok (UTC+07:00, no DST)**; core's production default `utc_offset` is +07:00. The offset stays injectable for tests/simulations; core never reads the system timezone database. | 0017 |
 | D17 | 2026-09-30 | Greet/Pet reactions are **transient**: each has an explicit `until` (v0.1: 8 s after the interaction). Presentation (active reaction, expression) is derived from a supplied `now`, so a reaction ends at `until` without a heartbeat, scheduler, or timer. | 0018 |
 | D18 | 2026-09-30 | `sqlite3` stays inside the storage/data-access boundary. The external `/data/monitor/metrics.db` is read through a narrowly scoped **read-only external datasource** in `maplegotchi.storage.external` (read-only connection; SELECT-only API; no write, schema, or Maple-repository methods), fully separate from Maple's writable database. Service-health sensors depend on that datasource's read API and never import `sqlite3`. No sqlite3 exception for `sensors`. | 0019 |
+| D19 | 2026-09-30 | Production account is **`maple-svc`** (system, nologin, home `/nonexistent`, no sudo, no supplementary groups). Layout: `/opt/maplegotchi/{releases/<sha>,current,previous,python}` root-owned; `/etc/maplegotchi/maplegotchi.env` root:maple-svc 0640; `/data/maple` the only writable path. `/data` is hidden by `TemporaryFileSystem=/data:ro` with `/data/maple` (rw) and `/data/monitor` (ro) bound back. | 0020 |
+| D20 | 2026-09-30 | paolo-core service map from the Stage A survey: maplegotchi, metrics_collector (`personal-ai-monitor.{service,timer}` + metrics.db freshness), backup (`paolo-core-backup.{service,timer}`); grafana (Docker) and lycan_watch (no unit) stay `unknown`; qBittorrent/Jellyfin not present, not mapped. metrics.db legacy service flags are not a source; psutil is the host-metric source. | 0021 |
+| D21 | 2026-09-30 | systemd D-Bus transport via **dbus-fast**, behind `ReadOnlySystemdClient`: only `GetUnit` + `Properties.Get(Unit.ActiveState)` for allowlisted units, refused otherwise in client and transport; all failures → `unknown`. | 0022 |
+| D22 | 2026-09-30 | Production runtime is uv-managed **CPython 3.12** under `/opt/maplegotchi/python` (not the host's 3.14); immutable `releases/<commit-sha>` with per-release venv from `uv.lock`; bundle built on the trusted build machine (incl. frontend); rollback swaps code only and never downgrades the database. All privileged steps are owner-run. | 0023 |
+| D23 | 2026-09-30 | Maple's database joins the nightly paolo-core backup via SQLite backup API → `$RUN_DIR/maple.db` → `integrity_check` → restic; not-deployed is an intentional skip, any failure once deployed is fail-safe. | 0024 |
 
 ---
 
@@ -81,10 +86,10 @@ If a task seems to need something out of scope, **stop and ask** — do not add 
 
 ### 3.1 Tech stack
 - **Backend [FIXED]:** Python 3.12, FastAPI (Starlette also serves static frontend), SQLite (WAL mode), psutil.
-  **[PROPOSED]:** Pydantic v2, uvicorn, stdlib `sqlite3` with hand-written migrations, `dbus-fast` for the D-Bus provider (added only if the Phase 3 survey shows it is needed).
+  **[PROPOSED]:** Pydantic v2, uvicorn, stdlib `sqlite3` with hand-written migrations, `dbus-fast` for the D-Bus provider (added in Phase 7 per the Stage A survey, D21).
 - **Frontend [FIXED]:** TypeScript, Vite, PixiJS for the room layer only. **[PROPOSED]:** Preact for DOM panels.
 - **Transport [PROPOSED]:** REST for snapshots and interactions; Server-Sent Events (SSE) for live updates.
-- **Runtime [FIXED]:** systemd service on paolo-core under dedicated unprivileged user `maple`; FastAPI on localhost; Tailscale Serve to the tailnet.
+- **Runtime [FIXED]:** systemd service on paolo-core under dedicated unprivileged system account `maple-svc` (D19); uv-managed CPython 3.12 (D22); FastAPI on localhost; Tailscale Serve to the tailnet.
 - **Tooling [PROPOSED]:** `uv`, `ruff` (lint + format), `mypy --strict`, `pytest`, `import-linter`, AST-based forbidden-API tests; `pnpm`, `eslint`, `tsc --strict`, `vitest`.
 
 ### 3.2 Repository layout
@@ -109,7 +114,7 @@ Maplegotchi/
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
 │   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
 │   │   │   └── service_health/ (P3)  # interface.py (get_service_health), monitor_db.py (#1),
-│   │   │                             #   systemd_dbus.py (#2), fake.py
+│   │   │                             #   systemd_dbus.py (#2), dbus_transport.py (P7), fake.py
 │   │   ├── storage/       (P2)       # datadir.py (write jail), db.py (open/birth), migrations.py,
 │   │   │   │                         #   repositories.py, errors.py  — Maple's own writable DB
 │   │   │   └── external/  (P3)       # interface.py (no sqlite3), sqlite_metrics.py (read-only),
@@ -134,14 +139,17 @@ Maplegotchi/
 │       ├── state/                    # store (revision rule), live sync, interactions
 │       ├── room/                     # PixiJS only: visual mapping, anchors, motion, scene, art
 │       └── ui/                       # Preact DOM: App, panels, interaction bar
-└── deploy/                           # Phase 7
-    ├── systemd/maplegotchi.service
-    ├── etc/maplegotchi/              # settings.toml, policy.toml templates (incl. verified unit names)
+├── scripts/build_release.sh          # P7: bundle for one commit (git archive + built frontend + SHA256SUMS)
+└── deploy/                           # Phase 7 (docs/deployment.md)
+    ├── systemd/maplegotchi.service   # hardened unit (User=maple-svc, /data namespace)
+    ├── etc/maplegotchi/maplegotchi.env   # MAPLE_* env template (the only config file)
+    ├── polkit/50-maplegotchi-deny.rules  # deny every polkit action to maple-svc
+    ├── install/                      # owner-run: install_release.sh, setup_host.sh, activate_release.sh
+    ├── backup/                       # maple_db_snapshot.py (backup helper) + patch plan
     ├── tailscale/serve.md            # Tailscale Serve setup; Funnel explicitly off
-    ├── polkit/                       # defense-in-depth deny rule for user `maple`
-    ├── survey/        (P3)           # read-only survey script + procedure; findings.md after running
-    ├── verify/check_boundaries.py
-    └── install.md
+    ├── survey/        (P3)           # read-only survey script + procedure; findings.md (Stage A)
+    ├── verify/                       # check_boundaries.py (owner, no sudo), sandbox_probe.sh (nsenter)
+    └── install.md                    # Stage C runbook, verification checklist, rollback
 ```
 
 ### 3.3 Components and dependency rules
@@ -191,15 +199,16 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 ### 3.5 Service health
 - Core-facing, provider-independent interface:
   `get_service_health() -> ServiceHealthReport` containing `[ServiceHealth(service_id, state: active|inactive|failed|activating|unknown, since, source, as_of)]`.
-- `service_id` is a stable logical name (e.g. `grafana`); the mapping to verified systemd unit names and to monitoring-DB identifiers lives in root-owned deployment config, filled in after the Phase 3 survey.
+- `service_id` is a stable logical name (e.g. `grafana`); the mapping to verified systemd unit names is the reviewed, root-owned release code `runtime/senses.py:PAOLO_CORE_SERVICES` (D20, from the Stage A survey, `deploy/survey/findings.md`). A target may carry a timer (oneshot jobs) or an explicit `unobservable` reason (reported `unknown`, `not_observable:<reason>`).
 - **Intended services** (D12): maplegotchi, metrics collector, grafana, lycan-watch/updates, qbittorrent, jellyfin, backup/integrity timers or services. No auto-discovery.
+- **Production map (D20):** maplegotchi, metrics_collector, backup observed; grafana (Docker) and lycan_watch (no unit) `unknown` by design; qbittorrent/jellyfin not present on paolo-core.
 - **Provider order** (per service, no shell fallback):
-  1. **Existing monitoring** — the sensor reads through the **read-only external datasource** `maplegotchi.storage.external.monitor_metrics` (D18, ADR-0019), which alone touches `/data/monitor/metrics.db`: SQLite URI `mode=ro` (plus `PRAGMA query_only = ON`), fixed parameterized SELECTs only, no INSERT/UPDATE/DELETE/DDL/ATTACH or write-capable method, short busy timeout, staleness check against the collector's ~5 min cadence. It does not reuse Maple's `LifeRepository` or `DataDir`. Schema is **not** assumed; queries are written only after the Phase 3 survey documents it.
-  2. **`systemd_dbus`** — only for services/fields existing monitoring cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get` of `org.freedesktop.systemd1.Unit.ActiveState` for allowlisted units (`GetAll` is permitted by this rule but not needed, so the client omits it). The concrete bus transport is added only if the survey shows it is needed. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
+  1. **Existing monitoring** — the sensor reads through the **read-only external datasource** `maplegotchi.storage.external.monitor_metrics` (D18, ADR-0019), which alone touches `/data/monitor/metrics.db`: SQLite URI `mode=ro` (plus `PRAGMA query_only = ON`), fixed parameterized SELECTs only, no INSERT/UPDATE/DELETE/DDL/ATTACH or write-capable method, short busy timeout, staleness check against the collector's ~5 min cadence. It does not reuse Maple's `LifeRepository` or `DataDir`. Stage A documented the schema: Maple reads only `MAX(ts)` of `metrics` for **collector freshness** (≤ 660 s ⇒ `metrics_collector` active); the legacy ollama/n8n/discord/docker flags are never read.
+  2. **`systemd_dbus`** — only for services/fields existing monitoring cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get` of `org.freedesktop.systemd1.Unit.ActiveState` for allowlisted units (`GetAll` is permitted by this rule but not needed, so the client omits it). Transport: `dbus_transport.py` (dbus-fast, D21), which re-checks the same allowlist; failures → `unknown`. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
   3. **`fake`** — dev/tests only; production config refuses it. Built first (D15).
 - Missing/stale/unreadable data → `unknown`, visible in the UI. Never inferred.
 - Implementation details, observation schema, status semantics, partial-failure rules, and the `server_attention` derivation: `docs/sensors.md` [PROPOSED].
-- Host metrics (CPU, memory, disk, load, uptime, network, temps) may likewise come from the external monitoring datasource where practical, with `psutil` as the local read-only source otherwise. Decided after the survey.
+- Host metrics (CPU, memory, disk, load, temperature) come from `psutil` (decided after the survey, D20); temperature prefers coretemp `Package id 0`.
 
 ### 3.6 External Brain boundary
 - `Brain` protocol: `compose_journal(ctx)` plus `kind: "rule" | "external"` ("rule" is the local, offline kind), `name`, `version`.
@@ -257,26 +266,28 @@ Journal entries may cite observations; observations never depend on journal text
 6. The Brain is untrusted input; output is validated, never executed.
 7. **Tailnet-only access.** App bound to localhost; Tailscale Serve only; Funnel off; no public exposure.
 
-### 4.2 Filesystem layout on paolo-core [PROPOSED]
-| Path | Owner / mode | Maple access | Purpose |
+### 4.2 Filesystem layout on paolo-core [FIXED, D19 — details in `docs/deployment.md`]
+| Path | Owner / mode | maple-svc access | Purpose |
 |---|---|---|---|
-| `/opt/maplegotchi/` | `root:root` 0755, files 0644 | read | Backend code, venv, built frontend |
-| `/etc/maplegotchi/` | `root:maple` 0750, files 0640 | read | settings.toml, policy.toml (service map, limits) |
+| `/opt/maplegotchi/releases/<sha>/` | `root:root` 0755, files 0644 | read | Immutable release: backend, venv, built frontend, deploy tools |
+| `/opt/maplegotchi/current`, `previous` | root symlinks | read | Active / previous release |
+| `/opt/maplegotchi/python/` | `root:root` 0755 | read | uv-managed CPython 3.12 |
+| `/etc/maplegotchi/maplegotchi.env` | `root:maple-svc` 0640 (dir 0750) | read | `MAPLE_*` settings |
 | `/etc/systemd/system/maplegotchi.service` | `root:root` 0644 | none | Sandbox definition |
-| `/etc/polkit-1/rules.d/50-maple-deny.rules` | `root:root` 0644 | none | Deny systemd management actions to `maple` |
-| `/data/monitor/metrics.db` | existing owner (survey) | **read only** | Existing monitoring data (D11) |
-| `/data/maple/` | `maple:maple` 0750 | read/write | Maple's DB, logs, backups |
+| `/etc/polkit-1/rules.d/50-maplegotchi-deny.rules` | `root:root` 0644 | none | Deny every polkit action to `maple-svc` |
+| `/data/monitor/metrics.db` | `paolo:paolo` 0644 (existing) | **read only** (ro bind) | Existing monitoring data (D11) |
+| `/data/maple/` | `maple-svc:maple-svc` 0750 | read/write | Maple's DB |
 
-How `maple` gets read access to `metrics.db` (group membership, ACL) and whether read-only open of its journal mode works without write access to `/data/monitor` are **Phase 3 survey items**; the chosen method must not grant `maple` any write access there.
+`metrics.db` is world-readable (Stage A), so no group/ACL grant is made; the unit binds `/data/monitor` read-only and hides every other `/data` sibling.
 
-### 4.3 Process sandbox (systemd) [PROPOSED]
-`User=maple`, no login shell, no sudo, not in `docker`/`adm`/`sudo`/`systemd-journal`/any privileged group. Unit hardening, at minimum:
-`NoNewPrivileges=yes`, `ProtectSystem=strict`, `ReadWritePaths=/data/maple`, `ReadOnlyPaths=/data/monitor`, `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `ProtectKernelTunables=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `CapabilityBoundingSet=`, `AmbientCapabilities=`, `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`, `IPAddressDeny=any`, `IPAddressAllow=localhost`, `RestrictSUIDSGID=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallFilter=~@privileged @resources`, `UMask=0027`.
+### 4.3 Process sandbox (systemd) [FIXED minimum; unit in `deploy/systemd/maplegotchi.service`]
+`User=maple-svc`, no login shell, no sudo, not in `docker`/`adm`/`sudo`/`systemd-journal`/any privileged group. Unit hardening, at minimum:
+`NoNewPrivileges=yes`, `ProtectSystem=strict`, `TemporaryFileSystem=/data:ro` + `BindPaths=/data/maple` + `BindReadOnlyPaths=/data/monitor` (D19), `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `ProtectKernelTunables=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `CapabilityBoundingSet=`, `AmbientCapabilities=`, `RestrictAddressFamilies=AF_UNIX AF_INET`, `IPAddressDeny=any`, `IPAddressAllow=localhost`, `RestrictSUIDSGID=yes`, `LockPersonality=yes`, `MemoryDenyWriteExecute=yes`, `SystemCallFilter=@system-service`, `SystemCallFilter=~@privileged @resources`, `UMask=0027`; plus `ProtectProc=invisible`, `RestrictNamespaces=yes`, Docker socket paths inaccessible, memory/task limits. Contract-tested in `tests/deploy/test_unit_file.py`.
 
 ### 4.4 In-process controls
 - `storage/datadir.py` resolves every path and rejects writes outside `MAPLE_DATA_DIR` (incl. `..` and symlink escapes).
 - The external monitoring datasource (`storage/external`, D18) opens only the configured path with `mode=ro` + `query_only`, exposes only SELECT-backed read methods, and has no write, schema, or Maple-repository API. Phase 3 adds an AST rule forbidding write SQL keywords and write methods in `storage/external`.
-- D-Bus wrapper exposes only the three read calls in §3.5.
+- D-Bus client and transport send only the two read calls in §3.5 (`GetUnit`, `Get(ActiveState)`); `GetAll` is not used.
 - Settings/policy load once at startup into frozen models; no code path writes them.
 - Interaction endpoints: closed-enum actions, no body text, JSON `POST` only, `Origin`/`Host` check against the configured tailnet hostname, backend-enforced persisted cooldowns and global limit.
 - App-layer security headers (minimal set): `Content-Security-Policy` (self only), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` / `frame-ancestors 'none'`, `Permissions-Policy` (deny all), `Cache-Control: no-store` on API responses.
@@ -295,7 +306,7 @@ CI / tests:
 - ESLint bans `eval`, `new Function`, `innerHTML`-style sinks in the frontend.
 - Later phases add: path-jail tests; D-Bus method allowlist test; external monitoring datasource read-only tests (write attempts fail, API has no write methods); heartbeat external-Brain guard; cooldown persistence tests.
 
-On paolo-core, `deploy/verify/check_boundaries.py` asserts §4.2, unit hardening, listening sockets (localhost only + Tailscale Serve), Funnel off, and that `maple` cannot write outside `/data/maple` (explicitly including `/data/monitor`).
+On paolo-core, `deploy/verify/check_boundaries.py` (owner, no sudo) asserts §4.2, the account, process credentials (uid, groups, capabilities, no_new_privs, seccomp), listening sockets (127.0.0.1:8470 only), HTTP headers/Origin, the live service map, and restart continuity; `deploy/verify/sandbox_probe.sh` (via `nsenter` into the service's mount namespace) asserts that `maple-svc` can write only `/data/maple` and cannot see `/data` siblings, homes, or the Docker socket. Tailscale Serve/Funnel status is checked by hand (`deploy/install.md`).
 
 ---
 
@@ -339,6 +350,10 @@ uv run maplegotchi run --data-dir <dir> [--senses fake] [--static-dir ../fronten
 # on paolo-core only, read-only (see deploy/survey/README.md)
 python3 deploy/survey/survey_paolo_core.py > survey.json
 
+# release (trusted build machine; clean tree) and production checks (see deploy/install.md)
+scripts/build_release.sh [<commit>]    # var/release/maplegotchi-<sha>.tar.gz + sha256
+python3 deploy/verify/check_boundaries.py   # on paolo-core, owner, no sudo
+
 # frontend (cd frontend)
 pnpm install --frozen-lockfile
 pnpm lint
@@ -362,7 +377,7 @@ The 72-hour trial run (Phase 8) gates only the **stable** v0.1 release.
 | **4. Inner life** | Journal (RuleBrain), timeline events, Brain interface, `rule`/`external` guard | Journal cites observations/events; Brain swappable; guard test passes | — |
 | **5. API** | Read REST, SSE, Greet/Pet endpoints, Origin check, security headers, static serving | OpenAPI schema; frontend types derived; 429 + `retry_after` tested; headers tested | **M1: headless Maple lives locally** |
 | **6. Maple Room** | PixiJS room + sprites + activity/reaction animations; DOM panels; interaction buttons; staleness indicator | Every visible element traceable to an API field; local visual testing with fakes | **M2: local playable build** |
-| **7. paolo-core deploy** | systemd unit, Tailscale Serve, polkit rule, verified service map, install doc, boundary verification | Runs sandboxed as `maple`; tailnet-only; `check_boundaries.py` passes | **M3: `v0.1.0-rc`** |
+| **7. paolo-core deploy** | Stage A: read-only survey. Stage B (local): D-Bus transport, verified service map, systemd unit, polkit rule, release/install/verify/backup tooling, docs. Stage C (owner-run): install, Tailscale Serve, backup patch, verification | Runs sandboxed as `maple-svc`; tailnet-only; `check_boundaries.py` + `sandbox_probe.sh` pass; backup restore verified | **M3: `v0.1.0-rc`** |
 | **8. Trial run** | 72 h continuous run on paolo-core | DoD (§7) satisfied | **`v0.1.0` stable** |
 
 ---
@@ -370,14 +385,14 @@ The 72-hour trial run (Phase 8) gates only the **stable** v0.1 release.
 ## 7. Definition of Done — v0.1 stable
 
 **Functional**
-- [ ] Maple runs continuously on paolo-core as a systemd service under user `maple`.
+- [ ] Maple runs continuously on paolo-core as a systemd service under system account `maple-svc`.
 - [ ] Heartbeat every 300 s (configurable); each tick persisted atomically with a `tick_id`.
 - [ ] Character state evolves by documented rules; values always within defined ranges.
 - [ ] Behavior engine selects activities from state + observations; any tick reproducible from stored inputs + `life_seed`.
 - [ ] Greet and Pet work end-to-end: real state change, short state-dependent reaction, persisted cooldowns (60 s / 30 s) and global limit (10 / 10 min).
 - [ ] No other interaction or game system exists.
 - [ ] Host observations come from real paolo-core data (existing monitoring where practical, psutil otherwise).
-- [ ] Service Health shown for the verified D12 service set, from `metrics.db` or the read-only D-Bus provider for gaps; `unknown` shown honestly.
+- [ ] Service Health shown for the verified service map (D20): collector freshness from `metrics.db`, unit states from the read-only D-Bus provider; `unknown` shown honestly.
 - [ ] Journal entries (RuleBrain) reference the observations/events they interpret; observations and journal visibly distinct.
 - [ ] Life timeline records birth, activity milestones, interactions, notable observations, downtime gaps; append-only.
 - [ ] Maple Room (PixiJS) and DOM panels show Maple, activity, reactions, vitals, service health, journal, observations, timeline — all from the API.
@@ -387,12 +402,13 @@ The 72-hour trial run (Phase 8) gates only the **stable** v0.1 release.
 **Security**
 - [ ] No code path writes outside `MAPLE_DATA_DIR`; path-jail tests pass.
 - [ ] No subprocess/shell/eval usage (tests + lint enforced); no `systemctl`.
-- [ ] `metrics.db` opened read-only; `maple` has no write access to `/data/monitor`.
-- [ ] D-Bus (if used) limited to the three read calls.
+- [ ] `metrics.db` opened read-only; `maple-svc` has no write access to `/data/monitor`.
+- [ ] D-Bus limited to `GetUnit` + `Get(Unit.ActiveState)` for the allowlisted units.
 - [ ] No code path writes code, config, policy, or allowlists.
 - [ ] Heartbeat never invokes an external Brain; guard test passes.
 - [ ] App bound to localhost; served same-origin; security headers present; reachable only via Tailscale Serve; Funnel off; no public ports.
-- [ ] `check_boundaries.py` passes on paolo-core.
+- [ ] `check_boundaries.py` and `sandbox_probe.sh` pass on paolo-core.
+- [ ] Nightly backup includes a verified `maple.db` (restore tested).
 
 **Quality**
 - [ ] CI green: ruff, mypy strict, import contracts, forbidden-API tests, pytest; eslint, tsc strict, vitest, build.

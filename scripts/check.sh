@@ -13,10 +13,14 @@ cd "$ROOT/backend"
 step "backend: uv sync --locked";   "$UV" sync --locked
 step "backend: ruff check";         "$UV" run ruff check .
 step "backend: ruff format --check"; "$UV" run ruff format --check .
-step "survey: ruff check + format"; "$UV" run ruff check --config pyproject.toml ../deploy/survey && "$UV" run ruff format --check --config pyproject.toml ../deploy/survey
-step "backend + survey: mypy --strict"; "$UV" run mypy
+DEPLOY_PY=(../deploy/survey ../deploy/backup ../deploy/verify)
+step "deploy tools: ruff check + format"; "$UV" run ruff check --config pyproject.toml "${DEPLOY_PY[@]}" && "$UV" run ruff format --check --config pyproject.toml "${DEPLOY_PY[@]}"
+step "backend + deploy tools: mypy --strict"; "$UV" run mypy
 step "backend: import contracts";   "$UV" run lint-imports
 step "backend: pytest";             "$UV" run pytest
+
+cd "$ROOT"
+step "deploy + scripts: shellcheck"; "$UV" tool run --from shellcheck-py shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh && "$UV" tool run --from shellcheck-py shellcheck scripts/*.sh
 
 cd "$ROOT/frontend"
 step "frontend: install";   "$PNPM" install --frozen-lockfile

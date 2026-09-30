@@ -131,3 +131,38 @@ def test_psutil_probe_reads_this_machine_honestly() -> None:
     assert second.status in (A, ObservationStatus.UNAVAILABLE)
     if second.status is A:
         assert second.value is not None and 0 <= second.value <= 100
+
+
+class _Temp:
+    def __init__(self, label: str, current: float) -> None:
+        self.label, self.current = label, current
+
+
+def _chips(monkeypatch: pytest.MonkeyPatch, chips: dict[str, list[_Temp]]) -> None:
+    import psutil
+
+    monkeypatch.setattr(psutil, "sensors_temperatures", lambda: chips, raising=False)
+
+
+def test_coretemp_package_sensor_is_preferred(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Shapes from the Stage A survey of paolo-core's hwmon chips.
+    _chips(
+        monkeypatch,
+        {
+            "acpitz": [_Temp("", 47.0), _Temp("", 27.8)],
+            "nvme": [_Temp("Composite", 34.85)],
+            "coretemp": [_Temp("Package id 0", 49.0), _Temp("Core 0", 48.0), _Temp("Core 5", 50.0)],
+        },
+    )
+    assert PsutilHostProbe().temperature_celsius() == 49.0
+
+
+def test_without_a_package_sensor_the_hottest_core_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    _chips(monkeypatch, {"coretemp": [_Temp("Core 0", 48.0), _Temp("Core 1", 51.0)]})
+    assert PsutilHostProbe().temperature_celsius() == 51.0
+
+
+def test_no_temperature_sensors_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    _chips(monkeypatch, {})
+    with pytest.raises(MetricUnavailable):
+        PsutilHostProbe().temperature_celsius()

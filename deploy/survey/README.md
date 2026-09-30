@@ -41,12 +41,13 @@ systemctl list-units --all --no-pager --type=service,timer | grep -Ei 'grafana|j
 systemctl list-timers --all --no-pager
 systemctl show -p Id,ActiveState,SubState,LoadState <unit-name>
 busctl introspect org.freedesktop.systemd1 /org/freedesktop/systemd1   # confirms D-Bus is reachable
-id; groups                                                             # what the future 'maple' user will need
+id; groups                                                             # what the future maple-svc account will need
 ```
 
 ## Step 3 — record findings
 
-Copy the answers into `deploy/survey/findings.md` (template below) and commit
+Copy the answers into `deploy/survey/findings.md` (template below; the Stage A
+results of 2026-09-30 are recorded there) and commit
 that, not the raw JSON unless you have reviewed it.
 
 ```markdown
@@ -54,7 +55,7 @@ that, not the raw JSON unless you have reviewed it.
 
 ## Monitoring database (/data/monitor/metrics.db)
 - Journal mode / filesystem:
-- Owner, group, mode; how `maple` could get read-only access (group or ACL):
+- Owner, group, mode; how `maple-svc` could get read-only access (group or ACL):
 - Collector cadence (from timestamps):
 - Tables and meaning of relevant columns:
 - Which host metrics it records (cpu / memory / disk / load / temperature):

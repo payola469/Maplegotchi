@@ -59,7 +59,7 @@ honest gaps). `sensors/system.py: PsutilHostProbe`:
 | Disk | `psutil.disk_usage(mount)` | mounts configured (default `/`) |
 | Load 1/5/15 | `psutil.getloadavg()` (`/proc/loadavg`) | Linux only; elsewhere `unavailable: not_supported_on_platform` (psutil would emulate with early zeros) |
 | CPU count | `psutil.cpu_count()` | used to judge load per CPU |
-| Temperature | `psutil.sensors_temperatures()` (`/sys/class/hwmon`) | preferred chips `coretemp`, `k10temp`, `zenpower`, `cpu_thermal`, `soc_thermal`, `acpitz`; max current reading; the survey confirms the right chip |
+| Temperature | `psutil.sensors_temperatures()` (`/sys/class/hwmon`) | preferred chips `coretemp`, `k10temp`, `zenpower`, `cpu_thermal`, `soc_thermal`, `acpitz`; within the chosen chip the `Package id 0` reading (paolo-core: coretemp, Stage A), else the hottest reading; none → `unavailable` |
 
 No subprocess, shell, writes, privileged calls, or network for host metrics.
 
@@ -82,24 +82,35 @@ for each service, providers are asked in priority order; the first
 `available` answer wins; otherwise the service is `unknown` with every
 provider's reason joined by `;`. There is no shell/`systemctl` fallback.
 
-Targets (`INTENDED_SERVICES`) are the D12 logical ids — `maplegotchi`,
-`metrics_collector`, `grafana`, `lycan_watch`, `qbittorrent`, `jellyfin`,
-`backup` — with **no unit names**. Verified unit names come from the survey
-and will live in deployment config. No auto-discovery.
+`INTENDED_SERVICES` keeps the D12 intent (logical ids, no unit names). The
+production map is `runtime/senses.py:PAOLO_CORE_SERVICES`, verified by the
+Stage A survey (`deploy/survey/findings.md`, ADR-0021). No auto-discovery.
 
-| Provider | Phase 3 behavior |
+| service_id | Target | How it is observed |
+|---|---|---|
+| `maplegotchi` | `maplegotchi.service` | systemd D-Bus |
+| `metrics_collector` | `personal-ai-monitor.service`, timer `personal-ai-monitor.timer` | `metrics.db` freshness first, then systemd D-Bus |
+| `backup` | `paolo-core-backup.service`, timer `paolo-core-backup.timer` | systemd D-Bus |
+| `grafana` | `unobservable="docker_container"` | none: `unknown`, `not_observable:docker_container` |
+| `lycan_watch` | `unobservable="no_systemd_unit"` | none: `unknown`, `not_observable:no_systemd_unit` |
+
+qBittorrent and Jellyfin were not found on paolo-core and are not in the map.
+A target with `unobservable` set is reported without asking any provider.
+Such `not_observable:*` gaps are shown as `unknown` but do not make the server
+summary "unclear" (they are a known limit of Maple's senses); every other
+unknown (stale data, bus errors, missing units) still does.
+
+| Provider | Behavior |
 |---|---|
-| `monitor_db` | reads only through `storage.external.interface.MetricsSource`. With no surveyed `SchemaExpectation`: `not_surveyed`. Otherwise `source_missing` / `source_unreadable` / `wrong_schema`, or `query_not_configured` until surveyed queries exist. |
-| `systemd_dbus` | `ReadOnlySystemdClient` can send only `Manager.GetUnit(unit)` and `Properties.Get(org.freedesktop.systemd1.Unit, ActiveState)` to `org.freedesktop.systemd1`, for allowlisted units; everything else raises before reaching the transport. Reasons: `unit_not_configured`, `bus_unavailable`, `unit_not_loaded`, `dbus_error`, `unrecognized_state`. |
+| `monitor_db` | Answers only for `metrics_collector`, through `storage.external.interface.MetricsSource`: schema must have `metrics.ts`; `MAX(ts)` (Unix epoch seconds) no older than 660 s (two 300 s cadences + 60 s) → `active`. Otherwise `unknown` with `stale_data`, `no_rows`, `timestamp_in_future`, `invalid_timestamp`, `wrong_schema`, `source_missing`, `source_unreadable` (includes a hot rollback journal, which read-only SQLite refuses to replay). Every other target: `not_recorded`. The legacy `ollama_ok`/`n8n_ok`/`discord_bot_ok`/`docker_ok` columns are never read. |
+| `systemd_dbus` | `ReadOnlySystemdClient` sends only `Manager.GetUnit(unit)` and `Properties.Get(org.freedesktop.systemd1.Unit, ActiveState)` to `org.freedesktop.systemd1`, for units on the allowlist derived from the map; everything else raises before reaching the transport. Timer-driven targets: service `failed` → failed; service running → its state; service `inactive` → the timer's state. Reasons: `unit_not_configured`, `bus_unavailable`, `unit_not_loaded`, `permission_denied`, `dbus_timeout`, `unexpected_reply`, `unrecognized_state`, `call_refused`, `dbus_error`. |
 
-No D-Bus library is added yet: the concrete transport is added only if the
-survey shows monitoring cannot supply service state. Until then the production
-wiring reports `bus_unavailable`/`unit_not_configured`. CLAUDE.md allowed
-`Properties.GetAll`; it is not needed, so the client is narrower and omits it.
-
-Today, on any machine, every service therefore reads
-`unknown: monitor_db:not_surveyed;systemd_dbus:unit_not_configured` — honest,
-not inferred.
+The transport (`dbus_transport.py`, dbus-fast, ADR-0022) re-checks the same
+two-call allowlist, sets `NO_AUTO_START`, uses a 2 s timeout and one short-lived
+connection per call, and turns every failure into a `DbusCallError`. CLAUDE.md
+allowed `Properties.GetAll`; it is not needed, so neither layer permits it.
+On Windows (development) `dbus_fast.aio` cannot load, so the provider reports
+`bus_unavailable`.
 
 ## External metrics datasource (D18, ADR-0019)
 
@@ -107,14 +118,14 @@ not inferred.
 
 | Module | Role |
 |---|---|
-| `interface.py` | `MetricsSource` protocol (`describe_schema`, `sample_rows`, `close`), schema report types, `SchemaExpectation`, `check_schema`, `ExternalSourceError`. No `sqlite3`. Sensors import only this. |
-| `sqlite_metrics.py` | `SqliteMetricsSource`: `mode=ro` + `PRAGMA query_only = ON` (verified) + defensive + `trusted_schema=OFF`. Schema discovery and at most 5 newest rows of a *discovered* table. No arbitrary SQL, no write/schema/migration method. Missing file → `missing` (never created); non-database → `unreadable`. |
+| `interface.py` | `MetricsSource` protocol (`describe_schema`, `sample_rows`, `max_value`, `close`), schema report types, `SchemaExpectation`, `check_schema`, `ExternalSourceError`. No `sqlite3`. Sensors import only this. |
+| `sqlite_metrics.py` | `SqliteMetricsSource`: `mode=ro` + `PRAGMA query_only = ON` (verified) + defensive + `trusted_schema=OFF`. Schema discovery, at most 5 newest rows of a *discovered* table, and `MAX(column)` of a *discovered* table and column (identifiers validated against the schema, then quoted). No arbitrary SQL, no write/schema/migration method. Missing file → `missing` (never created); non-database → `unreadable`. |
 | `fake.py` | `FakeMetricsSource` for tests/dev. |
 
 Separation from Maple's writable storage is enforced by import-linter in both
 directions, and the AST scanner treats `storage/external` as a non-writer that
 may import `sqlite3`. A test forbids write-SQL keywords in its string
-constants. The real schema is not assumed; queries are added after the survey.
+constants. The only production query is `MAX(ts)` of `metrics` (Stage A schema).
 
 ## server_attention derivation (`core/attention.py`)
 

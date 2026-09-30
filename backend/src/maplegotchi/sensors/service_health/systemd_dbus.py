@@ -1,22 +1,27 @@
-"""Read-only systemd service state over D-Bus (provider #2, D4) — only for gaps.
+"""Read-only systemd service state over D-Bus (provider #2, D4).
 
 `ReadOnlySystemdClient` is the only thing that talks to the bus, and it can
 send exactly two messages, both reads:
   org.freedesktop.systemd1.Manager.GetUnit(unit)
   org.freedesktop.DBus.Properties.Get("org.freedesktop.systemd1.Unit", "ActiveState")
 to the systemd bus name, for units on the configured allowlist only. Anything
-else is refused before it reaches the transport. There is no systemctl or
-subprocess fallback.
+else is refused before it reaches the transport (and the concrete transport in
+`dbus_transport` refuses it again). There is no systemctl or subprocess fallback.
 
-The concrete bus transport (a small D-Bus library) is added only if the Phase 3
-paolo-core survey shows existing monitoring cannot supply service state; until
-then the provider runs without a bus and reports `bus_unavailable`.
+A target scheduled by a timer (a oneshot job such as the metrics collector or
+the nightly backup) is read from both units:
+  service failed                                  -> failed (last run failed)
+  service activating/active/deactivating/...      -> that state (running now)
+  service inactive (last run finished cleanly)    -> the timer's state
+                                                     (active = scheduled)
+Every failure to read degrades to `unknown` with a reason; nothing is inferred.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Protocol
 
 from maplegotchi.core.observations import ObservationStatus, ServiceState
@@ -30,12 +35,30 @@ UNIT_INTERFACE = "org.freedesktop.systemd1.Unit"
 
 ALLOWED_CALLS = frozenset({(MANAGER_INTERFACE, "GetUnit"), (PROPERTIES_INTERFACE, "Get")})
 ALLOWED_PROPERTIES = frozenset({"ActiveState"})
+UNIT_OBJECT_PATH = re.compile(r"/org/freedesktop/systemd1/unit/[A-Za-z0-9_]{1,255}")
+
+# D-Bus error names, and the transport's own names for local failures.
 NO_SUCH_UNIT = "org.freedesktop.systemd1.NoSuchUnit"
-_UNIT_OBJECT_PATH = re.compile(r"/org/freedesktop/systemd1/unit/[A-Za-z0-9_]{1,255}")
+ACCESS_DENIED = "org.freedesktop.DBus.Error.AccessDenied"
+AUTH_REQUIRED = "org.freedesktop.DBus.Error.InteractiveAuthorizationRequired"
+BUS_UNAVAILABLE = "maplegotchi.BusUnavailable"
+BUS_PERMISSION_DENIED = "maplegotchi.BusPermissionDenied"
+BUS_TIMEOUT = "maplegotchi.Timeout"
+UNEXPECTED_REPLY = "maplegotchi.UnexpectedReply"
+
+_REASONS: Mapping[str, str] = {
+    NO_SUCH_UNIT: "unit_not_loaded",
+    ACCESS_DENIED: "permission_denied",
+    AUTH_REQUIRED: "permission_denied",
+    BUS_PERMISSION_DENIED: "permission_denied",
+    BUS_UNAVAILABLE: "bus_unavailable",
+    BUS_TIMEOUT: "dbus_timeout",
+    UNEXPECTED_REPLY: "unexpected_reply",
+}
 
 
 class DbusCallError(Exception):
-    """A D-Bus error reply. `name` is the D-Bus error name."""
+    """A D-Bus error reply or transport failure. `name` is the D-Bus error name."""
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
@@ -48,30 +71,51 @@ class DbusTransport(Protocol):
     ) -> object: ...
 
 
+def check_allowed_call(
+    destination: str, path: str, interface: str, member: str, args: tuple[str, ...]
+) -> None:
+    """Raise PermissionError unless this is one of the two allowlisted read messages."""
+    if destination != SYSTEMD_BUS_NAME:
+        raise PermissionError(f"destination {destination!r} is not allowed")
+    if (interface, member) not in ALLOWED_CALLS:
+        raise PermissionError(f"D-Bus call {interface}.{member} is not allowed")
+    if member == "GetUnit":
+        if path != MANAGER_PATH or len(args) != 1:
+            raise PermissionError("GetUnit takes one unit name on the manager object")
+    elif (
+        not UNIT_OBJECT_PATH.fullmatch(path)
+        or len(args) != 2
+        or args[0] != UNIT_INTERFACE
+        or args[1] not in ALLOWED_PROPERTIES
+    ):
+        raise PermissionError("only Unit.ActiveState of a unit object may be read")
+
+
 class ReadOnlySystemdClient:
     def __init__(self, transport: DbusTransport, allowed_units: frozenset[str]) -> None:
         self._transport = transport
         self._allowed_units = frozenset(allowed_units)
 
     def _call(self, path: str, interface: str, member: str, *args: str) -> object:
-        if (interface, member) not in ALLOWED_CALLS:
-            raise PermissionError(f"D-Bus call {interface}.{member} is not allowed")
-        if interface == PROPERTIES_INTERFACE and (
-            len(args) != 2 or args[0] != UNIT_INTERFACE or args[1] not in ALLOWED_PROPERTIES
-        ):
-            raise PermissionError("only Unit.ActiveState may be read")
+        check_allowed_call(SYSTEMD_BUS_NAME, path, interface, member, args)
         return self._transport.call(SYSTEMD_BUS_NAME, path, interface, member, args)
 
     def active_state(self, unit_name: str) -> str:
         if unit_name not in self._allowed_units:
             raise PermissionError(f"unit {unit_name!r} is not on the allowlist")
         path = self._call(MANAGER_PATH, MANAGER_INTERFACE, "GetUnit", unit_name)
-        if not isinstance(path, str) or not _UNIT_OBJECT_PATH.fullmatch(path):
-            raise DbusCallError("maplegotchi.UnexpectedReply")
+        if not isinstance(path, str) or not UNIT_OBJECT_PATH.fullmatch(path):
+            raise DbusCallError(UNEXPECTED_REPLY)
         value = self._call(path, PROPERTIES_INTERFACE, "Get", UNIT_INTERFACE, "ActiveState")
         if not isinstance(value, str):
-            raise DbusCallError("maplegotchi.UnexpectedReply")
+            raise DbusCallError(UNEXPECTED_REPLY)
         return value
+
+
+class _Unreadable(Exception):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class SystemdDbusServiceHealth:
@@ -80,8 +124,22 @@ class SystemdDbusServiceHealth:
     def __init__(self, client: ReadOnlySystemdClient | None) -> None:
         self._client = client
 
-    def read(self, targets: Sequence[ServiceTarget]) -> Mapping[str, ServiceReading]:
+    def read(
+        self, targets: Sequence[ServiceTarget], *, now: datetime
+    ) -> Mapping[str, ServiceReading]:
         return {t.service_id: self._read_one(t) for t in targets}
+
+    def _state(self, client: ReadOnlySystemdClient, unit_name: str) -> ServiceState:
+        try:
+            value = client.active_state(unit_name)
+        except DbusCallError as exc:
+            raise _Unreadable(_REASONS.get(exc.name, "dbus_error")) from exc
+        except PermissionError as exc:  # not on the allowlist: a wiring mistake
+            raise _Unreadable("call_refused") from exc
+        try:
+            return ServiceState(value)
+        except ValueError as exc:
+            raise _Unreadable("unrecognized_state") from exc
 
     def _read_one(self, target: ServiceTarget) -> ServiceReading:
         unknown = ObservationStatus.UNKNOWN
@@ -90,11 +148,9 @@ class SystemdDbusServiceHealth:
         if self._client is None:
             return ServiceReading(unknown, reason="bus_unavailable")
         try:
-            value = self._client.active_state(target.unit_name)
-        except DbusCallError as exc:
-            reason = "unit_not_loaded" if exc.name == NO_SUCH_UNIT else "dbus_error"
-            return ServiceReading(unknown, reason=reason)
-        try:
-            return ServiceReading(ObservationStatus.AVAILABLE, state=ServiceState(value))
-        except ValueError:
-            return ServiceReading(unknown, reason="unrecognized_state")
+            state = self._state(self._client, target.unit_name)
+            if target.timer_name is not None and state is ServiceState.INACTIVE:
+                state = self._state(self._client, target.timer_name)
+        except _Unreadable as gap:
+            return ServiceReading(unknown, reason=gap.reason)
+        return ServiceReading(ObservationStatus.AVAILABLE, state=state)

@@ -1,0 +1,85 @@
+# /etc/systemd/system/maplegotchi.service — root:root 0644. Installed by the owner.
+# Maple: FastAPI on 127.0.0.1:8470 only; Tailscale Serve publishes it to the
+# tailnet (Funnel off). Hardening per CLAUDE.md §4.3; verify with
+#   systemd-analyze verify /etc/systemd/system/maplegotchi.service
+#   systemd-analyze security maplegotchi.service
+# and deploy/verify/sandbox_probe.sh (the namespace as Maple sees it).
+
+[Unit]
+Description=Maplegotchi (Maple, a digital being living on paolo-core)
+Documentation=file:///opt/maplegotchi/current/deploy/install.md
+After=network.target dbus.service
+Wants=dbus.service
+RequiresMountsFor=/data/maple /data/monitor
+ConditionPathIsDirectory=/data/maple
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=maple-svc
+Group=maple-svc
+SupplementaryGroups=
+EnvironmentFile=/etc/maplegotchi/maplegotchi.env
+# -I: isolated mode (ignores PYTHON* variables, user site-packages, and the cwd).
+ExecStart=/opt/maplegotchi/current/venv/bin/python -I -m maplegotchi.cli run
+WorkingDirectory=/
+UMask=0027
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+# ---- privileges: none, and no way to gain any
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+KeyringMode=private
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap @module @clock
+SystemCallErrorNumber=EPERM
+
+# ---- filesystem: the whole OS read-only; code, config, and home out of reach
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+# Other users' processes are invisible. /proc/stat, /proc/meminfo, /proc/loadavg
+# stay readable (psutil needs them), so ProcSubset=pid is deliberately NOT set.
+ProtectProc=invisible
+# /data is replaced by an empty read-only tmpfs; only Maple's own directory
+# (read-write) and the existing monitoring directory (read-only) are bound back.
+# /data/backups, /data/archive, /data/lycan-watch, /data/monitor-v2, ... do not
+# exist in Maple's view. The whole /data/monitor directory (not only metrics.db)
+# is bound so SQLite can see a hot rollback journal and refuse to read.
+TemporaryFileSystem=/data:ro
+BindPaths=/data/maple
+BindReadOnlyPaths=/data/monitor
+# Defense in depth: container runtimes are not Maple's business (no Docker socket).
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -/run/containerd -/var/lib/docker
+
+# ---- network: loopback only, and only the families it needs
+# AF_UNIX: the system D-Bus socket (read-only systemd queries); AF_INET: 127.0.0.1:8470.
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+# ---- resources: bounded for the 72-hour trial
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

@@ -24,6 +24,11 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0017](0017-timezone.md) | Home timezone Asia/Bangkok, UTC+07:00 (D16) |
 | [0018](0018-transient-reactions.md) | Transient interaction reactions (D17) |
 | [0019](0019-external-monitoring-datasource.md) | Read-only external monitoring datasource in the storage boundary (D18) |
+| [0020](0020-production-account-and-layout.md) | Service account `maple-svc`, layout, namespace sandbox (D19) |
+| [0021](0021-paolo-core-service-map.md) | paolo-core service map and sources from Stage A (D20) |
+| [0022](0022-systemd-dbus-transport.md) | systemd D-Bus transport with dbus-fast (D21) |
+| [0023](0023-release-and-runtime.md) | Release model, CPython 3.12 via uv, rollback (D22) |
+| [0024](0024-maple-database-backup.md) | Maple's database in the nightly backup (D23) |
 
 ## Template
 

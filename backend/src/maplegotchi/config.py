@@ -7,9 +7,10 @@ Environment variables (all optional unless noted):
   MAPLE_PORT              default 8470
   MAPLE_ALLOWED_ORIGINS   comma-separated origins allowed to POST Greet/Pet
                           (development default: the local Vite and API origins;
-                          production: required, e.g. the tailnet https origin)
+                          production: required, https only, e.g. the
+                          Tailscale Serve origin https://<host>.<tailnet>.ts.net)
   MAPLE_STATIC_DIR        built frontend to serve at / (same origin as /api)
-  MAPLE_SENSES            paolo_core (default) | fake
+  MAPLE_SENSES            paolo_core (default) | fake (refused in production)
   MAPLE_MONITOR_DB        default /data/monitor/metrics.db (read-only, D11/D18)
   MAPLE_HEARTBEAT_SECONDS default 300 (D6)
 """
@@ -79,8 +80,13 @@ class Settings:
                 raise SettingsError(
                     f"invalid origin {origin!r} (exact scheme://host[:port], no wildcards)"
                 )
-        if self.mode is Mode.PRODUCTION and not self.allowed_origins:
-            raise SettingsError("production needs MAPLE_ALLOWED_ORIGINS")
+        if self.mode is Mode.PRODUCTION:
+            if not self.allowed_origins:
+                raise SettingsError("production needs MAPLE_ALLOWED_ORIGINS")
+            if any(not o.startswith("https://") for o in self.allowed_origins):
+                raise SettingsError("production origins must be https (Tailscale Serve)")
+            if self.senses is not SensesKind.PAOLO_CORE:
+                raise SettingsError("production refuses fake senses")
         if self.heartbeat_seconds < 1 or self.loop_poll_seconds <= 0:
             raise SettingsError("heartbeat and poll intervals must be positive")
 

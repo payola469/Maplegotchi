@@ -222,7 +222,9 @@ def server_summary(
     unseen = [
         o
         for o in observations
-        if o.metric in _ESSENTIAL and o.status is not ObservationStatus.AVAILABLE
+        if o.metric in _ESSENTIAL
+        and o.status is not ObservationStatus.AVAILABLE
+        and not o.unobservable_by_design  # a known limit of Maple's senses, not a doubt
     ]
     if unseen:
         return ServerSummary.UNCLEAR, evidence
