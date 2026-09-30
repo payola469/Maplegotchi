@@ -145,9 +145,79 @@ CREATE TRIGGER observation_append_only_delete BEFORE DELETE ON observation
 BEGIN SELECT RAISE(ABORT, 'observations are append-only'); END;
 """
 
+_DATE = "GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+
+_V3_JOURNAL = f"""
+CREATE TABLE journal_entry (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id       INTEGER NOT NULL REFERENCES maple (id),
+    revision       INTEGER NOT NULL CHECK (revision >= 1),
+    tick_id        INTEGER CHECK (tick_id >= 1),
+    created_at     TEXT    NOT NULL CHECK (created_at {_UTC_TS}),
+    category       TEXT    NOT NULL CHECK (category IN
+                       ('daily_life', 'server_notice', 'interaction', 'reflection', 'milestone')),
+    trigger_kind   TEXT    NOT NULL CHECK (trigger_kind IN
+                       ('activity', 'interaction', 'server_problem', 'server_recovery',
+                        'daily_reflection', 'milestone')),
+    topic          TEXT    NOT NULL CHECK (length(topic) BETWEEN 1 AND 80),
+    text           TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 240
+                                         AND instr(text, char(10)) = 0
+                                         AND instr(text, char(13)) = 0),
+    importance     TEXT    NOT NULL CHECK (importance IN ('low', 'normal', 'high')),
+    brain_kind     TEXT    NOT NULL CHECK (brain_kind IN ('rule', 'external')),
+    brain_name     TEXT    NOT NULL CHECK (length(brain_name) BETWEEN 1 AND 32),
+    brain_version  TEXT    NOT NULL CHECK (length(brain_version) BETWEEN 1 AND 16),
+    template_id    TEXT    NOT NULL CHECK (length(template_id) BETWEEN 1 AND 80),
+    activity       TEXT    NOT NULL CHECK (activity IN
+                       ('idle', 'walk', 'sleep', 'read', 'write', 'observe_server', 'rest')),
+    expression     TEXT    NOT NULL CHECK (expression IN
+                       ('calm', 'happy', 'curious', 'sleepy', 'focused'))
+) STRICT;
+
+CREATE INDEX journal_entry_by_time ON journal_entry (created_at);
+
+CREATE TABLE journal_entry_observation (
+    entry_id       INTEGER NOT NULL REFERENCES journal_entry (id),
+    observation_id INTEGER NOT NULL REFERENCES observation (id),
+    position       INTEGER NOT NULL CHECK (position >= 0),
+    PRIMARY KEY (entry_id, position),
+    UNIQUE (entry_id, observation_id)
+) STRICT;
+
+CREATE TABLE journal_state (
+    maple_id                  INTEGER PRIMARY KEY REFERENCES maple (id),
+    journal_day               TEXT    CHECK (journal_day {_DATE}),
+    daily_seen                TEXT    NOT NULL CHECK (json_valid(daily_seen)),
+    interactions_today        INTEGER NOT NULL CHECK (interactions_today >= 0),
+    notices_today             INTEGER NOT NULL CHECK (notices_today >= 0),
+    last_interaction_entry_at TEXT    CHECK (last_interaction_entry_at {_UTC_TS}),
+    active_alerts             TEXT    NOT NULL CHECK (json_valid(active_alerts)),
+    last_reflection_day       TEXT    CHECK (last_reflection_day {_DATE}),
+    milestones                TEXT    NOT NULL CHECK (json_valid(milestones))
+) STRICT;
+
+CREATE TRIGGER journal_entry_append_only_update BEFORE UPDATE ON journal_entry
+BEGIN SELECT RAISE(ABORT, 'journal entries are immutable'); END;
+
+CREATE TRIGGER journal_entry_append_only_delete BEFORE DELETE ON journal_entry
+BEGIN SELECT RAISE(ABORT, 'journal entries are immutable'); END;
+
+CREATE TRIGGER journal_entry_observation_append_only_update
+BEFORE UPDATE ON journal_entry_observation
+BEGIN SELECT RAISE(ABORT, 'journal references are immutable'); END;
+
+CREATE TRIGGER journal_entry_observation_append_only_delete
+BEFORE DELETE ON journal_entry_observation
+BEGIN SELECT RAISE(ABORT, 'journal references are immutable'); END;
+
+CREATE TRIGGER journal_state_no_delete BEFORE DELETE ON journal_state
+BEGIN SELECT RAISE(ABORT, 'journal state cannot be deleted'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
+    Migration(3, "journal", _V3_JOURNAL),
 )
 
 

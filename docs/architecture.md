@@ -11,7 +11,8 @@ built; this file collects longer-form notes as each phase lands.
 | 1. Core being | Complete |
 | 2. Persistence + restart recovery | Complete (see `persistence.md`) |
 | 3. Sensors + observations | Complete (see `sensors.md`) |
-| 4–8 | Not started |
+| 4. Journal + reflection + Brain | Complete (see `journal.md`) |
+| 5–8 | Not started |
 
 ## Core (Phase 1)
 

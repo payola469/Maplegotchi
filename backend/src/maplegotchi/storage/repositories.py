@@ -14,20 +14,29 @@ import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.identity import Identity
+from maplegotchi.core.journal import (
+    BrainKind,
+    Importance,
+    JournalCategory,
+    JournalEntry,
+    TriggerKind,
+)
 from maplegotchi.core.observations import (
     Metric,
     Observation,
     ObservationStatus,
     ServiceState,
 )
+from maplegotchi.core.reflection import INITIAL_REFLECTION, ReflectionState
 from maplegotchi.core.rng import RngState
 from maplegotchi.core.state import (
+    Expression,
     InteractionKind,
     InteractionRecord,
     MapleState,
@@ -83,6 +92,14 @@ class StoredObservation:
     revision: int
     tick_id: int
     observation: Observation
+
+
+@dataclass(frozen=True, slots=True)
+class StoredJournalEntry:
+    id: int
+    revision: int
+    entry: JournalEntry
+    observation_ids: tuple[int, ...]  # the facts it interprets, in reference order
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,6 +295,8 @@ class LifeRepository:
         events: Sequence[LifeEvent],
         tick_id: int | None = None,
         observations: Sequence[Observation] = (),
+        journal: Sequence[JournalEntry] = (),
+        reflection: ReflectionState | None = None,
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
         observations it used). Returns the new revision."""
@@ -315,7 +334,140 @@ class LifeRepository:
             self._insert_events(new_revision, events, tick_id)
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
+            for entry in journal:
+                self._insert_journal_entry(new_revision, entry)
+            if reflection is not None:
+                self._save_reflection(reflection)
         return new_revision
+
+    # ------------------------------------------------------------ journal
+
+    def _insert_journal_entry(self, revision: int, entry: JournalEntry) -> None:
+        observation_ids = []
+        for metric, subject in entry.observation_keys:
+            row = self._conn.execute(
+                "SELECT id FROM observation WHERE tick_id = ? AND metric = ? AND subject = ?",
+                (entry.tick_id, metric.value, subject),
+            ).fetchone()
+            if row is None:
+                raise ValueError(
+                    f"journal entry cites an unrecorded observation {metric}:{subject}"
+                )
+            observation_ids.append(int(row[0]))
+        cursor = self._conn.execute(
+            "INSERT INTO journal_entry (maple_id, revision, tick_id, created_at, category,"
+            " trigger_kind, topic, text, importance, brain_kind, brain_name, brain_version,"
+            " template_id, activity, expression)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                MAPLE_ID,
+                revision,
+                entry.tick_id,
+                _ts(entry.created_at),
+                entry.category.value,
+                entry.trigger.value,
+                entry.topic,
+                entry.text,
+                entry.importance.value,
+                entry.brain_kind.value,
+                entry.brain_name,
+                entry.brain_version,
+                entry.template_id,
+                entry.activity.value,
+                entry.expression.value,
+            ),
+        )
+        self._conn.executemany(
+            "INSERT INTO journal_entry_observation (entry_id, observation_id, position)"
+            " VALUES (?, ?, ?)",
+            [(cursor.lastrowid, oid, i) for i, oid in enumerate(observation_ids)],
+        )
+
+    def journal(self) -> list[StoredJournalEntry]:
+        rows = self._conn.execute(
+            "SELECT id, revision, tick_id, created_at, category, trigger_kind, topic, text,"
+            " importance, brain_kind, brain_name, brain_version, template_id, activity,"
+            " expression FROM journal_entry ORDER BY id"
+        ).fetchall()
+        stored = []
+        try:
+            for (row_id, rev, tick, created, category, trigger, topic, text, importance,
+                 kind, name, version, template, activity, expression) in rows:  # fmt: skip
+                refs = self._conn.execute(
+                    "SELECT o.id, o.metric, o.subject FROM journal_entry_observation j"
+                    " JOIN observation o ON o.id = j.observation_id"
+                    " WHERE j.entry_id = ? ORDER BY j.position",
+                    (row_id,),
+                ).fetchall()
+                entry = JournalEntry(
+                    created_at=_parse_ts(created),
+                    category=JournalCategory(category),
+                    trigger=TriggerKind(trigger),
+                    topic=topic,
+                    text=text,
+                    importance=Importance(importance),
+                    brain_kind=BrainKind(kind),
+                    brain_name=name,
+                    brain_version=version,
+                    template_id=template,
+                    activity=Activity(activity),
+                    expression=Expression(expression),
+                    observation_keys=tuple((Metric(m), sub) for _, m, sub in refs),
+                    tick_id=tick,
+                )
+                stored.append(StoredJournalEntry(row_id, rev, entry, tuple(r[0] for r in refs)))
+        except (ValueError, TypeError) as exc:
+            raise CorruptStateError(f"journal entry is invalid: {exc}") from exc
+        return stored
+
+    def _save_reflection(self, rs: ReflectionState) -> None:
+        self._conn.execute(
+            "INSERT INTO journal_state (maple_id, journal_day, daily_seen, interactions_today,"
+            " notices_today, last_interaction_entry_at, active_alerts, last_reflection_day,"
+            " milestones) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT (maple_id) DO UPDATE SET journal_day = excluded.journal_day,"
+            " daily_seen = excluded.daily_seen, interactions_today = excluded.interactions_today,"
+            " notices_today = excluded.notices_today,"
+            " last_interaction_entry_at = excluded.last_interaction_entry_at,"
+            " active_alerts = excluded.active_alerts,"
+            " last_reflection_day = excluded.last_reflection_day,"
+            " milestones = excluded.milestones",
+            (
+                MAPLE_ID,
+                rs.journal_day.isoformat() if rs.journal_day else None,
+                json.dumps(sorted(rs.daily_seen)),
+                rs.interactions_today,
+                rs.notices_today,
+                _ts(rs.last_interaction_entry_at) if rs.last_interaction_entry_at else None,
+                json.dumps([list(a) for a in rs.active_alerts]),
+                rs.last_reflection_day.isoformat() if rs.last_reflection_day else None,
+                json.dumps(sorted(rs.milestones)),
+            ),
+        )
+
+    def reflection_state(self) -> ReflectionState:
+        row = self._conn.execute(
+            "SELECT journal_day, daily_seen, interactions_today, notices_today,"
+            " last_interaction_entry_at, active_alerts, last_reflection_day, milestones"
+            " FROM journal_state WHERE maple_id = ?",
+            (MAPLE_ID,),
+        ).fetchone()
+        if row is None:
+            return INITIAL_REFLECTION  # a life from before the journal existed
+        try:
+            day, seen, interactions, notices, last_entry, alerts, reflected, milestones = row
+            return ReflectionState(
+                journal_day=date.fromisoformat(day) if day else None,
+                daily_seen=frozenset(str(x) for x in json.loads(seen)),
+                interactions_today=interactions,
+                notices_today=notices,
+                last_interaction_entry_at=_parse_ts(last_entry) if last_entry else None,
+                active_alerts=tuple((str(t), str(c)) for t, c in json.loads(alerts)),
+                last_reflection_day=date.fromisoformat(reflected) if reflected else None,
+                milestones=frozenset(str(x) for x in json.loads(milestones)),
+            )
+        except (ValueError, TypeError) as exc:
+            raise CorruptStateError(f"journal state is invalid: {exc}") from exc
 
     def _insert_observations(
         self, revision: int, tick_id: int, observations: Sequence[Observation]

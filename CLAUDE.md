@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-3 complete (2026-09-30). Phase 4+ NOT authorized.**
+> **Status: Phases 0-4 complete (2026-09-30). Phase 5+ NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -105,8 +105,8 @@ Maplegotchi/
 │   │   │   state.py activities.py behavior.py heartbeat.py interactions.py        (P1)
 │   │   │   timeline.py identity.py rng.py daytime.py parameters.py simulation.py (P1)
 │   │   │   observations.py attention.py                                      (P3)
-│   │   │   journal.py                                                        (Phase 4)
-│   │   ├── brain/         (P0)       # interface.py, rule_brain.py
+│   │   │   journal.py reflection.py                                          (P4)
+│   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
 │   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
 │   │   │   └── service_health/ (P3)  # interface.py (get_service_health), monitor_db.py (#1),
 │   │   │                             #   systemd_dbus.py (#2), fake.py
@@ -114,12 +114,13 @@ Maplegotchi/
 │   │   │   │                         #   repositories.py, errors.py  — Maple's own writable DB
 │   │   │   └── external/  (P3)       # interface.py (no sqlite3), sqlite_metrics.py (read-only),
 │   │   │                             #   fake.py — for /data/monitor/metrics.db (D18); never writes
-│   │   ├── runtime/       (P2/P3)    # clock.py, life.py (single writer), senses.py (wiring);
+│   │   ├── runtime/       (P2-P4)    # clock.py, life.py (single writer), senses.py (wiring),
+│   │   │                             #   demo.py (deterministic demo day);
 │   │   │                             #   scheduler loop with `run` later
 │   │   ├── api/           (P0)       # app.py, routes_read.py, routes_interact.py, stream.py,
 │   │   │                             #   static.py (serves built frontend), headers.py
 │   │   ├── config.py                 # frozen settings + policy loaded at startup
-│   │   └── cli.py                    # simulate (P1, fake time); run, migrate, check-config later
+│   │   └── cli.py                    # simulate (P1), demo-day (P4); run, migrate, check-config later
 │   └── tests/
 │       ├── unit/  security/  core/  storage/  runtime/  sensors/
 │       └── (api/ as phases add it)
@@ -170,7 +171,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 1. Collect `SensorReading`s and `get_service_health()` (per-source timeout; failure → `status="unavailable"` / `unknown`, never crashes the tick).
 2. `observations.derive(readings, recent_history) -> [Observation]` — factual only.
 3. `heartbeat.tick(state, observations, now, rng, brain)` — decay needs, advance activity, choose next activity, decide journal triggers.
-4. Journal text comes from the **local** brain (RuleBrain). An ordinary heartbeat never calls an external Brain; `runtime` refuses to start if the heartbeat brain is not `local`.
+4. Journal text comes from the built-in RuleBrain (`kind="rule"`, the v0.1 "local" brain). An ordinary heartbeat never calls an external Brain; `runtime` refuses any Brain that is not the built-in RuleBrain.
 5. Persist state, observations, journal entries, timeline events, and RNG counters in **one SQLite transaction**; then publish the snapshot over SSE.
 
 **Missed ticks:** the gap is recorded on the timeline; catch-up is bounded (capped decay, no mass replay). Maple is never "killed" by downtime.
@@ -198,11 +199,12 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - Host metrics (CPU, memory, disk, load, uptime, network, temps) may likewise come from the external monitoring datasource where practical, with `psutil` as the local read-only source otherwise. Decided after the survey.
 
 ### 3.6 External Brain boundary
-- `Brain` protocol (e.g. `suggest_activity(ctx)`, `compose_journal(ctx)`, `compose_reaction(ctx)`) plus `kind: "local" | "external"`.
+- `Brain` protocol: `compose_journal(ctx)` plus `kind: "rule" | "external"` ("rule" is the local, offline kind), `name`, `version`.
 - The context passed to a Brain is an explicit, serialisable `BrainContext` built by `core` — never DB handles, file paths, sensor objects, or config.
 - Brain output is **advisory**: `core` validates it and may ignore it. A Brain cannot write state, files, or call tools.
 - Maple's identity lives in Maple's data and is passed *to* the Brain. Replacing the Brain must not change identity, state schema, or history.
-- v0.1 ships only `RuleBrain` (`kind="local"`). No network calls, no API keys.
+- v0.1 ships only `RuleBrain` (`kind="rule"`). No network calls, no API keys. The runtime accepts only the built-in `RuleBrain` class; any other Brain (including one claiming `kind="rule"`) is refused.
+- Phase 4 defines only `compose_journal`; behavior and reactions stay core rules. Triggers, deduplication, grounding, and the daily window are decided in core, never by a Brain. Details: `docs/journal.md` [PROPOSED].
 
 ### 3.7 Randomness and determinism
 - At Maple's birth a 256-bit `life_seed` is generated and stored in Maple's data.
@@ -230,6 +232,7 @@ Journal entries may cite observations; observations never depend on journal text
 - Restart loads and continues; downtime is one bounded catch-up heartbeat with a `DowntimeGap` event.
 - Corrupt, empty, foreign, or too-new databases fail loudly and are never repaired or replaced automatically.
 - Only `maplegotchi.storage` may write files or import `sqlite3` (AST-enforced); every write path goes through the `DataDir` guard. The external monitoring DB is read through `maplegotchi.storage.external` only (D18).
+- Schema v3 adds the append-only journal (`journal_entry`, `journal_entry_observation` citing observation rows) and `journal_state`, all written in the transition's transaction (`docs/journal.md`).
 - Schema v2 adds an append-only `observation` table: each heartbeat's snapshot is stored in the same transaction as the heartbeat (~0.54 MB/day measured; retention is a later phase).
 
 ### 3.9 UI truthfulness
@@ -327,6 +330,7 @@ uv run mypy                                                         # src, tests
 uv run lint-imports
 uv run pytest
 uv run maplegotchi simulate --days 30   # fake-time core simulation, prints JSON report + digest
+uv run maplegotchi demo-day --data-dir <empty dir>   # deterministic day: timeline / observations / journal
 
 # on paolo-core only, read-only (see deploy/survey/README.md)
 python3 deploy/survey/survey_paolo_core.py > survey.json
@@ -351,7 +355,7 @@ The 72-hour trial run (Phase 8) gates only the **stable** v0.1 release.
 | **1. Core being** | state, activities, behavior, heartbeat, interactions (D14 limits), rng, identity — pure code | 30-day `FakeClock` sim deterministic for fixed seed; values in range; cooldown logic tested | — |
 | **2. Persistence** | SQLite schema, migrations, repositories, write jail, single-writer life loop | Restart resumes state + RNG counters + cooldowns; downtime gap on timeline | — |
 | **3. Senses** | (a) psutil sensors, observation derivation, `get_service_health()` + fake providers; (b) **read-only paolo-core survey**: `metrics.db` schema/cadence/permissions/journal mode, actual unit names for D12 services, what monitoring cannot supply; (c) read-only `storage.external` monitoring datasource + provider (D18), and `systemd_dbus` only for gaps | Fakes work without paolo-core; survey recorded in `deploy/survey/`; provider tests incl. read-only + method allowlists; `unknown` handled | — |
-| **4. Inner life** | Journal (RuleBrain), timeline events, Brain interface, `local`/`external` guard | Journal cites observations/events; Brain swappable; guard test passes | — |
+| **4. Inner life** | Journal (RuleBrain), timeline events, Brain interface, `rule`/`external` guard | Journal cites observations/events; Brain swappable; guard test passes | — |
 | **5. API** | Read REST, SSE, Greet/Pet endpoints, Origin check, security headers, static serving | OpenAPI schema; frontend types derived; 429 + `retry_after` tested; headers tested | **M1: headless Maple lives locally** |
 | **6. Maple Room** | PixiJS room + sprites + activity/reaction animations; DOM panels; interaction buttons; staleness indicator | Every visible element traceable to an API field; local visual testing with fakes | **M2: local playable build** |
 | **7. paolo-core deploy** | systemd unit, Tailscale Serve, polkit rule, verified service map, install doc, boundary verification | Runs sandboxed as `maple`; tailnet-only; `check_boundaries.py` passes | **M3: `v0.1.0-rc`** |

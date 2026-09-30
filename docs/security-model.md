@@ -4,7 +4,7 @@
 evidence behind it as phases land (test names, systemd unit review, the
 Phase 3 paolo-core survey, and `check_boundaries.py` output).
 
-## Enforced today (Phases 0–3)
+## Enforced today (Phases 0–4)
 
 | Control | Where |
 |---|---|
@@ -25,6 +25,9 @@ Phase 3 paolo-core survey, and `check_boundaries.py` output).
 | D-Bus client can send only `GetUnit` and `Get(Unit.ActiveState)` for allowlisted units | `tests/sensors/test_systemd_dbus.py` |
 | Survey script linted (ruff) and type-checked (mypy strict) in normal CI, plus security tests | `.github/workflows/ci.yml`, `backend/pyproject.toml` (mypy files), `tests/security/test_phase3_boundaries.py` |
 | No `systemctl` in any executable string in `backend/src` or the survey | `test_no_systemctl_anywhere_in_executable_text`, `test_survey_script_uses_no_forbidden_or_writing_apis` |
+| Only the built-in RuleBrain can run (exact class); external/impostor Brains refused before storage opens | `runtime/life.py: require_rule_brain`, `tests/runtime/test_journal_runtime.py` |
+| `brain` package is pure like core (no I/O, clock, randomness, network; import allowlist) | AST scanner, `test_core_imports_only_allowlisted_modules` |
+| Journal grounded: references come from core triggers; no unreferenced service names; RuleBrain output digit-free (template policy); entries append-only; Brain failure never marks a trigger as journaled | `core/journal.py: accept_drafts`, migration 3 CHECKs/triggers, `tests/core/test_journal.py` |
 | Observations append-only; stored atomically with their heartbeat | migration 2 triggers, `tests/runtime/test_observations_runtime.py` |
 | Banned APIs flagged while editing | ruff `TID251` + `S` rules (`backend/pyproject.toml`) |
 | Layer dependency rules (CLAUDE.md §3.3) | import-linter contracts (`backend/pyproject.toml`) |

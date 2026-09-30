@@ -5,6 +5,11 @@ reads the clock inside it, computes the transition with pure core, commits it
 in one transaction, and only then adopts the new state in memory. A failed
 commit leaves both the database and the in-memory state at the last committed
 revision, so nothing is lost or half-applied.
+
+Journal entries are part of the same transition: core detects triggers, the
+Brain words them, core validates the drafts, and the entries, the journal
+state, and the transition commit together. v0.1 accepts only the built-in
+RuleBrain; any other Brain is refused (D6, D10).
 """
 
 from __future__ import annotations
@@ -12,19 +17,43 @@ from __future__ import annotations
 import secrets
 import threading
 from collections.abc import Callable
+from datetime import datetime
 from types import TracebackType
 
+from maplegotchi.brain.interface import Brain
+from maplegotchi.brain.rule_brain import RuleBrain
 from maplegotchi.core.attention import behavior_inputs
 from maplegotchi.core.heartbeat import TickResult, heartbeat
 from maplegotchi.core.interactions import Accepted, InteractionOutcome, apply_interaction
+from maplegotchi.core.journal import (
+    BrainContext,
+    BrainKind,
+    JournalEntry,
+    Trigger,
+    TriggerKind,
+    accept_drafts,
+)
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
+from maplegotchi.core.reflection import (
+    JournalParameters,
+    ReflectionState,
+    heartbeat_triggers,
+    interaction_triggers,
+    local_time,
+    mark_journaled,
+)
 from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.timeline import Born
 from maplegotchi.runtime.clock import Clock
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
-from maplegotchi.storage.repositories import LifeRepository, StoredEvent, StoredObservation
+from maplegotchi.storage.repositories import (
+    LifeRepository,
+    StoredEvent,
+    StoredJournalEntry,
+    StoredObservation,
+)
 
 DEFAULT_NAME = "Maple"
 
@@ -34,8 +63,25 @@ def new_life_seed() -> str:
     return secrets.token_hex(32)
 
 
+def _written(entries: tuple[JournalEntry, ...]) -> set[tuple[TriggerKind, str]]:
+    return {(e.trigger, e.topic) for e in entries}
+
+
 class RuntimeClosedError(RuntimeError):
     pass
+
+
+class ExternalBrainNotAllowed(RuntimeError):
+    """v0.1 wires only the built-in RuleBrain (D6, D10)."""
+
+
+def require_rule_brain(brain: Brain) -> RuleBrain:
+    # Exact class, not just `kind`: an external brain must not pass by claiming "rule".
+    if type(brain) is not RuleBrain or brain.kind is not BrainKind.RULE:
+        raise ExternalBrainNotAllowed(
+            f"only the built-in RuleBrain may run in v0.1, got {type(brain).__name__}"
+        )
+    return brain
 
 
 class LifeRuntime:
@@ -44,14 +90,20 @@ class LifeRuntime:
         repository: LifeRepository,
         clock: Clock,
         params: CoreParameters,
+        *,
+        brain: Brain | None = None,
+        journal: JournalParameters | None = None,
     ) -> None:
+        self._brain = require_rule_brain(brain if brain is not None else RuleBrain())
         self._repo: LifeRepository | None = repository
         self._clock = clock
         self._params = params
+        self._journal_params = journal or JournalParameters()
         self._lock = threading.Lock()
         stored = repository.load()
         self._state = stored.state
         self._revision = stored.revision
+        self._reflection = repository.reflection_state()
 
     @classmethod
     def open(
@@ -62,12 +114,15 @@ class LifeRuntime:
         *,
         name: str = DEFAULT_NAME,
         new_seed: Callable[[], str] = new_life_seed,
+        brain: Brain | None = None,
+        journal: JournalParameters | None = None,
     ) -> LifeRuntime:
         """Load Maple's life, or give birth once if there is none yet.
 
         `name` and `new_seed` are used only at birth; an existing Maple keeps its
         own identity and seed.
         """
+        require_rule_brain(brain if brain is not None else RuleBrain())  # refuse before opening
 
         def first_life() -> tuple[MapleState, Born]:
             born_at = clock.now()
@@ -76,7 +131,7 @@ class LifeRuntime:
 
         repository = LifeRepository(open_life_database(data_dir, first_life))
         try:
-            return cls(repository, clock, params or CoreParameters())
+            return cls(repository, clock, params or CoreParameters(), brain=brain, journal=journal)
         except BaseException:
             repository.close()
             raise
@@ -103,6 +158,14 @@ class LifeRuntime:
     def observations(self, *, tick_id: int | None = None) -> list[StoredObservation]:
         with self._lock:
             return self._repository().observations(tick_id=tick_id)
+
+    def journal(self) -> list[StoredJournalEntry]:
+        with self._lock:
+            return self._repository().journal()
+
+    @property
+    def reflection_state(self) -> ReflectionState:
+        return self._reflection
 
     def heartbeat_due(self) -> bool:
         """Whether a heartbeat would run now. Lets callers observe only when it will be used."""
@@ -134,14 +197,29 @@ class LifeRuntime:
             if observations is not None and observations.observed_at > now:
                 raise ValueError("observations cannot come from the future")
             result = heartbeat(state, now, behavior_inputs(observations), self._params)
+            triggers, reflection = heartbeat_triggers(
+                self._reflection,
+                previous=state,
+                result=result,
+                snapshot=observations,
+                now=now,
+                params=self._params,
+                journal=self._journal_params,
+            )
+            entries = self._write_journal(
+                triggers, result.state, now, observations, tick_id=result.tick_id
+            )
+            reflection = mark_journaled(reflection, triggers, _written(entries), now)
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
                 events=result.events,
                 tick_id=result.tick_id,
                 observations=observations.observations if observations else (),
+                journal=entries,
+                reflection=reflection,
             )
-            self._state, self._revision = result.state, revision
+            self._state, self._revision, self._reflection = result.state, revision, reflection
             return result
 
     def interact(self, kind: InteractionKind) -> InteractionOutcome:
@@ -153,11 +231,59 @@ class LifeRuntime:
             now = max(self._clock.now(), self._state.last_updated_at)
             outcome = apply_interaction(self._state, kind, now, self._params)
             if isinstance(outcome, Accepted):
-                revision = repo.commit(
-                    outcome.state, expected_revision=self._revision, events=(outcome.event,)
+                triggers, reflection = interaction_triggers(
+                    self._reflection,
+                    accepted=outcome,
+                    now=now,
+                    params=self._params,
+                    journal=self._journal_params,
                 )
-                self._state, self._revision = outcome.state, revision
+                entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
+                reflection = mark_journaled(reflection, triggers, _written(entries), now)
+                revision = repo.commit(
+                    outcome.state,
+                    expected_revision=self._revision,
+                    events=(outcome.event,),
+                    journal=entries,
+                    reflection=reflection,
+                )
+                self._state, self._revision, self._reflection = outcome.state, revision, reflection
             return outcome
+
+    def _write_journal(
+        self,
+        triggers: tuple[Trigger, ...],
+        state: MapleState,
+        now: datetime,
+        snapshot: ObservationSnapshot | None,
+        *,
+        tick_id: int | None,
+    ) -> tuple[JournalEntry, ...]:
+        """Ask the Brain to word the triggers, then keep only validated entries."""
+        if not triggers:
+            return ()
+        local = local_time(now, self._params)
+        context = BrainContext(
+            now=now,
+            local_hour=local.hour + local.minute / 60,
+            owner_name=self._journal_params.owner_name,
+            state=state,
+            expression=state.expression_at(now),
+            snapshot=snapshot,
+            triggers=triggers,
+        )
+        try:
+            drafts = self._brain.compose_journal(context)
+        except Exception:  # a failing Brain costs the words, never the transition;
+            return ()  # nothing is marked as journaled, so the triggers recur
+        return accept_drafts(
+            context,
+            drafts,
+            brain_kind=self._brain.kind,
+            brain_name=self._brain.name,
+            brain_version=self._brain.version,
+            tick_id=tick_id,
+        )
 
     # ------------------------------------------------------------ lifecycle
 

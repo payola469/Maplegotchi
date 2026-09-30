@@ -101,7 +101,8 @@ def test_core_path_detection() -> None:
     assert is_core_path(Path("src/maplegotchi/core/state.py"))
     assert is_core_path(Path("src/maplegotchi/core/__init__.py"))
     assert not is_core_path(Path("src/maplegotchi/storage/db.py"))
-    assert not is_core_path(Path("src/maplegotchi/brain/core.py"))
+    assert is_core_path(Path("src/maplegotchi/brain/rule_brain.py"))  # brains are pure too
+    assert not is_core_path(Path("src/maplegotchi/runtime/core.py"))
 
 
 # Core may import only these (CLAUDE.md §3.3, §5). Anything else needs a review.
@@ -130,7 +131,11 @@ def test_core_modules_are_scanned_with_core_rules() -> None:
 
 def test_core_imports_only_allowlisted_modules() -> None:
     offenders: list[str] = []
-    for path in sorted((SRC / "maplegotchi" / "core").rglob("*.py")):
+    pure_files = [
+        *sorted((SRC / "maplegotchi" / "core").rglob("*.py")),
+        *sorted((SRC / "maplegotchi" / "brain").rglob("*.py")),
+    ]
+    for path in pure_files:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -143,8 +148,8 @@ def test_core_imports_only_allowlisted_modules() -> None:
                 top = module.split(".", 1)[0]
                 if top not in CORE_IMPORT_ALLOWLIST:
                     offenders.append(f"{path.name}:{node.lineno}: {module}")
-                elif top == "maplegotchi" and not (
-                    module == "maplegotchi.core" or module.startswith("maplegotchi.core.")
+                elif top == "maplegotchi" and not module.startswith(
+                    ("maplegotchi.core", "maplegotchi.brain")
                 ):
                     offenders.append(f"{path.name}:{node.lineno}: {module}")
     assert offenders == []

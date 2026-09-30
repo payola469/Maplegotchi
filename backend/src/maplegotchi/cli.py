@@ -8,6 +8,7 @@ import json
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.simulation import SimulationReport, daily_owner_routine, simulate
@@ -69,6 +70,18 @@ def _simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _demo_day(args: argparse.Namespace) -> int:
+    from maplegotchi.runtime.demo import format_report, run_demo_day
+    from maplegotchi.storage.datadir import DataDir
+
+    data_dir = DataDir(args.data_dir.resolve())
+    if any(data_dir.root.iterdir()):
+        print("demo-day needs an empty directory", file=sys.stderr)
+        return 2
+    print(format_report(run_demo_day(data_dir)))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="maplegotchi")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -79,6 +92,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     sim.add_argument("--interval", type=int, default=300, help="heartbeat seconds")
     sim.add_argument("--no-owner", action="store_true", help="no Greet/Pet interactions")
     sim.set_defaults(handler=_simulate)
+    demo = sub.add_parser(
+        "demo-day", help="simulate one deterministic day with fake senses (writes to --data-dir)"
+    )
+    demo.add_argument("--data-dir", type=Path, required=True, help="an existing, empty directory")
+    demo.set_defaults(handler=_demo_day)
     args = parser.parse_args(argv)
     handler = args.handler
     result: int = handler(args)

@@ -41,8 +41,18 @@ from tests.persistence_support import (
 
 V1_SQL = MIGRATIONS[0].sql
 V2_SQL = MIGRATIONS[1].sql
+V3_SQL = MIGRATIONS[2].sql
 LATEST = latest_version()
-EXPECTED_TABLES = {"maple", "life_state", "interaction_ledger", "timeline_event", "observation"}
+EXPECTED_TABLES = {
+    "maple",
+    "life_state",
+    "interaction_ledger",
+    "timeline_event",
+    "observation",
+    "journal_entry",
+    "journal_entry_observation",
+    "journal_state",
+}
 EXPECTED_TRIGGERS = {
     "maple_immutable_update",
     "maple_immutable_delete",
@@ -53,6 +63,11 @@ EXPECTED_TRIGGERS = {
     "timeline_event_append_only_delete",
     "observation_append_only_update",
     "observation_append_only_delete",
+    "journal_entry_append_only_update",
+    "journal_entry_append_only_delete",
+    "journal_entry_observation_append_only_update",
+    "journal_entry_observation_append_only_delete",
+    "journal_state_no_delete",
 }
 
 
@@ -67,8 +82,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2]
-    assert LATEST == 2
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3]
+    assert LATEST == 3
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])
@@ -89,7 +104,7 @@ def test_fresh_database_migrates_to_latest(tmp_path: Path) -> None:
     conn.close()
 
 
-@pytest.mark.parametrize("sql", [V1_SQL, V2_SQL])
+@pytest.mark.parametrize("sql", [V1_SQL, V2_SQL, V3_SQL])
 def test_splitter_keeps_trigger_bodies_intact(sql: str) -> None:
     statements = split_statements(sql)
     creates = re.findall(r"^CREATE ", sql, flags=re.MULTILINE)
@@ -120,11 +135,11 @@ def test_real_upgrade_from_v1_preserves_a_living_maple(tmp_path: Path) -> None:
     conn.close()
 
     clock = FakeClock(BIRTH + TICK * 29)
-    with open_runtime(data_dir, clock) as runtime:  # opening migrates v1 -> v2
+    with open_runtime(data_dir, clock) as runtime:  # opening migrates v1 -> latest
         assert runtime.state == state
         assert runtime.revision == revision
         clock.advance(TICK)
-        assert runtime.heartbeat_if_due() is not None  # life continues on v2
+        assert runtime.heartbeat_if_due() is not None  # life continues on the latest
     with raw_db(data_dir) as check:
         assert schema_version(check) == LATEST
         assert "observation" in names(check, "table")
@@ -206,3 +221,22 @@ def test_frozen_observation_lists_match_core() -> None:
     assert _v2_values("metric") == {m.value for m in Metric}
     assert _v2_values("state") == {s.value for s in ServiceState}
     assert _v2_values("unit") == {u.value for u in Unit}
+
+
+def _v3_values(column: str) -> set[str]:
+    pattern = rf"\b{column}\s+TEXT\s+NOT NULL CHECK \({column} IN\s*\(([^)]*)\)"
+    match = re.search(pattern, V3_SQL)
+    assert match is not None, column
+    return set(re.findall(r"'([a-z_0-9]+)'", match.group(1)))
+
+
+def test_frozen_journal_lists_match_core() -> None:
+    from maplegotchi.core.journal import BrainKind, Importance, JournalCategory, TriggerKind
+    from maplegotchi.core.state import Expression
+
+    assert _v3_values("category") == {c.value for c in JournalCategory}
+    assert _v3_values("trigger_kind") == {t.value for t in TriggerKind}
+    assert _v3_values("importance") == {i.value for i in Importance}
+    assert _v3_values("brain_kind") == {b.value for b in BrainKind}
+    assert _v3_values("activity") == {a.value for a in Activity}
+    assert _v3_values("expression") == {e.value for e in Expression}

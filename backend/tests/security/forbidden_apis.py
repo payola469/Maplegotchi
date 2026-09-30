@@ -251,7 +251,8 @@ def _in_package(path: Path, package: str) -> bool:
 
 
 def is_core_path(path: Path) -> bool:
-    return _in_package(path, "core")
+    """Pure packages: core, and brain (a Brain must stay offline and capability-free)."""
+    return _in_package(path, "core") or _in_package(path, "brain")
 
 
 def is_external_path(path: Path) -> bool:

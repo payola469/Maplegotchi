@@ -12,7 +12,7 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **2**) |
+| Schema version | `PRAGMA user_version` (currently **3**) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
 `maplegotchi.storage` may not open files for writing or import `sqlite3`
@@ -62,6 +62,18 @@ observation         append-only: revision, tick_id, observed_at, metric, subject
 
 Observations are written in the same transaction as the heartbeat that used
 them; see `docs/sensors.md` for semantics and measured growth.
+
+Migration 3 (Phase 4) adds:
+
+```
+journal_entry              append-only: revision, tick_id, created_at, category, trigger_kind,
+                           topic, text (1-240 chars, one line), importance, brain_kind/name/version,
+                           template_id, activity, expression
+journal_entry_observation  append-only: entry_id -> journal_entry, observation_id -> observation
+journal_state              one row: the persisted ReflectionState (dedup + daily reflection)
+```
+
+See `docs/journal.md`.
 
 ## Canonical vs derived state
 
