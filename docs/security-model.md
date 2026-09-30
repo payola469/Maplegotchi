@@ -4,7 +4,7 @@
 evidence behind it as phases land (test names, systemd unit review, the
 Phase 3 paolo-core survey, and `check_boundaries.py` output).
 
-## Enforced today (Phases 0–2)
+## Enforced today (Phases 0–3)
 
 | Control | Where |
 |---|---|
@@ -19,7 +19,13 @@ Phase 3 paolo-core survey, and `check_boundaries.py` output).
 | Corrupt / foreign / empty / too-new databases fail loudly, never replaced | `storage/db.py`, `tests/storage/` (Phase 2) |
 | SQLite hardening: `trusted_schema=OFF`, defensive mode | `storage/db.py` (Phase 2) |
 | Birth is published only from a self-contained rollback-journal file (no WAL/sidecar dependency) | `storage/db.py`, `tests/storage/test_birth_publication.py` (Phase 2) |
-| `sqlite3` only inside storage; external monitoring DB read via read-only `storage.external` datasource, never from sensors (D18) | scanner rules now; datasource + read-only rules + narrowed import contracts in Phase 3 |
+| `sqlite3` only inside storage; external monitoring DB read via read-only `storage.external` datasource, never from sensors (D18) | scanner (`external` mode: may read SQLite, may not write), import-linter (sensors → only `storage.external.interface`; external ↔ Maple storage separated), `tests/security/test_phase3_boundaries.py` |
+| External DB opened `mode=ro` + `query_only`; write SQL refused by SQLite; no write/execute/schema method in the API; no write-SQL text in `storage/external` | `tests/storage/test_external_metrics.py`, `tests/security/test_phase3_boundaries.py` |
+| Sensors import no `sqlite3`/`subprocess`/`shutil`/`tempfile`/`socket`/writable storage | `test_sensors_never_import_sqlite3_subprocess_or_writable_storage` |
+| D-Bus client can send only `GetUnit` and `Get(Unit.ActiveState)` for allowlisted units | `tests/sensors/test_systemd_dbus.py` |
+| Survey script linted (ruff) and type-checked (mypy strict) in normal CI, plus security tests | `.github/workflows/ci.yml`, `backend/pyproject.toml` (mypy files), `tests/security/test_phase3_boundaries.py` |
+| No `systemctl` in any executable string in `backend/src` or the survey | `test_no_systemctl_anywhere_in_executable_text`, `test_survey_script_uses_no_forbidden_or_writing_apis` |
+| Observations append-only; stored atomically with their heartbeat | migration 2 triggers, `tests/runtime/test_observations_runtime.py` |
 | Banned APIs flagged while editing | ruff `TID251` + `S` rules (`backend/pyproject.toml`) |
 | Layer dependency rules (CLAUDE.md §3.3) | import-linter contracts (`backend/pyproject.toml`) |
 | No `eval` / `new Function` / raw HTML sinks in the UI | `frontend/eslint.config.js` |

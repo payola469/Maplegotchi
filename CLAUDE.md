@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-2 complete (2026-09-30). Phase 3+ NOT authorized.**
+> **Status: Phases 0-3 complete (2026-09-30). Phase 4+ NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -104,22 +104,25 @@ Maplegotchi/
 │   │   ├── core/          (P1)       # pure domain logic, no I/O
 │   │   │   state.py activities.py behavior.py heartbeat.py interactions.py        (P1)
 │   │   │   timeline.py identity.py rng.py daytime.py parameters.py simulation.py (P1)
-│   │   │   observations.py journal.py                                        (Phase 3/4)
+│   │   │   observations.py attention.py                                      (P3)
+│   │   │   journal.py                                                        (Phase 4)
 │   │   ├── brain/         (P0)       # interface.py, rule_brain.py
-│   │   ├── sensors/       (P0)       # interface.py, system.py (psutil), fake.py
-│   │   │   └── service_health/ (P0)  # monitoring provider (#1, via storage.external), systemd_dbus.py (#2), fake.py
+│   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
+│   │   │   └── service_health/ (P3)  # interface.py (get_service_health), monitor_db.py (#1),
+│   │   │                             #   systemd_dbus.py (#2), fake.py
 │   │   ├── storage/       (P2)       # datadir.py (write jail), db.py (open/birth), migrations.py,
 │   │   │   │                         #   repositories.py, errors.py  — Maple's own writable DB
-│   │   │   └── external/  (Phase 3)  # monitor_metrics.py: read-only datasource for
-│   │   │                             #   /data/monitor/metrics.db (D18); never writes
-│   │   ├── runtime/       (P2)       # clock.py, life.py (single writer); scheduler loop with `run` later
+│   │   │   └── external/  (P3)       # interface.py (no sqlite3), sqlite_metrics.py (read-only),
+│   │   │                             #   fake.py — for /data/monitor/metrics.db (D18); never writes
+│   │   ├── runtime/       (P2/P3)    # clock.py, life.py (single writer), senses.py (wiring);
+│   │   │                             #   scheduler loop with `run` later
 │   │   ├── api/           (P0)       # app.py, routes_read.py, routes_interact.py, stream.py,
 │   │   │                             #   static.py (serves built frontend), headers.py
 │   │   ├── config.py                 # frozen settings + policy loaded at startup
 │   │   └── cli.py                    # simulate (P1, fake time); run, migrate, check-config later
 │   └── tests/
-│       ├── unit/  security/  core/  storage/  runtime/
-│       └── (sensors/ api/ as phases add them)
+│       ├── unit/  security/  core/  storage/  runtime/  sensors/
+│       └── (api/ as phases add it)
 ├── frontend/
 │   ├── package.json  pnpm-lock.yaml
 │   └── src/
@@ -132,7 +135,7 @@ Maplegotchi/
     ├── etc/maplegotchi/              # settings.toml, policy.toml templates (incl. verified unit names)
     ├── tailscale/serve.md            # Tailscale Serve setup; Funnel explicitly off
     ├── polkit/                       # defense-in-depth deny rule for user `maple`
-    ├── survey/                       # Phase 3 read-only survey checklist + recorded findings
+    ├── survey/        (P3)           # read-only survey script + procedure; findings.md after running
     ├── verify/check_boundaries.py
     └── install.md
 ```
@@ -154,8 +157,8 @@ Maplegotchi/
 Dependency rules (enforced by import-linter + AST tests in CI):
 - `core` imports nothing from `sensors`, `storage`, `api`, `runtime`, `config`, `cli`, and no I/O / clock / randomness modules. Time and RNG are injected.
 - `core` depends on the `brain` **interface** only; `brain` implementations depend on `core` models only.
-- `sensors` only read; they never import `api`, `runtime`, `brain`, or Maple's writable storage. From Phase 3 they may import **only** `maplegotchi.storage.external` (D18); the import-linter contract is narrowed accordingly then.
-- `maplegotchi.storage.external` never imports Maple's writable storage modules (`db`, `repositories`, `migrations`, `datadir`) and vice versa (import-linter contract, Phase 3).
+- `sensors` only read; they never import `api`, `runtime`, `brain`, Maple's writable storage, or `sqlite3`. From `storage` they may import only `maplegotchi.storage.external.interface` (D18; import-linter + AST tests).
+- `maplegotchi.storage.external` never imports Maple's writable storage modules (`db`, `repositories`, `migrations`, `datadir`, `errors`) and vice versa (import-linter).
 - `storage` is the only module that opens files for writing, and only inside `MAPLE_DATA_DIR`.
 - `api` never mutates state directly; interactions are submitted to `runtime/life`. `api` does not import `sensors`.
 - `runtime` is the only place concrete implementations (clock, sensors, providers, brain) are chosen.
@@ -188,9 +191,10 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - **Intended services** (D12): maplegotchi, metrics collector, grafana, lycan-watch/updates, qbittorrent, jellyfin, backup/integrity timers or services. No auto-discovery.
 - **Provider order** (per service, no shell fallback):
   1. **Existing monitoring** — the sensor reads through the **read-only external datasource** `maplegotchi.storage.external.monitor_metrics` (D18, ADR-0019), which alone touches `/data/monitor/metrics.db`: SQLite URI `mode=ro` (plus `PRAGMA query_only = ON`), fixed parameterized SELECTs only, no INSERT/UPDATE/DELETE/DDL/ATTACH or write-capable method, short busy timeout, staleness check against the collector's ~5 min cadence. It does not reuse Maple's `LifeRepository` or `DataDir`. Schema is **not** assumed; queries are written only after the Phase 3 survey documents it.
-  2. **`systemd_dbus`** — only for services/fields existing monitoring cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get/GetAll` on `org.freedesktop.systemd1.Unit` for allowlisted units. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
+  2. **`systemd_dbus`** — only for services/fields existing monitoring cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get` of `org.freedesktop.systemd1.Unit.ActiveState` for allowlisted units (`GetAll` is permitted by this rule but not needed, so the client omits it). The concrete bus transport is added only if the survey shows it is needed. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
   3. **`fake`** — dev/tests only; production config refuses it. Built first (D15).
 - Missing/stale/unreadable data → `unknown`, visible in the UI. Never inferred.
+- Implementation details, observation schema, status semantics, partial-failure rules, and the `server_attention` derivation: `docs/sensors.md` [PROPOSED].
 - Host metrics (CPU, memory, disk, load, uptime, network, temps) may likewise come from the external monitoring datasource where practical, with `psutil` as the local read-only source otherwise. Decided after the survey.
 
 ### 3.6 External Brain boundary
@@ -226,6 +230,7 @@ Journal entries may cite observations; observations never depend on journal text
 - Restart loads and continues; downtime is one bounded catch-up heartbeat with a `DowntimeGap` event.
 - Corrupt, empty, foreign, or too-new databases fail loudly and are never repaired or replaced automatically.
 - Only `maplegotchi.storage` may write files or import `sqlite3` (AST-enforced); every write path goes through the `DataDir` guard. The external monitoring DB is read through `maplegotchi.storage.external` only (D18).
+- Schema v2 adds an append-only `observation` table: each heartbeat's snapshot is stored in the same transaction as the heartbeat (~0.54 MB/day measured; retention is a later phase).
 
 ### 3.9 UI truthfulness
 - The frontend holds no authoritative state; it renders the latest backend snapshot (REST on load, SSE thereafter).
@@ -316,10 +321,15 @@ scripts/check.sh              # everything below
 uv sync --locked
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy
+uv run ruff check --config pyproject.toml ../deploy/survey          # survey script: same rules
+uv run ruff format --check --config pyproject.toml ../deploy/survey
+uv run mypy                                                         # src, tests, and ../deploy/survey (strict)
 uv run lint-imports
 uv run pytest
 uv run maplegotchi simulate --days 30   # fake-time core simulation, prints JSON report + digest
+
+# on paolo-core only, read-only (see deploy/survey/README.md)
+python3 deploy/survey/survey_paolo_core.py > survey.json
 
 # frontend (cd frontend)
 pnpm install --frozen-lockfile

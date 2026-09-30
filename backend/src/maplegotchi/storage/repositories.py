@@ -20,6 +20,12 @@ from typing import Any
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.identity import Identity
+from maplegotchi.core.observations import (
+    Metric,
+    Observation,
+    ObservationStatus,
+    ServiceState,
+)
 from maplegotchi.core.rng import RngState
 from maplegotchi.core.state import (
     InteractionKind,
@@ -69,6 +75,14 @@ def _parse_ts(text: str) -> datetime:
 class StoredLife:
     state: MapleState
     revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class StoredObservation:
+    id: int
+    revision: int
+    tick_id: int
+    observation: Observation
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,8 +277,12 @@ class LifeRepository:
         expected_revision: int,
         events: Sequence[LifeEvent],
         tick_id: int | None = None,
+        observations: Sequence[Observation] = (),
     ) -> int:
-        """Atomically replace Maple's state and append events. Returns the new revision."""
+        """Atomically replace Maple's state and append events (and, for a heartbeat, the
+        observations it used). Returns the new revision."""
+        if observations and tick_id is None:
+            raise ValueError("observations are recorded with the heartbeat that used them")
         new_revision = expected_revision + 1
         with transaction(self._conn):
             identity_row = self._conn.execute(
@@ -295,7 +313,66 @@ class LifeRepository:
                 ],
             )
             self._insert_events(new_revision, events, tick_id)
+            if tick_id is not None and observations:
+                self._insert_observations(new_revision, tick_id, observations)
         return new_revision
+
+    def _insert_observations(
+        self, revision: int, tick_id: int, observations: Sequence[Observation]
+    ) -> None:
+        self._conn.executemany(
+            "INSERT INTO observation (maple_id, revision, tick_id, observed_at, metric,"
+            " subject, status, value, state, unit, source, reason)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    MAPLE_ID,
+                    revision,
+                    tick_id,
+                    _ts(o.observed_at),
+                    o.metric.value,
+                    o.subject,
+                    o.status.value,
+                    o.value,
+                    o.state.value if o.state else None,
+                    o.unit.value,
+                    o.source,
+                    o.reason,
+                )
+                for o in observations
+            ],
+        )
+
+    def observations(self, *, tick_id: int | None = None) -> list[StoredObservation]:
+        sql = (
+            "SELECT id, revision, tick_id, observed_at, metric, subject, status, value, state,"
+            " unit, source, reason FROM observation"
+        )
+        params: tuple[object, ...] = ()
+        if tick_id is not None:
+            sql += " WHERE tick_id = ?"
+            params = (tick_id,)
+        rows = self._conn.execute(sql + " ORDER BY id", params).fetchall()
+        try:
+            stored = []
+            for (row_id, rev, tick, at, metric, subject, status, value, state,
+                 unit, source, reason) in rows:  # fmt: skip
+                observation = Observation(
+                    metric=Metric(metric),
+                    subject=subject,
+                    status=ObservationStatus(status),
+                    observed_at=_parse_ts(at),
+                    source=source,
+                    value=value,
+                    state=ServiceState(state) if state is not None else None,
+                    reason=reason,
+                )
+                if observation.unit.value != unit:
+                    raise ValueError(f"unit {unit!r} does not match metric {metric!r}")
+                stored.append(StoredObservation(row_id, rev, tick, observation))
+            return stored
+        except (ValueError, TypeError) as exc:
+            raise CorruptStateError(f"observation row is invalid: {exc}") from exc
 
     def _insert_events(
         self, revision: int, events: Sequence[LifeEvent], tick_id: int | None

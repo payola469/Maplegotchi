@@ -109,6 +109,8 @@ WRITER_ONLY_NAMES: frozenset[str] = frozenset(
     }
 )
 WRITER_ONLY_BUILTINS: frozenset[str] = frozenset({"open"})
+# storage/external (D18) may read SQLite but is otherwise held to non-writer rules.
+EXTERNAL_READER_MODULES: frozenset[str] = frozenset({"sqlite3"})
 # Path/file methods that write, flagged on any object outside storage.
 WRITER_ONLY_METHODS: frozenset[str] = frozenset(
     {
@@ -143,10 +145,11 @@ def _module_forbidden(module: str, forbidden: frozenset[str]) -> bool:
 
 
 class _Scanner(ast.NodeVisitor):
-    def __init__(self, path: str, *, core: bool, writer: bool) -> None:
+    def __init__(self, path: str, *, core: bool, writer: bool, external: bool) -> None:
         self.path = path
         self.core = core
         self.writer = writer
+        self.external = external
         self.aliases: dict[str, str] = {}
         self.violations: list[Violation] = []
 
@@ -158,7 +161,11 @@ class _Scanner(ast.NodeVisitor):
             self._flag(node, "forbidden-module", module)
         elif self.core and _module_forbidden(module, CORE_FORBIDDEN_MODULES):
             self._flag(node, "core-impure-module", module)
-        elif not self.writer and _module_forbidden(module, WRITER_ONLY_MODULES):
+        elif (
+            not self.writer
+            and _module_forbidden(module, WRITER_ONLY_MODULES)
+            and not (self.external and _module_forbidden(module, EXTERNAL_READER_MODULES))
+        ):
             self._flag(node, "write-outside-storage", module)
 
     def _check_name(self, node: ast.AST, dotted: str) -> None:
@@ -226,9 +233,14 @@ class _Scanner(ast.NodeVisitor):
 
 
 def scan_source(
-    source: str, path: str = "<string>", *, core: bool = False, writer: bool = False
+    source: str,
+    path: str = "<string>",
+    *,
+    core: bool = False,
+    writer: bool = False,
+    external: bool = False,
 ) -> list[Violation]:
-    scanner = _Scanner(path, core=core, writer=writer)
+    scanner = _Scanner(path, core=core, writer=writer, external=external)
     scanner.visit(ast.parse(source, filename=path))
     return scanner.violations
 
@@ -242,8 +254,16 @@ def is_core_path(path: Path) -> bool:
     return _in_package(path, "core")
 
 
+def is_external_path(path: Path) -> bool:
+    parts = path.parts
+    return any(
+        parts[i : i + 3] == ("maplegotchi", "storage", "external") for i in range(len(parts) - 2)
+    )
+
+
 def is_storage_path(path: Path) -> bool:
-    return _in_package(path, "storage")
+    """Maple's writable storage (excludes the read-only storage/external package)."""
+    return _in_package(path, "storage") and not is_external_path(path)
 
 
 def scan_tree(root: Path) -> tuple[int, list[Violation]]:
@@ -257,6 +277,7 @@ def scan_tree(root: Path) -> tuple[int, list[Violation]]:
                 str(file),
                 core=is_core_path(file),
                 writer=is_storage_path(file),
+                external=is_external_path(file),
             )
         )
     return len(files), violations

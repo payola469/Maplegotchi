@@ -28,6 +28,10 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - name: ruff (paolo-core survey script)
+        run: |
+          uv run ruff check --config pyproject.toml ../deploy/survey
+          uv run ruff format --check --config pyproject.toml ../deploy/survey
       - run: uv run mypy
       - run: uv run lint-imports
       - run: uv run pytest

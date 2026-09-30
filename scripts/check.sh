@@ -13,7 +13,8 @@ cd "$ROOT/backend"
 step "backend: uv sync --locked";   "$UV" sync --locked
 step "backend: ruff check";         "$UV" run ruff check .
 step "backend: ruff format --check"; "$UV" run ruff format --check .
-step "backend: mypy --strict";      "$UV" run mypy
+step "survey: ruff check + format"; "$UV" run ruff check --config pyproject.toml ../deploy/survey && "$UV" run ruff format --check --config pyproject.toml ../deploy/survey
+step "backend + survey: mypy --strict"; "$UV" run mypy
 step "backend: import contracts";   "$UV" run lint-imports
 step "backend: pytest";             "$UV" run pytest
 

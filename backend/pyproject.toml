@@ -61,7 +61,8 @@ select = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+# The paolo-core survey (stdlib-only) is held to the same strict checks.
+files = ["src", "tests", "../deploy/survey"]
 mypy_path = "src"
 warn_unreachable = true
 
@@ -105,16 +106,47 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "sensors only read: no storage/api/runtime/brain"
+name = "sensors only read: only the storage.external interface, no api/runtime/brain"
 type = "forbidden"
 source_modules = ["maplegotchi.sensors"]
 forbidden_modules = [
-  "maplegotchi.storage",
+  "maplegotchi.storage.db",
+  "maplegotchi.storage.repositories",
+  "maplegotchi.storage.migrations",
+  "maplegotchi.storage.datadir",
+  "maplegotchi.storage.errors",
+  "maplegotchi.storage.external.sqlite_metrics",
   "maplegotchi.api",
   "maplegotchi.runtime",
   "maplegotchi.brain",
   "maplegotchi.cli",
 ]
+
+[[tool.importlinter.contracts]]
+name = "external datasource is separate from Maple's writable storage (D18)"
+type = "forbidden"
+source_modules = ["maplegotchi.storage.external"]
+forbidden_modules = [
+  "maplegotchi.storage.db",
+  "maplegotchi.storage.repositories",
+  "maplegotchi.storage.migrations",
+  "maplegotchi.storage.datadir",
+  "maplegotchi.storage.errors",
+  "maplegotchi.sensors",
+  "maplegotchi.runtime",
+  "maplegotchi.api",
+]
+
+[[tool.importlinter.contracts]]
+name = "Maple's writable storage never uses the external datasource (D18)"
+type = "forbidden"
+source_modules = [
+  "maplegotchi.storage.db",
+  "maplegotchi.storage.repositories",
+  "maplegotchi.storage.migrations",
+  "maplegotchi.storage.datadir",
+]
+forbidden_modules = ["maplegotchi.storage.external"]
 
 [[tool.importlinter.contracts]]
 name = "storage does not reach sensors/api/runtime/brain"
@@ -140,4 +172,5 @@ dev = [
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "ruff>=0.16.9",
+    "types-psutil>=7.2.2.20260906",
 ]

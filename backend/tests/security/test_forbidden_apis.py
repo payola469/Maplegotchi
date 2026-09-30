@@ -114,6 +114,7 @@ CORE_IMPORT_ALLOWLIST = frozenset(
         "enum",
         "hashlib",
         "math",
+        "re",  # pure, deterministic validation of codes (Phase 3 observations)
         "types",
         "typing",
         "maplegotchi",

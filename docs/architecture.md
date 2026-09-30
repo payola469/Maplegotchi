@@ -10,7 +10,8 @@ built; this file collects longer-form notes as each phase lands.
 | 0. Foundations | Complete |
 | 1. Core being | Complete |
 | 2. Persistence + restart recovery | Complete (see `persistence.md`) |
-| 3–8 | Not started |
+| 3. Sensors + observations | Complete (see `sensors.md`) |
+| 4–8 | Not started |
 
 ## Core (Phase 1)
 

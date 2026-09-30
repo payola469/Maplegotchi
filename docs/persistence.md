@@ -12,7 +12,7 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **1**) |
+| Schema version | `PRAGMA user_version` (currently **2**) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
 `maplegotchi.storage` may not open files for writing or import `sqlite3`
@@ -51,6 +51,17 @@ timeline_event      append-only: revision, tick_id, kind, at, payload   no UPDAT
 Every column has a CHECK constraint (ranges, enum lists, UTC timestamp
 shape, 64-hex seed). Tables are `STRICT`. Full SQL:
 `backend/src/maplegotchi/storage/migrations.py`.
+
+Migration 2 (Phase 3) adds:
+
+```
+observation         append-only: revision, tick_id, observed_at, metric, subject,
+                    status, value, state, unit, source, reason     no UPDATE/DELETE;
+                                                                   UNIQUE (tick_id, metric, subject)
+```
+
+Observations are written in the same transaction as the heartbeat that used
+them; see `docs/sensors.md` for semantics and measured growth.
 
 ## Canonical vs derived state
 

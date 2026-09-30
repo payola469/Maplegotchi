@@ -113,7 +113,42 @@ CREATE TRIGGER timeline_event_append_only_delete BEFORE DELETE ON timeline_event
 BEGIN SELECT RAISE(ABORT, 'timeline is append-only'); END;
 """
 
-MIGRATIONS: tuple[Migration, ...] = (Migration(1, "initial life state", _V1_INITIAL),)
+_V2_OBSERVATIONS = f"""
+CREATE TABLE observation (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id    INTEGER NOT NULL REFERENCES maple (id),
+    revision    INTEGER NOT NULL CHECK (revision >= 1),
+    tick_id     INTEGER NOT NULL CHECK (tick_id >= 1),
+    observed_at TEXT    NOT NULL CHECK (observed_at {_UTC_TS}),
+    metric      TEXT    NOT NULL CHECK (metric IN
+                    ('cpu_usage', 'memory_usage', 'disk_usage', 'load_1m', 'load_5m', 'load_15m',
+                     'cpu_count', 'temperature', 'service_state')),
+    subject     TEXT    NOT NULL CHECK (length(subject) BETWEEN 1 AND 64),
+    status      TEXT    NOT NULL CHECK (status IN ('available', 'unavailable', 'unknown', 'error')),
+    value       REAL,
+    state       TEXT    CHECK (state IN
+                    ('active', 'reloading', 'inactive', 'failed', 'activating', 'deactivating',
+                     'maintenance', 'refreshing')),
+    unit        TEXT    NOT NULL CHECK (unit IN ('percent', 'celsius', 'load', 'count', 'state')),
+    source      TEXT    NOT NULL CHECK (length(source) BETWEEN 1 AND 32),
+    reason      TEXT    CHECK (length(reason) BETWEEN 1 AND 200),
+    CHECK ((status = 'available') = (reason IS NULL)),
+    CHECK (status = 'available' OR (value IS NULL AND state IS NULL)),
+    CHECK (status <> 'available' OR ((value IS NULL) <> (state IS NULL))),
+    UNIQUE (tick_id, metric, subject)
+) STRICT;
+
+CREATE TRIGGER observation_append_only_update BEFORE UPDATE ON observation
+BEGIN SELECT RAISE(ABORT, 'observations are append-only'); END;
+
+CREATE TRIGGER observation_append_only_delete BEFORE DELETE ON observation
+BEGIN SELECT RAISE(ABORT, 'observations are append-only'); END;
+"""
+
+MIGRATIONS: tuple[Migration, ...] = (
+    Migration(1, "initial life state", _V1_INITIAL),
+    Migration(2, "factual observations", _V2_OBSERVATIONS),
+)
 
 
 def validate_migrations(migrations: Sequence[Migration]) -> None:

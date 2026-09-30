@@ -14,16 +14,17 @@ import threading
 from collections.abc import Callable
 from types import TracebackType
 
-from maplegotchi.core.behavior import BehaviorInputs
+from maplegotchi.core.attention import behavior_inputs
 from maplegotchi.core.heartbeat import TickResult, heartbeat
 from maplegotchi.core.interactions import Accepted, InteractionOutcome, apply_interaction
+from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.timeline import Born
 from maplegotchi.runtime.clock import Clock
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
-from maplegotchi.storage.repositories import LifeRepository, StoredEvent
+from maplegotchi.storage.repositories import LifeRepository, StoredEvent, StoredObservation
 
 DEFAULT_NAME = "Maple"
 
@@ -99,13 +100,29 @@ class LifeRuntime:
         with self._lock:
             return self._repository().birth()
 
+    def observations(self, *, tick_id: int | None = None) -> list[StoredObservation]:
+        with self._lock:
+            return self._repository().observations(tick_id=tick_id)
+
+    def heartbeat_due(self) -> bool:
+        """Whether a heartbeat would run now. Lets callers observe only when it will be used."""
+        state = self._state
+        now = self._clock.now()
+        return now >= state.last_tick_at + self._params.heartbeat_interval and (
+            now >= state.last_updated_at
+        )
+
     # ------------------------------------------------------------ transitions
 
-    def heartbeat_if_due(self, inputs: BehaviorInputs | None = None) -> TickResult | None:
+    def heartbeat_if_due(
+        self, observations: ObservationSnapshot | None = None
+    ) -> TickResult | None:
         """Run one heartbeat at the current time if the interval has elapsed.
 
-        After downtime this is a single heartbeat: core applies bounded
-        catch-up and records the gap, rather than replaying every missed tick.
+        `observations` (taken just before, outside the lock) feed server_attention
+        and are stored with this heartbeat in the same transaction. After
+        downtime this is a single heartbeat: core applies bounded catch-up and
+        records the gap, rather than replaying every missed tick.
         """
         with self._lock:
             repo = self._repository()
@@ -114,12 +131,15 @@ class LifeRuntime:
             due = state.last_tick_at + self._params.heartbeat_interval
             if now < due or now < state.last_updated_at:
                 return None
-            result = heartbeat(state, now, inputs or BehaviorInputs(), self._params)
+            if observations is not None and observations.observed_at > now:
+                raise ValueError("observations cannot come from the future")
+            result = heartbeat(state, now, behavior_inputs(observations), self._params)
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
                 events=result.events,
                 tick_id=result.tick_id,
+                observations=observations.observations if observations else (),
             )
             self._state, self._revision = result.state, revision
             return result

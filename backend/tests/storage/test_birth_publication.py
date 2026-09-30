@@ -20,6 +20,7 @@ from maplegotchi.storage import db as storage_db
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import BIRTH_PREFIX, DB_FILENAME, open_life_database
 from maplegotchi.storage.errors import StorageError
+from maplegotchi.storage.migrations import latest_version
 from tests.persistence_support import BIRTH, SEED, make_data_dir, open_runtime
 
 SIDECARS = ("-journal", "-wal", "-shm")
@@ -57,7 +58,7 @@ def expected_newborn() -> dict[str, Any]:
     born = BIRTH.isoformat()
     return {
         "integrity": [("ok",)],
-        "user_version": 1,
+        "user_version": latest_version(),
         "maple": [(1, "Maple", born, SEED)],
         "life_state": [(1, 0, 0, born)],  # revision 1, tick 0, interaction 0
         "events": [(1, "born", born)],
