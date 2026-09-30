@@ -2,8 +2,8 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phase 0 (Foundations) authorized 2026-09-30. Phase 1+ NOT authorized.**
-> Do not implement Maple feature behavior until the owner approves the next phase.
+> **Status: Phases 0-1 complete (2026-09-30). Phase 2+ NOT authorized.**
+> Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
 > Every FIXED decision has an ADR in `docs/adr/`.
@@ -30,6 +30,8 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D14 | 2026-09-30 | Interaction limits: Greet 60 s cooldown, Pet 30 s cooldown, global 10 interactions / 10 min. Cooldown and rate-limit state is persisted; restart cannot reset it. | 0014 |
 | D15 | 2026-09-30 | Phase 3 includes an explicit **read-only survey** of the real paolo-core runtime before choosing/configuring the final service-health provider. Fake sensors/providers come first so development never depends on paolo-core access. | 0015 |
 | S1 | 2026-09-30 | Security principles in §4.1. | 0016 |
+| D16 | 2026-09-30 | paolo-core local time is **Asia/Bangkok (UTC+07:00, no DST)**; core's production default `utc_offset` is +07:00. The offset stays injectable for tests/simulations; core never reads the system timezone database. | 0017 |
+| D17 | 2026-09-30 | Greet/Pet reactions are **transient**: each has an explicit `until` (v0.1: 8 s after the interaction). Presentation (active reaction, expression) is derived from a supplied `now`, so a reaction ends at `until` without a heartbeat, scheduler, or timer. | 0018 |
 
 ---
 
@@ -98,9 +100,10 @@ Maplegotchi/
 ├── backend/
 │   ├── pyproject.toml  uv.lock
 │   ├── src/maplegotchi/
-│   │   ├── core/          (P0)       # pure domain logic, no I/O
-│   │   │   state.py activities.py behavior.py heartbeat.py interactions.py
-│   │   │   observations.py journal.py timeline.py identity.py rng.py
+│   │   ├── core/          (P1)       # pure domain logic, no I/O
+│   │   │   state.py activities.py behavior.py heartbeat.py interactions.py        (P1)
+│   │   │   timeline.py identity.py rng.py daytime.py parameters.py simulation.py (P1)
+│   │   │   observations.py journal.py                                        (Phase 3/4)
 │   │   ├── brain/         (P0)       # interface.py, rule_brain.py
 │   │   ├── sensors/       (P0)       # interface.py, system.py (psutil), fake.py
 │   │   │   └── service_health/ (P0)  # monitor_db.py (provider #1), systemd_dbus.py (#2), fake.py
@@ -109,7 +112,7 @@ Maplegotchi/
 │   │   ├── api/           (P0)       # app.py, routes_read.py, routes_interact.py, stream.py,
 │   │   │                             #   static.py (serves built frontend), headers.py
 │   │   ├── config.py                 # frozen settings + policy loaded at startup
-│   │   └── cli.py                    # run, migrate, simulate (fake time), check-config
+│   │   └── cli.py                    # simulate (P1, fake time); run, migrate, check-config later
 │   └── tests/
 │       ├── unit/  security/  (P0)
 │       └── (core/ storage/ sensors/ api/ as phases add them)
@@ -165,8 +168,9 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 
 **Interactions** (Greet, Pet) [FIXED limits]:
 - `POST /api/interactions/greet` and `/pet`; closed-enum action, no free-text payload.
-- Processed immediately by `core.interactions.apply(state, action, now, rng)` → updated state, a `Reaction` (kind, text, expires_at), a timeline event.
+- Processed immediately by `core.interactions.apply_interaction(state, kind, now, params)` → updated state, a transient `Reaction` (kind, variant, started_at, until), a timeline event.
 - Reactions depend on real state (e.g. greeting a sleeping Maple yields a sleepy reaction) and are part of the backend snapshot.
+- **Reactions are transient [FIXED, D17]:** active only while `started_at <= now < until` (8 s in v0.1). `state.expression_at(now)` / `state.active_reaction(now)` derive presentation from the supplied time, so the reaction ends without waiting for a heartbeat. The heartbeat only drops ended reactions as housekeeping.
 - **Greet 60 s cooldown, Pet 30 s cooldown, global 10 interactions / 10 min.** Stored in core state and persisted; restart cannot reset them. Rejections return `429` with `retry_after`. [PROPOSED] repeated interactions have diminishing effect.
 
 **Time:** `Clock` is injected. Production uses `SystemClock`; tests and `cli simulate` use `FakeClock` and advance instantly. No test sleeps for a heartbeat.
@@ -210,7 +214,7 @@ Journal entries may cite observations; observations never depend on journal text
 ### 3.9 UI truthfulness
 - The frontend holds no authoritative state; it renders the latest backend snapshot (REST on load, SSE thereafter).
 - Animation/interpolation is allowed; inventing state is not.
-- Interaction buttons show the server-reported cooldown; a reaction appears only once the backend returns one.
+- Interaction buttons show the server-reported cooldown; a reaction appears only once the backend returns one, and the UI stops showing it at the backend-provided `until`.
 - Every snapshot carries `tick_id` and `as_of`. Silent SSE past keep-alive, or no tick for > 2 heartbeat intervals → visible stale/disconnected indicator.
 
 ---
@@ -277,7 +281,9 @@ On paolo-core, `deploy/verify/check_boundaries.py` asserts §4.2, unit hardening
 - **Schema-first data.** SQLite changes only via numbered migrations. Never edit a shipped migration.
 - **Append-only history.** Observations, journal, timeline rows are never updated or deleted by runtime code.
 - **Fail soft.** Failing sensors/providers, malformed Brain output, or missed ticks degrade gracefully and are recorded.
-- **UTC timestamps**, ISO-8601 with timezone; localisation only in the UI.
+- **UTC timestamps**, ISO-8601 with timezone; localisation only in the UI. Core computes day/night from a caller-supplied `utc_offset` (production default +07:00, Asia/Bangkok, [FIXED, D16]); it never reads timezone databases.
+- **Tuning constants are tunable, not architecture.** Need rates, behavior scores, thresholds, and durations may be retuned (with the pinned simulation digest updated deliberately). FIXED values (D14 limits, 300 s heartbeat default, 8 s reaction, activity/expression sets) are not tuning.
+- **Deterministic arithmetic in core.** Only `+ - * /` on floats (no `exp`/`log`/`pow` with float exponents), which IEEE 754 rounds identically everywhere, so replays match across Windows and Linux. Iterate tuples/enums, never sets, when order affects RNG draws.
 - **PixiJS for the room only**; panels and controls are DOM components.
 - **Dev ports [PROPOSED]:** backend on `127.0.0.1:8470`; Vite dev server on `127.0.0.1` (Vite default port 5173) proxies `/api` to `8470` (`frontend/vite.config.ts`). The production port is set in deployment config (Phase 7) and is also localhost-only.
 - **Config** via `MAPLE_CONFIG` and `MAPLE_DATA_DIR`. Dev defaults: `./var/config.toml`, `./var/maple-data/` (git-ignored). Dev profile may use a short heartbeat and fake sensors/providers; production config rejects fake providers. Code runs on Windows (dev) and Linux (prod) — use `pathlib`.
@@ -297,6 +303,7 @@ uv run ruff format --check .
 uv run mypy
 uv run lint-imports
 uv run pytest
+uv run maplegotchi simulate --days 30   # fake-time core simulation, prints JSON report + digest
 
 # frontend (cd frontend)
 pnpm install --frozen-lockfile

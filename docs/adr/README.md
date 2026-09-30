@@ -21,6 +21,8 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0014](0014-interaction-limits.md) | Interaction limits (D14) |
 | [0015](0015-phase3-survey.md) | Phase 3 paolo-core survey (D15) |
 | [0016](0016-security-principles.md) | Security principles (S1) |
+| [0017](0017-timezone.md) | Home timezone Asia/Bangkok, UTC+07:00 (D16) |
+| [0018](0018-transient-reactions.md) | Transient interaction reactions (D17) |
 
 ## Template
 

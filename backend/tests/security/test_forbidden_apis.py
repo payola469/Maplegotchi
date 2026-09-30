@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -102,3 +103,48 @@ def test_core_path_detection() -> None:
     assert is_core_path(Path("src/maplegotchi/core/__init__.py"))
     assert not is_core_path(Path("src/maplegotchi/storage/db.py"))
     assert not is_core_path(Path("src/maplegotchi/brain/core.py"))
+
+
+# Core may import only these (CLAUDE.md §3.3, §5). Anything else needs a review.
+CORE_IMPORT_ALLOWLIST = frozenset(
+    {
+        "__future__",
+        "collections",
+        "dataclasses",
+        "datetime",
+        "enum",
+        "hashlib",
+        "math",
+        "types",
+        "typing",
+        "maplegotchi",
+    }
+)
+
+
+def test_core_modules_are_scanned_with_core_rules() -> None:
+    core_files = sorted((SRC / "maplegotchi" / "core").rglob("*.py"))
+    assert len(core_files) >= 10
+    assert all(is_core_path(p) for p in core_files)
+
+
+def test_core_imports_only_allowlisted_modules() -> None:
+    offenders: list[str] = []
+    for path in sorted((SRC / "maplegotchi" / "core").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules = [node.module]
+            else:
+                continue
+            for module in modules:
+                top = module.split(".", 1)[0]
+                if top not in CORE_IMPORT_ALLOWLIST:
+                    offenders.append(f"{path.name}:{node.lineno}: {module}")
+                elif top == "maplegotchi" and not (
+                    module == "maplegotchi.core" or module.startswith("maplegotchi.core.")
+                ):
+                    offenders.append(f"{path.name}:{node.lineno}: {module}")
+    assert offenders == []

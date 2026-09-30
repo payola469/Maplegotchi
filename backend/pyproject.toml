@@ -10,6 +10,9 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
+[project.scripts]
+maplegotchi = "maplegotchi.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
