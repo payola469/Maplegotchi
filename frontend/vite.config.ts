@@ -18,5 +18,6 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
+    css: true, // guards.test.ts reads the stylesheet as text
   },
 });

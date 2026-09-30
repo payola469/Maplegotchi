@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-5 complete (2026-09-30); milestone M1 reached. Phase 6+ NOT authorized.**
+> **Status: Phases 0-5 complete (2026-09-30); milestone M1 reached. Phase 6 (Maple Room UI) implemented, awaiting review. Phase 7+ NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -128,11 +128,12 @@ Maplegotchi/
 │       └── api/ (P5)
 ├── frontend/
 │   ├── package.json  pnpm-lock.yaml
-│   └── src/
-│       ├── api/           (P0)       # typed client derived from backend OpenAPI
-│       ├── room/          (P0)       # PixiJS only
-│       └── ui/            (P0)       # DOM components
-├── assets/                           # sprites, room art (Phase 6)
+│   ├── public/                       # favicon; assets/room/* replacement art (P6, none yet)
+│   └── src/               (P6, see docs/frontend.md)
+│       ├── api/                      # snapshot/Greet/Pet client, fetch-based SSE, DTO types
+│       ├── state/                    # store (revision rule), live sync, interactions
+│       ├── room/                     # PixiJS only: visual mapping, anchors, motion, scene, art
+│       └── ui/                       # Preact DOM: App, panels, interaction bar
 └── deploy/                           # Phase 7
     ├── systemd/maplegotchi.service
     ├── etc/maplegotchi/              # settings.toml, policy.toml templates (incl. verified unit names)

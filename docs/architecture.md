@@ -13,7 +13,8 @@ built; this file collects longer-form notes as each phase lands.
 | 3. Sensors + observations | Complete (see `sensors.md`) |
 | 4. Journal + reflection + Brain | Complete (see `journal.md`) |
 | 5. API + live state + owner interactions | Complete (see `api.md`) — milestone M1 |
-| 6–8 | Not started |
+| 6. Maple Room UI | Implemented, awaiting review (see `frontend.md`) — milestone M2 |
+| 7–8 | Not started |
 
 ## Core (Phase 1)
 
