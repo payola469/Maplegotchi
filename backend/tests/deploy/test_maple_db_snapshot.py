@@ -84,8 +84,18 @@ def test_not_deployed_is_a_distinct_exit_code(tmp_path: Path) -> None:
     assert not dest.exists()
 
 
-def test_deployed_but_missing_database_fails(tmp_path: Path) -> None:
+def test_missing_database_in_an_existing_directory_is_not_deployed(tmp_path: Path) -> None:
     (tmp_path / "maple").mkdir()
+    dest = tmp_path / "maple.db"
+    code = snapshot.main(
+        ["stage", "--source", str(tmp_path / "maple" / "maple.db"), "--dest", str(dest)]
+    )
+    assert code == snapshot.EXIT_NOT_DEPLOYED
+    assert not dest.exists()
+
+
+def test_a_source_that_exists_but_is_not_a_file_fails(tmp_path: Path) -> None:
+    (tmp_path / "maple" / "maple.db").mkdir(parents=True)
     dest = tmp_path / "maple.db"
     code = snapshot.main(
         ["stage", "--source", str(tmp_path / "maple" / "maple.db"), "--dest", str(dest)]

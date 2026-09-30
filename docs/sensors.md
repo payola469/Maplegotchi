@@ -96,9 +96,11 @@ Stage A survey (`deploy/survey/findings.md`, ADR-0021). No auto-discovery.
 
 qBittorrent and Jellyfin were not found on paolo-core and are not in the map.
 A target with `unobservable` set is reported without asking any provider.
-Such `not_observable:*` gaps are shown as `unknown` but do not make the server
-summary "unclear" (they are a known limit of Maple's senses); every other
-unknown (stale data, bus errors, missing units) still does.
+Such `not_observable:*` gaps are shown as `unknown` but do not stop the server
+summary from being calm (they are a known limit of Maple's senses; owner-approved
+rule, ADR-0021). Every other gap still counts: stale collector data, D-Bus
+errors, missing units or required observations make it "unclear", and a failed
+service makes it troubled.
 
 | Provider | Behavior |
 |---|---|

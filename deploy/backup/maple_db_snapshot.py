@@ -18,9 +18,10 @@ Never copies the live file byte-wise (it is in WAL mode and changes under us).
 
 Exit codes (the backup script decides what each means for the run):
   0  staged and verified
-  3  Maple is not deployed on this host (the source *directory* is absent): skip
-  1  anything else — including a deployed Maple whose database is missing,
-     unreadable, or fails verification. Nothing is left at <dest>.
+  3  Maple is not deployed on this host (the source database does not exist):
+     nothing staged; the backup script skips Maple on purpose
+  1  anything else: the database exists but cannot be opened, copied, or
+     verified. Nothing is left at <dest>; the backup job must fail.
 """
 
 from __future__ import annotations
@@ -96,7 +97,7 @@ def stage(source: Path, dest: Path) -> dict[str, object]:
     if dest.exists() or dest.is_symlink():
         raise SnapshotError(f"{dest} already exists")
     if not source.is_file():
-        raise SnapshotError(f"{source} is missing (Maple is deployed: this is a failure)")
+        raise SnapshotError(f"{source} is not a regular file")
 
     partial = dest.with_name(dest.name + ".partial")
     # Created empty and private first (an empty file is a valid empty database).
@@ -161,8 +162,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "stage":
             source: Path = args.source
-            if not source.parent.is_dir():
-                print(f"maple-db-snapshot: {source.parent} absent; Maple is not deployed, skipping")
+            if not source.exists() and not source.is_symlink():
+                print(f"maple-db-snapshot: {source} absent; Maple is not deployed, skipping")
                 return EXIT_NOT_DEPLOYED
             _print("staged", stage(source, args.dest))
         else:

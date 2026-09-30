@@ -13,7 +13,6 @@ SHA-256 printed by the build; `<tailnet>` = paolo-core's MagicDNS suffix.
 ## 0. Before anything (owner, read-only)
 
 ```bash
-cat /usr/local/sbin/paolo-core-backup          # share it: the backup patch is finalized against it
 systemctl --version | head -1                  # expect systemd ≥ 254 (Ubuntu 26.04 ships newer)
 tailscale version
 tailscale status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"])'
@@ -111,8 +110,9 @@ Greet/Pet once. Details: `deploy/tailscale/serve.md`.
 
 ## 9. Backup integration
 
-Follow `deploy/backup/README.md` (install helper, apply the exact diff prepared
-from step 0, run one backup, verify the restic snapshot and a restore).
+Follow `deploy/backup/README.md`: install the helper, keep the `.pre-maple` copy,
+apply the two exact insertions, run `check_patch.sh` (must print `check_patch: OK`),
+run one backup, verify the restic snapshot and a restore.
 
 ---
 

@@ -148,6 +148,54 @@ def test_by_design_gaps_do_not_make_the_picture_unclear() -> None:
     assert server_summary(INITIAL_REFLECTION, unsure)[0] is ServerSummary.UNCLEAR
 
 
+@pytest.mark.parametrize(
+    "real_gap",
+    [
+        ("service_state", "maplegotchi", "monitor_db:not_recorded;systemd_dbus:dbus_timeout"),
+        ("service_state", "backup", "monitor_db:not_recorded;systemd_dbus:permission_denied"),
+        (
+            "service_state",
+            "metrics_collector",
+            "monitor_db:stale_data;systemd_dbus:unit_not_loaded",
+        ),
+        ("memory_usage", "memory", "provider_error:oserror"),
+        ("disk_usage", "/", "not_supported_on_platform"),
+    ],
+)
+def test_approved_rule_only_by_design_gaps_are_excused(real_gap: tuple[str, str, str]) -> None:
+    """ADR-0021 (APPROVED): not_observable gaps never block calm; real gaps always count."""
+    t = at_local(21)
+    metric, subject, reason = real_gap
+    by_design = [
+        not_measured(Metric.SERVICE_STATE, name, ObservationStatus.UNKNOWN,
+                     f"not_observable:{why}", observed_at=t, source="service_health")
+        for name, why in (("grafana", "docker_container"), ("lycan_watch", "no_systemd_unit"))
+    ]  # fmt: skip
+    cpu = measured(Metric.CPU_USAGE, "cpu", 10, observed_at=t, source="fake")
+    healthy = snap(t, cpu, svc("backup", ServiceState.ACTIVE, t), *by_design)
+    assert server_summary(INITIAL_REFLECTION, healthy)[0] is ServerSummary.CALM
+    gap = not_measured(
+        Metric(metric), subject, ObservationStatus.UNKNOWN, reason, observed_at=t, source="x"
+    )
+    others = [svc("backup", ServiceState.ACTIVE, t)] if subject != "backup" else []
+    assert server_summary(INITIAL_REFLECTION, snap(t, cpu, *others, *by_design, gap))[0] is (
+        ServerSummary.UNCLEAR
+    )
+
+
+def test_a_failed_required_service_still_troubles_the_summary() -> None:
+    t = at_local(21)
+    docker = not_measured(
+        Metric.SERVICE_STATE, "grafana", ObservationStatus.UNKNOWN,
+        "not_observable:docker_container", observed_at=t, source="service_health",
+    )  # fmt: skip
+    failed = snap(t, svc("backup", ServiceState.FAILED, t), docker)
+    alerts, problems, _ = evaluate_conditions((), failed)
+    assert [p.topic for p in problems] == ["service:backup"]
+    troubled = replace(INITIAL_REFLECTION, active_alerts=alerts)
+    assert server_summary(troubled, failed)[0] is ServerSummary.STILL_TROUBLED
+
+
 def test_server_summary_is_honest() -> None:
     t = at_local(21)
     calm = snap(

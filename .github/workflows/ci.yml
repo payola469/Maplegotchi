@@ -41,7 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh
+      - run: shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh deploy/backup/*.sh
+      - run: shellcheck -s bash -e SC2034 deploy/backup/maple-block.bash  # sourced text; its variable is used by the host script
       - run: shellcheck scripts/*.sh
 
   frontend:

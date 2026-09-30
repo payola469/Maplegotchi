@@ -2,8 +2,9 @@
 
 - **Status:** Accepted — FIXED (CLAUDE.md D20). Refines ADR-0011/ADR-0012 for this deployment.
 - **Date:** 2026-09-30
-- **Decided by:** owner (Stage B locked decisions 5 and 7). The freshness window and
-  the "by-design unknown" rule are implementation details (PROPOSED).
+- **Decided by:** owner (Stage B locked decisions 5 and 7; the "by-design unknown"
+  summary rule APPROVED in the Stage B review). The 660 s freshness window is a
+  tunable implementation detail.
 
 ## Context
 D11 assumed the existing monitoring database would supply service health. Stage A
@@ -25,9 +26,11 @@ runs in Docker, and Lycan Watch has no systemd unit.
   `metrics_collector` active). It is asked first; when stale or unreadable, D-Bus
   answers. The legacy flags are never read. psutil remains the host-metric source.
 - `monitor-v2` is not Maple's collector.
-- Observations whose reason starts with `not_observable:` are shown as unknown but do
-  not make Maple's server summary "unclear": they are a known limit of her senses,
-  not a doubt about the present.
+- Observations whose reason starts with `not_observable:` (v0.1: Grafana, Lycan Watch)
+  are shown as unknown but do not stop the server summary from being calm: they are
+  a known limit of her senses, not a doubt about the present. Real failures, stale
+  required data, D-Bus errors, missing required observations, and failed required
+  services still make the summary unclear or troubled (APPROVED).
 
 ## Consequences
 - No Docker socket, no new monitoring stack, no auto-discovery.

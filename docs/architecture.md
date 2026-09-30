@@ -13,7 +13,7 @@ built; this file collects longer-form notes as each phase lands.
 | 3. Sensors + observations | Complete (see `sensors.md`) |
 | 4. Journal + reflection + Brain | Complete (see `journal.md`) |
 | 5. API + live state + owner interactions | Complete (see `api.md`) — milestone M1 |
-| 6. Maple Room UI | Implemented, awaiting review (see `frontend.md`) — milestone M2 |
+| 6. Maple Room UI | Complete, approved (see `frontend.md`) — milestone M2 |
 | 7. paolo-core deploy | Stage A (read-only survey) complete — `deploy/survey/findings.md`; Stage B (local preparation) complete, awaiting review — `deployment.md`; Stage C (owner-run install) not started |
 | 8. Trial run | Not started |
 

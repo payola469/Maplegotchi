@@ -20,7 +20,7 @@ step "backend: import contracts";   "$UV" run lint-imports
 step "backend: pytest";             "$UV" run pytest
 
 cd "$ROOT"
-step "deploy + scripts: shellcheck"; "$UV" tool run --from shellcheck-py shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh && "$UV" tool run --from shellcheck-py shellcheck scripts/*.sh
+step "deploy + scripts: shellcheck"; "$UV" tool run --from shellcheck-py shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh deploy/backup/*.sh && "$UV" tool run --from shellcheck-py shellcheck -s bash -e SC2034 deploy/backup/maple-block.bash && "$UV" tool run --from shellcheck-py shellcheck scripts/*.sh
 
 cd "$ROOT/frontend"
 step "frontend: install";   "$PNPM" install --frozen-lockfile
