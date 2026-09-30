@@ -12,7 +12,8 @@ built; this file collects longer-form notes as each phase lands.
 | 2. Persistence + restart recovery | Complete (see `persistence.md`) |
 | 3. Sensors + observations | Complete (see `sensors.md`) |
 | 4. Journal + reflection + Brain | Complete (see `journal.md`) |
-| 5–8 | Not started |
+| 5. API + live state + owner interactions | Complete (see `api.md`) — milestone M1 |
+| 6–8 | Not started |
 
 ## Core (Phase 1)
 

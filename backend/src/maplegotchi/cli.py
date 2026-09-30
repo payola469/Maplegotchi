@@ -70,6 +70,38 @@ def _simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run(args: argparse.Namespace) -> int:
+    import os
+
+    import uvicorn
+
+    from maplegotchi.api.app import create_app
+    from maplegotchi.config import SettingsError, settings_from_env
+    from maplegotchi.runtime.service import MapleService
+
+    environ = dict(os.environ)
+    overrides = {
+        "MAPLE_DATA_DIR": args.data_dir,
+        "MAPLE_PORT": args.port,
+        "MAPLE_SENSES": args.senses,
+        "MAPLE_STATIC_DIR": args.static_dir,
+        "MAPLE_HEARTBEAT_SECONDS": args.heartbeat_seconds,
+    }
+    environ.update({k: str(v) for k, v in overrides.items() if v is not None})
+    try:
+        settings = settings_from_env(environ)
+    except (SettingsError, ValueError) as exc:
+        print(f"invalid settings: {exc}", file=sys.stderr)
+        return 2
+    service = MapleService.open(settings)
+    try:
+        app = create_app(service, settings)
+        uvicorn.run(app, host=settings.host, port=settings.port, server_header=False)
+    finally:
+        service.close()
+    return 0
+
+
 def _demo_day(args: argparse.Namespace) -> int:
     from maplegotchi.runtime.demo import format_report, run_demo_day
     from maplegotchi.storage.datadir import DataDir
@@ -92,6 +124,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     sim.add_argument("--interval", type=int, default=300, help="heartbeat seconds")
     sim.add_argument("--no-owner", action="store_true", help="no Greet/Pet interactions")
     sim.set_defaults(handler=_simulate)
+    run = sub.add_parser("run", help="run Maple's life loop and the local API (localhost only)")
+    run.add_argument("--data-dir", type=Path, help="overrides MAPLE_DATA_DIR (must exist)")
+    run.add_argument("--port", type=int, help="overrides MAPLE_PORT (default 8470)")
+    run.add_argument("--senses", choices=["paolo_core", "fake"], help="overrides MAPLE_SENSES")
+    run.add_argument(
+        "--static-dir", type=Path, help="built frontend to serve; overrides MAPLE_STATIC_DIR"
+    )
+    run.add_argument("--heartbeat-seconds", type=int, help="overrides MAPLE_HEARTBEAT_SECONDS")
+    run.set_defaults(handler=_run)
     demo = sub.add_parser(
         "demo-day", help="simulate one deterministic day with fake senses (writes to --data-dir)"
     )

@@ -161,13 +161,24 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "api does not read sensors directly"
+name = "api talks only to runtime and core: no direct sensors/storage internals/brain"
 type = "forbidden"
 source_modules = ["maplegotchi.api"]
-forbidden_modules = ["maplegotchi.sensors", "maplegotchi.cli"]
+forbidden_modules = [
+  "maplegotchi.sensors",
+  "maplegotchi.storage.db",
+  "maplegotchi.storage.migrations",
+  "maplegotchi.storage.datadir",
+  "maplegotchi.storage.external",
+  "maplegotchi.brain",
+  "maplegotchi.cli",
+]
+# api reaches these only through runtime (which wires them); direct imports are banned.
+allow_indirect_imports = true
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "import-linter>=2.15",
     "mypy>=2.3.1",
     "pytest>=9.1.1",

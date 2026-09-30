@@ -69,6 +69,17 @@ def transaction(conn: sqlite3.Connection) -> Iterator[None]:
         raise
 
 
+@contextmanager
+def read_transaction(conn: sqlite3.Connection) -> Iterator[None]:
+    """One consistent read snapshot: every SELECT inside sees the same committed state."""
+    conn.execute("BEGIN")
+    try:
+        yield
+    finally:
+        if conn.in_transaction:
+            conn.execute("COMMIT")  # read-only: nothing to commit, just ends the snapshot
+
+
 def _ts(value: datetime) -> str:
     require_utc(value)
     return value.isoformat()
@@ -100,6 +111,17 @@ class StoredJournalEntry:
     revision: int
     entry: JournalEntry
     observation_ids: tuple[int, ...]  # the facts it interprets, in reference order
+
+
+@dataclass(frozen=True, slots=True)
+class PersistedView:
+    """Everything a snapshot needs, read from one committed database state."""
+
+    life: StoredLife
+    reflection: ReflectionState
+    observations: tuple[StoredObservation, ...]  # the latest observed heartbeat's
+    journal: tuple[StoredJournalEntry, ...]  # most recent, oldest first
+    timeline: tuple[StoredEvent, ...]  # most recent, oldest first
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,12 +405,40 @@ class LifeRepository:
             [(cursor.lastrowid, oid, i) for i, oid in enumerate(observation_ids)],
         )
 
-    def journal(self) -> list[StoredJournalEntry]:
-        rows = self._conn.execute(
+    def read_view(self, *, recent: int) -> PersistedView:
+        """State, reflection, latest observations, journal and timeline in ONE read transaction.
+
+        With WAL, a read transaction sees a single committed snapshot of the
+        database, so no part of the view can be from a later transition than
+        another part.
+        """
+        with read_transaction(self._conn):
+            life = self.load()
+            reflection = self.reflection_state()
+            tick = self.latest_observation_tick()
+            observations = () if tick is None else tuple(self.observations(tick_id=tick))
+            journal = tuple(self.journal(limit=recent))
+            timeline = tuple(self.events(limit=recent))
+        return PersistedView(life, reflection, observations, journal, timeline)
+
+    def journal(
+        self, *, limit: int | None = None, revision: int | None = None
+    ) -> list[StoredJournalEntry]:
+        """Entries oldest first: all, only the most recent `limit`, or one revision's."""
+        sql = (
             "SELECT id, revision, tick_id, created_at, category, trigger_kind, topic, text,"
             " importance, brain_kind, brain_name, brain_version, template_id, activity,"
-            " expression FROM journal_entry ORDER BY id"
-        ).fetchall()
+            " expression FROM journal_entry"
+        )
+        if revision is not None:
+            rows = self._conn.execute(
+                sql + " WHERE revision = ? ORDER BY id", (revision,)
+            ).fetchall()
+        elif limit is None:
+            rows = self._conn.execute(sql + " ORDER BY id").fetchall()
+        else:
+            rows = self._conn.execute(sql + " ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            rows.reverse()
         stored = []
         try:
             for (row_id, rev, tick, created, category, trigger, topic, text, importance,
@@ -537,10 +587,22 @@ class LifeRepository:
                 (MAPLE_ID, revision, tick_id, kind, at, payload),
             )
 
-    def events(self) -> list[StoredEvent]:
-        rows = self._conn.execute(
-            "SELECT id, revision, tick_id, kind, at, payload FROM timeline_event ORDER BY id"
-        ).fetchall()
+    def latest_observation_tick(self) -> int | None:
+        row = self._conn.execute("SELECT max(tick_id) FROM observation").fetchone()
+        return int(row[0]) if row and row[0] is not None else None
+
+    def events(self, *, limit: int | None = None, revision: int | None = None) -> list[StoredEvent]:
+        """Timeline oldest first: all, only the most recent `limit`, or one revision's."""
+        sql = "SELECT id, revision, tick_id, kind, at, payload FROM timeline_event"
+        if revision is not None:
+            rows = self._conn.execute(
+                sql + " WHERE revision = ? ORDER BY id", (revision,)
+            ).fetchall()
+        elif limit is None:
+            rows = self._conn.execute(sql + " ORDER BY id").fetchall()
+        else:
+            rows = self._conn.execute(sql + " ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            rows.reverse()
         try:
             return [
                 StoredEvent(id=i, revision=rev, tick_id=tick, event=decode_event(kind, at, p))

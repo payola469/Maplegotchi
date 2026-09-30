@@ -4,7 +4,7 @@
 evidence behind it as phases land (test names, systemd unit review, the
 Phase 3 paolo-core survey, and `check_boundaries.py` output).
 
-## Enforced today (Phases 0–4)
+## Enforced today (Phases 0–5)
 
 | Control | Where |
 |---|---|
@@ -28,6 +28,12 @@ Phase 3 paolo-core survey, and `check_boundaries.py` output).
 | Only the built-in RuleBrain can run (exact class); external/impostor Brains refused before storage opens | `runtime/life.py: require_rule_brain`, `tests/runtime/test_journal_runtime.py` |
 | `brain` package is pure like core (no I/O, clock, randomness, network; import allowlist) | AST scanner, `test_core_imports_only_allowlisted_modules` |
 | Journal grounded: references come from core triggers; no unreferenced service names; RuleBrain output digit-free (template policy); entries append-only; Brain failure never marks a trigger as journaled | `core/journal.py: accept_drafts`, migration 3 CHECKs/triggers, `tests/core/test_journal.py` |
+| API surface is exactly the approved routes; only Greet/Pet mutate | `tests/api/test_api_security.py::test_route_table_is_exactly_the_approved_surface` |
+| Loopback-only bind; exact allowed origins (no wildcards); production requires origins and hides docs | `config.py`, `tests/api/test_api_security.py` |
+| No CORS; Greet/Pet require a trusted Origin (403 otherwise, no side effects); bodies ≤ 1 KiB; security headers; no Server header | `api/security.py`, `tests/api/test_api_interactions.py`, `tests/api/test_api_security.py` |
+| Snapshots read from one committed DB view (single read transaction); SSE publishes only committed transitions, after commit, outside the lock | `storage/repositories.py: read_view`, `runtime/service.py`, `tests/api/test_consistency.py` |
+| SSE is read-only, bounded, and never blocks the writer | `runtime/events.py`, `api/stream.py`, `tests/api/test_sse.py` |
+| Static frontend never shadows `/api`; traversal refused | `api/static.py`, `tests/api/test_api_security.py` |
 | Observations append-only; stored atomically with their heartbeat | migration 2 triggers, `tests/runtime/test_observations_runtime.py` |
 | Banned APIs flagged while editing | ruff `TID251` + `S` rules (`backend/pyproject.toml`) |
 | Layer dependency rules (CLAUDE.md §3.3) | import-linter contracts (`backend/pyproject.toml`) |

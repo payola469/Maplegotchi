@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-4 complete (2026-09-30). Phase 5+ NOT authorized.**
+> **Status: Phases 0-5 complete (2026-09-30); milestone M1 reached. Phase 6+ NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -115,15 +115,17 @@ Maplegotchi/
 │   │   │   └── external/  (P3)       # interface.py (no sqlite3), sqlite_metrics.py (read-only),
 │   │   │                             #   fake.py — for /data/monitor/metrics.db (D18); never writes
 │   │   ├── runtime/       (P2-P4)    # clock.py, life.py (single writer), senses.py (wiring),
-│   │   │                             #   demo.py (deterministic demo day);
+│   │   │                             #   demo.py (deterministic demo day), service.py (P5,
+│   │   │                             #   application layer), events.py (P5, SSE hub);
 │   │   │                             #   scheduler loop with `run` later
-│   │   ├── api/           (P0)       # app.py, routes_read.py, routes_interact.py, stream.py,
-│   │   │                             #   static.py (serves built frontend), headers.py
-│   │   ├── config.py                 # frozen settings + policy loaded at startup
-│   │   └── cli.py                    # simulate (P1), demo-day (P4); run, migrate, check-config later
+│   │   ├── api/           (P5)       # app.py (routes), models.py (DTOs), views.py (mapping),
+│   │   │                             #   stream.py (SSE), security.py (headers/body/Origin),
+│   │   │                             #   static.py (serves built frontend)
+│   │   ├── config.py      (P5)       # frozen settings from MAPLE_* env (loopback-only bind)
+│   │   └── cli.py                    # simulate (P1), demo-day (P4), run (P5)
 │   └── tests/
 │       ├── unit/  security/  core/  storage/  runtime/  sensors/
-│       └── (api/ as phases add it)
+│       └── api/ (P5)
 ├── frontend/
 │   ├── package.json  pnpm-lock.yaml
 │   └── src/
@@ -177,7 +179,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 **Missed ticks:** the gap is recorded on the timeline; catch-up is bounded (capped decay, no mass replay). Maple is never "killed" by downtime.
 
 **Interactions** (Greet, Pet) [FIXED limits]:
-- `POST /api/interactions/greet` and `/pet`; closed-enum action, no free-text payload.
+- `POST /api/interactions/greet` and `/pet`; closed-enum action, no free-text payload; trusted `Origin` required; 200 accepted / 429 rejected with `Retry-After` (`docs/api.md`).
 - Processed immediately by `core.interactions.apply_interaction(state, kind, now, params)` → updated state, a transient `Reaction` (kind, variant, started_at, until), a timeline event.
 - Reactions depend on real state (e.g. greeting a sleeping Maple yields a sleepy reaction) and are part of the backend snapshot.
 - **Reactions are transient [FIXED, D17]:** active only while `started_at <= now < until` (8 s in v0.1). `state.expression_at(now)` / `state.active_reaction(now)` derive presentation from the supplied time, so the reaction ends without waiting for a heartbeat. The heartbeat only drops ended reactions as housekeeping.
@@ -280,7 +282,7 @@ How `maple` gets read access to `metrics.db` (group membership, ACL) and whether
 - No secrets in the repo; v0.1 needs none.
 
 ### 4.5 Network exposure
-- uvicorn binds `127.0.0.1:<port>` only and serves both `/api/*` and the built frontend (same origin).
+- uvicorn binds `127.0.0.1:<port>` only (non-loopback binds are a settings error) and serves both `/api/*` and the built frontend (same origin). There is no CORS middleware; mutations require an allowlisted `Origin`.
 - `tailscale serve` publishes that port to the tailnet over HTTPS. **Funnel is never enabled.** No public-interface listeners.
 - The tailnet is the v0.1 trust boundary. Caddy may be added later without changing app code (same routes, headers movable).
 
@@ -331,6 +333,7 @@ uv run lint-imports
 uv run pytest
 uv run maplegotchi simulate --days 30   # fake-time core simulation, prints JSON report + digest
 uv run maplegotchi demo-day --data-dir <empty dir>   # deterministic day: timeline / observations / journal
+uv run maplegotchi run --data-dir <dir> [--senses fake] [--static-dir ../frontend/dist]   # M1: local API on 127.0.0.1:8470
 
 # on paolo-core only, read-only (see deploy/survey/README.md)
 python3 deploy/survey/survey_paolo_core.py > survey.json

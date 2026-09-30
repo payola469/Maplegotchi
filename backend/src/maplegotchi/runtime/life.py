@@ -17,6 +17,7 @@ from __future__ import annotations
 import secrets
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from types import TracebackType
 
@@ -50,6 +51,7 @@ from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
 from maplegotchi.storage.repositories import (
     LifeRepository,
+    PersistedView,
     StoredEvent,
     StoredJournalEntry,
     StoredObservation,
@@ -69,6 +71,24 @@ def _written(entries: tuple[JournalEntry, ...]) -> set[tuple[TriggerKind, str]]:
 
 class RuntimeClosedError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class CommittedTick:
+    """A heartbeat exactly as committed: its result, revision, and journal entries."""
+
+    result: TickResult
+    revision: int
+    journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class CommittedInteraction:
+    """An interaction attempt. `revision` is its own commit if accepted, else unchanged."""
+
+    outcome: InteractionOutcome
+    revision: int
+    journal: tuple[JournalEntry, ...]
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -147,9 +167,14 @@ class LifeRuntime:
     def revision(self) -> int:
         return self._revision
 
-    def timeline(self) -> list[StoredEvent]:
+    def current(self) -> tuple[MapleState, int]:
+        """State and revision read together, consistent with each other."""
         with self._lock:
-            return self._repository().events()
+            return self._state, self._revision
+
+    def timeline(self, *, limit: int | None = None) -> list[StoredEvent]:
+        with self._lock:
+            return self._repository().events(limit=limit)
 
     def birth_record(self) -> Born:
         with self._lock:
@@ -159,13 +184,36 @@ class LifeRuntime:
         with self._lock:
             return self._repository().observations(tick_id=tick_id)
 
-    def journal(self) -> list[StoredJournalEntry]:
+    def journal(self, *, limit: int | None = None) -> list[StoredJournalEntry]:
         with self._lock:
-            return self._repository().journal()
+            return self._repository().journal(limit=limit)
+
+    def latest_observations(self) -> list[StoredObservation]:
+        """The observations stored with the most recent observed heartbeat."""
+        with self._lock:
+            repo = self._repository()
+            tick = repo.latest_observation_tick()
+            return [] if tick is None else repo.observations(tick_id=tick)
+
+    def read_view(self, *, recent: int) -> PersistedView:
+        """One coherent committed view (single read transaction; no commit can interleave)."""
+        with self._lock:
+            return self._repository().read_view(recent=recent)
+
+    def written_at(self, revision: int) -> tuple[list[StoredEvent], list[StoredJournalEntry]]:
+        """Timeline events and journal entries committed by exactly this revision."""
+        with self._lock:
+            repo = self._repository()
+            return repo.events(revision=revision), repo.journal(revision=revision)
 
     @property
     def reflection_state(self) -> ReflectionState:
         return self._reflection
+
+    @property
+    def brain(self) -> Brain:
+        """The Brain that writes this life's journal (always the built-in RuleBrain in v0.1)."""
+        return self._brain
 
     def heartbeat_due(self) -> bool:
         """Whether a heartbeat would run now. Lets callers observe only when it will be used."""
@@ -180,6 +228,12 @@ class LifeRuntime:
     def heartbeat_if_due(
         self, observations: ObservationSnapshot | None = None
     ) -> TickResult | None:
+        committed = self.heartbeat_committed(observations)
+        return committed.result if committed is not None else None
+
+    def heartbeat_committed(
+        self, observations: ObservationSnapshot | None = None
+    ) -> CommittedTick | None:
         """Run one heartbeat at the current time if the interval has elapsed.
 
         `observations` (taken just before, outside the lock) feed server_attention
@@ -220,10 +274,13 @@ class LifeRuntime:
                 reflection=reflection,
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
-            return result
+            return CommittedTick(result, revision, entries)
 
     def interact(self, kind: InteractionKind) -> InteractionOutcome:
         """Apply Greet or Pet now. Rejections change nothing and are not persisted."""
+        return self.interact_committed(kind).outcome
+
+    def interact_committed(self, kind: InteractionKind) -> CommittedInteraction:
         with self._lock:
             repo = self._repository()
             # If the wall clock stepped backwards, act at the latest known time
@@ -248,7 +305,8 @@ class LifeRuntime:
                     reflection=reflection,
                 )
                 self._state, self._revision, self._reflection = outcome.state, revision, reflection
-            return outcome
+                return CommittedInteraction(outcome, revision, entries)
+            return CommittedInteraction(outcome, self._revision, ())
 
     def _write_journal(
         self,
