@@ -1,4 +1,4 @@
-"""Life events produced by core transitions. Persisting them is Phase 2+."""
+"""Life events produced by core transitions. Storage persists them append-only."""
 
 from __future__ import annotations
 
@@ -7,6 +7,14 @@ from datetime import datetime
 
 from maplegotchi.core.activities import Activity
 from maplegotchi.core.state import InteractionKind, ReactionKind
+
+
+@dataclass(frozen=True, slots=True)
+class Born:
+    """Maple's life began. Recorded exactly once per life."""
+
+    at: datetime
+    name: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,4 +39,4 @@ class DowntimeGap:
     until: datetime
 
 
-LifeEvent = ActivityChanged | InteractionAccepted | DowntimeGap
+LifeEvent = Born | ActivityChanged | InteractionAccepted | DowntimeGap

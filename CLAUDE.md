@@ -2,7 +2,7 @@
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
-> **Status: Phases 0-1 complete (2026-09-30). Phase 2+ NOT authorized.**
+> **Status: Phases 0-2 complete (2026-09-30). Phase 3+ NOT authorized.**
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -32,6 +32,7 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | S1 | 2026-09-30 | Security principles in §4.1. | 0016 |
 | D16 | 2026-09-30 | paolo-core local time is **Asia/Bangkok (UTC+07:00, no DST)**; core's production default `utc_offset` is +07:00. The offset stays injectable for tests/simulations; core never reads the system timezone database. | 0017 |
 | D17 | 2026-09-30 | Greet/Pet reactions are **transient**: each has an explicit `until` (v0.1: 8 s after the interaction). Presentation (active reaction, expression) is derived from a supplied `now`, so a reaction ends at `until` without a heartbeat, scheduler, or timer. | 0018 |
+| D18 | 2026-09-30 | `sqlite3` stays inside the storage/data-access boundary. The external `/data/monitor/metrics.db` is read through a narrowly scoped **read-only external datasource** in `maplegotchi.storage.external` (read-only connection; SELECT-only API; no write, schema, or Maple-repository methods), fully separate from Maple's writable database. Service-health sensors depend on that datasource's read API and never import `sqlite3`. No sqlite3 exception for `sensors`. | 0019 |
 
 ---
 
@@ -106,16 +107,19 @@ Maplegotchi/
 │   │   │   observations.py journal.py                                        (Phase 3/4)
 │   │   ├── brain/         (P0)       # interface.py, rule_brain.py
 │   │   ├── sensors/       (P0)       # interface.py, system.py (psutil), fake.py
-│   │   │   └── service_health/ (P0)  # monitor_db.py (provider #1), systemd_dbus.py (#2), fake.py
-│   │   ├── storage/       (P0)       # datadir.py (write jail), db.py, migrations/, repositories.py
-│   │   ├── runtime/       (P0)       # clock.py, life.py (single writer), scheduler.py
+│   │   │   └── service_health/ (P0)  # monitoring provider (#1, via storage.external), systemd_dbus.py (#2), fake.py
+│   │   ├── storage/       (P2)       # datadir.py (write jail), db.py (open/birth), migrations.py,
+│   │   │   │                         #   repositories.py, errors.py  — Maple's own writable DB
+│   │   │   └── external/  (Phase 3)  # monitor_metrics.py: read-only datasource for
+│   │   │                             #   /data/monitor/metrics.db (D18); never writes
+│   │   ├── runtime/       (P2)       # clock.py, life.py (single writer); scheduler loop with `run` later
 │   │   ├── api/           (P0)       # app.py, routes_read.py, routes_interact.py, stream.py,
 │   │   │                             #   static.py (serves built frontend), headers.py
 │   │   ├── config.py                 # frozen settings + policy loaded at startup
 │   │   └── cli.py                    # simulate (P1, fake time); run, migrate, check-config later
 │   └── tests/
-│       ├── unit/  security/  (P0)
-│       └── (core/ storage/ sensors/ api/ as phases add them)
+│       ├── unit/  security/  core/  storage/  runtime/
+│       └── (sensors/ api/ as phases add them)
 ├── frontend/
 │   ├── package.json  pnpm-lock.yaml
 │   └── src/
@@ -142,14 +146,16 @@ Maplegotchi/
           │                                                                     │
   sensors (read-only) ──readings──►  core (pure)  ◄── brain interface ── RuleBrain
   + service_health providers           │
-    (/data/monitor/metrics.db RO,      ▼
-     systemd D-Bus RO)             storage ──► MAPLE_DATA_DIR (/data/maple)
+     │  └─ systemd D-Bus (RO)          ▼
+     ▼                             storage ──► MAPLE_DATA_DIR (/data/maple)   (Maple-owned, writable)
+  storage.external (RO datasource) ──► /data/monitor/metrics.db               (external, read-only)
 ```
 
 Dependency rules (enforced by import-linter + AST tests in CI):
 - `core` imports nothing from `sensors`, `storage`, `api`, `runtime`, `config`, `cli`, and no I/O / clock / randomness modules. Time and RNG are injected.
 - `core` depends on the `brain` **interface** only; `brain` implementations depend on `core` models only.
-- `sensors` only read; they never import `storage`, `api`, `runtime`, or `brain`.
+- `sensors` only read; they never import `api`, `runtime`, `brain`, or Maple's writable storage. From Phase 3 they may import **only** `maplegotchi.storage.external` (D18); the import-linter contract is narrowed accordingly then.
+- `maplegotchi.storage.external` never imports Maple's writable storage modules (`db`, `repositories`, `migrations`, `datadir`) and vice versa (import-linter contract, Phase 3).
 - `storage` is the only module that opens files for writing, and only inside `MAPLE_DATA_DIR`.
 - `api` never mutates state directly; interactions are submitted to `runtime/life`. `api` does not import `sensors`.
 - `runtime` is the only place concrete implementations (clock, sensors, providers, brain) are chosen.
@@ -181,11 +187,11 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - `service_id` is a stable logical name (e.g. `grafana`); the mapping to verified systemd unit names and to monitoring-DB identifiers lives in root-owned deployment config, filled in after the Phase 3 survey.
 - **Intended services** (D12): maplegotchi, metrics collector, grafana, lycan-watch/updates, qbittorrent, jellyfin, backup/integrity timers or services. No auto-discovery.
 - **Provider order** (per service, no shell fallback):
-  1. **`monitor_db`** — reads the existing `/data/monitor/metrics.db` **read-only** (SQLite URI `mode=ro`, fixed parameterized SELECTs, no ATTACH/PRAGMA writes, short busy timeout, staleness check against the collector's ~5 min cadence). Schema is **not** assumed; queries are written only after the Phase 3 survey documents it.
-  2. **`systemd_dbus`** — only for services/fields `monitor_db` cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get/GetAll` on `org.freedesktop.systemd1.Unit` for allowlisted units. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
+  1. **Existing monitoring** — the sensor reads through the **read-only external datasource** `maplegotchi.storage.external.monitor_metrics` (D18, ADR-0019), which alone touches `/data/monitor/metrics.db`: SQLite URI `mode=ro` (plus `PRAGMA query_only = ON`), fixed parameterized SELECTs only, no INSERT/UPDATE/DELETE/DDL/ATTACH or write-capable method, short busy timeout, staleness check against the collector's ~5 min cadence. It does not reuse Maple's `LifeRepository` or `DataDir`. Schema is **not** assumed; queries are written only after the Phase 3 survey documents it.
+  2. **`systemd_dbus`** — only for services/fields existing monitoring cannot supply. Uses only `org.freedesktop.systemd1.Manager.GetUnit` and `org.freedesktop.DBus.Properties.Get/GetAll` on `org.freedesktop.systemd1.Unit` for allowlisted units. No `LoadUnit`, `Start*`, `Stop*`, `Restart*`, `Reload*`, `Kill*`, `Enable*`, `Set*`, or anything else. A test asserts no other method name can be sent.
   3. **`fake`** — dev/tests only; production config refuses it. Built first (D15).
 - Missing/stale/unreadable data → `unknown`, visible in the UI. Never inferred.
-- Host metrics (CPU, memory, disk, load, uptime, network, temps) may likewise come from `monitor_db` where practical, with `psutil` as the local read-only source otherwise. Decided after the survey.
+- Host metrics (CPU, memory, disk, load, uptime, network, temps) may likewise come from the external monitoring datasource where practical, with `psutil` as the local read-only source otherwise. Decided after the survey.
 
 ### 3.6 External Brain boundary
 - `Brain` protocol (e.g. `suggest_activity(ctx)`, `compose_journal(ctx)`, `compose_reaction(ctx)`) plus `kind: "local" | "external"`.
@@ -210,6 +216,16 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 | UI | Neutral "system facts" styling | Maple's voice / diary styling |
 
 Journal entries may cite observations; observations never depend on journal text. Facts in the UI always come from observations.
+
+### 3.10 Persistence and restart [PROPOSED — details in `docs/persistence.md`]
+- One SQLite database, `MAPLE_DATA_DIR/maple.db` (production `/data/maple/maple.db`); STRICT tables, CHECK constraints, WAL + `synchronous=FULL`, foreign keys on; schema version = `PRAGMA user_version`, file marked with `application_id`.
+- Canonical state = exactly the fields of `MapleState`; derived values (expression, active reaction, age) are never stored.
+- One logical transition = one transaction (state row + interaction ledger + timeline events), guarded by an optimistic `revision`.
+- `runtime/life.py` is the single writer: heartbeats and Greet/Pet share one lock; memory adopts a new state only after its commit succeeds.
+- Birth happens once: the first life is built in a temporary file in rollback-journal (DELETE) mode, committed, closed, verified self-contained (no sidecars, non-WAL header), and only then published as `maple.db` with a non-overwriting link; WAL is enabled afterwards on the canonical file. Identity/seed are immutable (DB triggers); timeline is append-only (DB triggers).
+- Restart loads and continues; downtime is one bounded catch-up heartbeat with a `DowntimeGap` event.
+- Corrupt, empty, foreign, or too-new databases fail loudly and are never repaired or replaced automatically.
+- Only `maplegotchi.storage` may write files or import `sqlite3` (AST-enforced); every write path goes through the `DataDir` guard. The external monitoring DB is read through `maplegotchi.storage.external` only (D18).
 
 ### 3.9 UI truthfulness
 - The frontend holds no authoritative state; it renders the latest backend snapshot (REST on load, SSE thereafter).
@@ -248,7 +264,7 @@ How `maple` gets read access to `metrics.db` (group membership, ACL) and whether
 
 ### 4.4 In-process controls
 - `storage/datadir.py` resolves every path and rejects writes outside `MAPLE_DATA_DIR` (incl. `..` and symlink escapes).
-- `monitor_db` opens only the configured path with `mode=ro`, runs fixed parameterized SELECTs, and never writes.
+- The external monitoring datasource (`storage/external`, D18) opens only the configured path with `mode=ro` + `query_only`, exposes only SELECT-backed read methods, and has no write, schema, or Maple-repository API. Phase 3 adds an AST rule forbidding write SQL keywords and write methods in `storage/external`.
 - D-Bus wrapper exposes only the three read calls in §3.5.
 - Settings/policy load once at startup into frozen models; no code path writes them.
 - Interaction endpoints: closed-enum actions, no body text, JSON `POST` only, `Origin`/`Host` check against the configured tailnet hostname, backend-enforced persisted cooldowns and global limit.
@@ -266,7 +282,7 @@ CI / tests:
 - Ruff security rules (`S`) + banned-API list.
 - Import-linter contracts for §3.3.
 - ESLint bans `eval`, `new Function`, `innerHTML`-style sinks in the frontend.
-- Later phases add: path-jail tests; D-Bus method allowlist test; `monitor_db` read-only tests (write attempts fail); heartbeat external-Brain guard; cooldown persistence tests.
+- Later phases add: path-jail tests; D-Bus method allowlist test; external monitoring datasource read-only tests (write attempts fail, API has no write methods); heartbeat external-Brain guard; cooldown persistence tests.
 
 On paolo-core, `deploy/verify/check_boundaries.py` asserts §4.2, unit hardening, listening sockets (localhost only + Tailscale Serve), Funnel off, and that `maple` cannot write outside `/data/maple` (explicitly including `/data/monitor`).
 
@@ -324,7 +340,7 @@ The 72-hour trial run (Phase 8) gates only the **stable** v0.1 release.
 | **0. Foundations** | Scaffolding, tooling, CI, ADRs, security checks, test scaffolding | All checks green on skeleton | — |
 | **1. Core being** | state, activities, behavior, heartbeat, interactions (D14 limits), rng, identity — pure code | 30-day `FakeClock` sim deterministic for fixed seed; values in range; cooldown logic tested | — |
 | **2. Persistence** | SQLite schema, migrations, repositories, write jail, single-writer life loop | Restart resumes state + RNG counters + cooldowns; downtime gap on timeline | — |
-| **3. Senses** | (a) psutil sensors, observation derivation, `get_service_health()` + fake providers; (b) **read-only paolo-core survey**: `metrics.db` schema/cadence/permissions/journal mode, actual unit names for D12 services, what monitoring cannot supply; (c) `monitor_db` provider, and `systemd_dbus` only for gaps | Fakes work without paolo-core; survey recorded in `deploy/survey/`; provider tests incl. read-only + method allowlists; `unknown` handled | — |
+| **3. Senses** | (a) psutil sensors, observation derivation, `get_service_health()` + fake providers; (b) **read-only paolo-core survey**: `metrics.db` schema/cadence/permissions/journal mode, actual unit names for D12 services, what monitoring cannot supply; (c) read-only `storage.external` monitoring datasource + provider (D18), and `systemd_dbus` only for gaps | Fakes work without paolo-core; survey recorded in `deploy/survey/`; provider tests incl. read-only + method allowlists; `unknown` handled | — |
 | **4. Inner life** | Journal (RuleBrain), timeline events, Brain interface, `local`/`external` guard | Journal cites observations/events; Brain swappable; guard test passes | — |
 | **5. API** | Read REST, SSE, Greet/Pet endpoints, Origin check, security headers, static serving | OpenAPI schema; frontend types derived; 429 + `retry_after` tested; headers tested | **M1: headless Maple lives locally** |
 | **6. Maple Room** | PixiJS room + sprites + activity/reaction animations; DOM panels; interaction buttons; staleness indicator | Every visible element traceable to an API field; local visual testing with fakes | **M2: local playable build** |

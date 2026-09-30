@@ -23,6 +23,7 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0016](0016-security-principles.md) | Security principles (S1) |
 | [0017](0017-timezone.md) | Home timezone Asia/Bangkok, UTC+07:00 (D16) |
 | [0018](0018-transient-reactions.md) | Transient interaction reactions (D17) |
+| [0019](0019-external-monitoring-datasource.md) | Read-only external monitoring datasource in the storage boundary (D18) |
 
 ## Template
 

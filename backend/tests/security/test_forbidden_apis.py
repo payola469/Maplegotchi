@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.security.forbidden_apis import is_core_path, scan_source, scan_tree
+from tests.security.forbidden_apis import is_core_path, is_storage_path, scan_source, scan_tree
 
 SRC = Path(__file__).resolve().parents[2] / "src"
 
@@ -55,7 +55,6 @@ def test_scanner_flags_forbidden_everywhere(source: str) -> None:
         "import os.path\nos.path.join('a', 'b')",
         "from pathlib import Path\nPath('a')",
         "run('x', shell=False)",
-        "import sqlite3",
         "from datetime import datetime\ndatetime.now()",
     ],
 )
@@ -148,3 +147,43 @@ def test_core_imports_only_allowlisted_modules() -> None:
                 ):
                     offenders.append(f"{path.name}:{node.lineno}: {module}")
     assert offenders == []
+
+
+# ---------------------------------------------------------------- storage-only writes
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import sqlite3",
+        "import shutil",
+        "import tempfile",
+        "open('x', 'w')",
+        "open('x')",
+        "import os\nos.remove('x')",
+        "import os\nos.replace('a', 'b')",
+        "import os\nos.link('a', 'b')",
+        "from os import makedirs",
+        "from pathlib import Path\nPath('x').write_text('y')",
+        "p.write_bytes(b'')",
+        "p.unlink()",
+        "p.mkdir(parents=True)",
+        "p.touch()",
+        "p.rename('q')",
+        "p.symlink_to('q')",
+    ],
+)
+def test_writes_are_flagged_outside_storage(source: str) -> None:
+    assert scan_source(source), f"not flagged outside storage: {source!r}"
+    assert scan_source(source, writer=True) == [], f"wrongly flagged in storage: {source!r}"
+
+
+@pytest.mark.parametrize("source", ["'a'.replace('a', 'b')", "p.exists()", "p.read_text()"])
+def test_reads_and_str_methods_are_not_writes(source: str) -> None:
+    assert scan_source(source) == []
+
+
+def test_storage_path_detection() -> None:
+    assert is_storage_path(Path("src/maplegotchi/storage/db.py"))
+    assert not is_storage_path(Path("src/maplegotchi/runtime/life.py"))
+    assert not is_storage_path(Path("src/maplegotchi/core/storage.py"))

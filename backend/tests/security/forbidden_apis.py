@@ -85,6 +85,47 @@ CORE_FORBIDDEN_NAMES: frozenset[str] = frozenset(
 
 CORE_FORBIDDEN_BUILTINS: frozenset[str] = frozenset({"open", "input"})
 
+# Writing files is reserved for maplegotchi.storage (CLAUDE.md §3.3, §4.4).
+WRITER_ONLY_MODULES: frozenset[str] = frozenset({"sqlite3", "shutil", "tempfile"})
+WRITER_ONLY_NAMES: frozenset[str] = frozenset(
+    {
+        "os.open",
+        "os.remove",
+        "os.unlink",
+        "os.rename",
+        "os.renames",
+        "os.replace",
+        "os.link",
+        "os.symlink",
+        "os.mkdir",
+        "os.makedirs",
+        "os.rmdir",
+        "os.removedirs",
+        "os.truncate",
+        "os.chmod",
+        "os.chown",
+        "os.utime",
+        "os.mkfifo",
+    }
+)
+WRITER_ONLY_BUILTINS: frozenset[str] = frozenset({"open"})
+# Path/file methods that write, flagged on any object outside storage.
+WRITER_ONLY_METHODS: frozenset[str] = frozenset(
+    {
+        "write_text",
+        "write_bytes",
+        "touch",
+        "mkdir",
+        "unlink",
+        "rename",
+        "rmdir",
+        "symlink_to",
+        "hardlink_to",
+        "chmod",
+        "truncate",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Violation:
@@ -102,9 +143,10 @@ def _module_forbidden(module: str, forbidden: frozenset[str]) -> bool:
 
 
 class _Scanner(ast.NodeVisitor):
-    def __init__(self, path: str, *, core: bool) -> None:
+    def __init__(self, path: str, *, core: bool, writer: bool) -> None:
         self.path = path
         self.core = core
+        self.writer = writer
         self.aliases: dict[str, str] = {}
         self.violations: list[Violation] = []
 
@@ -116,12 +158,16 @@ class _Scanner(ast.NodeVisitor):
             self._flag(node, "forbidden-module", module)
         elif self.core and _module_forbidden(module, CORE_FORBIDDEN_MODULES):
             self._flag(node, "core-impure-module", module)
+        elif not self.writer and _module_forbidden(module, WRITER_ONLY_MODULES):
+            self._flag(node, "write-outside-storage", module)
 
     def _check_name(self, node: ast.AST, dotted: str) -> None:
         if dotted in FORBIDDEN_NAMES or dotted.startswith(FORBIDDEN_NAME_PREFIXES):
             self._flag(node, "forbidden-api", dotted)
         elif self.core and dotted in CORE_FORBIDDEN_NAMES:
             self._flag(node, "core-impure-api", dotted)
+        elif not self.writer and dotted in WRITER_ONLY_NAMES:
+            self._flag(node, "write-outside-storage", dotted)
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
@@ -155,6 +201,8 @@ class _Scanner(ast.NodeVisitor):
         dotted = self._resolve(node)
         if dotted:
             self._check_name(node, dotted)
+        if not self.writer and node.attr in WRITER_ONLY_METHODS:
+            self._flag(node, "write-outside-storage", f".{node.attr}")
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
@@ -163,6 +211,8 @@ class _Scanner(ast.NodeVisitor):
                 self._flag(node, "forbidden-builtin", node.id)
             elif self.core and node.id in CORE_FORBIDDEN_BUILTINS:
                 self._flag(node, "core-impure-builtin", node.id)
+            elif not self.writer and node.id in WRITER_ONLY_BUILTINS:
+                self._flag(node, "write-outside-storage", node.id)
         self.generic_visit(node)
 
     def visit_keyword(self, node: ast.keyword) -> None:
@@ -175,15 +225,25 @@ class _Scanner(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def scan_source(source: str, path: str = "<string>", *, core: bool = False) -> list[Violation]:
-    scanner = _Scanner(path, core=core)
+def scan_source(
+    source: str, path: str = "<string>", *, core: bool = False, writer: bool = False
+) -> list[Violation]:
+    scanner = _Scanner(path, core=core, writer=writer)
     scanner.visit(ast.parse(source, filename=path))
     return scanner.violations
 
 
-def is_core_path(path: Path) -> bool:
+def _in_package(path: Path, package: str) -> bool:
     parts = path.parts
-    return any(parts[i] == "maplegotchi" and parts[i + 1] == "core" for i in range(len(parts) - 1))
+    return any(parts[i] == "maplegotchi" and parts[i + 1] == package for i in range(len(parts) - 1))
+
+
+def is_core_path(path: Path) -> bool:
+    return _in_package(path, "core")
+
+
+def is_storage_path(path: Path) -> bool:
+    return _in_package(path, "storage")
 
 
 def scan_tree(root: Path) -> tuple[int, list[Violation]]:
@@ -192,6 +252,11 @@ def scan_tree(root: Path) -> tuple[int, list[Violation]]:
     violations: list[Violation] = []
     for file in files:
         violations.extend(
-            scan_source(file.read_text(encoding="utf-8"), str(file), core=is_core_path(file))
+            scan_source(
+                file.read_text(encoding="utf-8"),
+                str(file),
+                core=is_core_path(file),
+                writer=is_storage_path(file),
+            )
         )
     return len(files), violations
