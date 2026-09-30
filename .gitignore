@@ -1,0 +1,31 @@
+# Local runtime data and config (never commit Maple's data)
+var/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets (v0.1 needs none; keep them out regardless)
+.env
+.env.*

@@ -1,0 +1,140 @@
+[project]
+name = "maplegotchi"
+version = "0.0.0"
+description = "Maple, a digital being living on paolo-core."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.142.1",
+    "psutil>=7.2.2",
+    "pydantic>=2.13.5",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/maplegotchi"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W", "F",   # pycodestyle, pyflakes
+  "I",             # isort
+  "B",             # bugbear
+  "UP",            # pyupgrade
+  "S",             # bandit (security)
+  "TID",           # tidy-imports (banned APIs)
+  "DTZ",           # naive datetimes
+  "PTH",           # pathlib over os.path
+  "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest works
+
+# First line of defence for CLAUDE.md §4.1 #2. The authoritative, stricter
+# check is tests/security/test_forbidden_apis.py.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"subprocess".msg = "No subprocesses (CLAUDE.md §4.1)."
+"pty".msg = "No subprocesses (CLAUDE.md §4.1)."
+"multiprocessing".msg = "No subprocesses (CLAUDE.md §4.1)."
+"os.system".msg = "No shell execution (CLAUDE.md §4.1)."
+"os.popen".msg = "No shell execution (CLAUDE.md §4.1)."
+"os.startfile".msg = "No process execution (CLAUDE.md §4.1)."
+"os.kill".msg = "Maple must not act on other processes (CLAUDE.md §4.1)."
+"os.killpg".msg = "Maple must not act on other processes (CLAUDE.md §4.1)."
+"asyncio.create_subprocess_exec".msg = "No subprocesses (CLAUDE.md §4.1)."
+"asyncio.create_subprocess_shell".msg = "No subprocesses (CLAUDE.md §4.1)."
+"shutil.rmtree".msg = "No recursive deletes; storage manages Maple's data (CLAUDE.md §4.4)."
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+mypy_path = "src"
+warn_unreachable = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+# ---------------------------------------------------------------- import-linter
+# Enforces CLAUDE.md §3.3. Stdlib/third-party purity of `core` is enforced
+# by tests/security/test_forbidden_apis.py.
+[tool.importlinter]
+root_package = "maplegotchi"
+
+[[tool.importlinter.contracts]]
+name = "core is pure: no sensors/storage/api/runtime/config/cli"
+type = "forbidden"
+source_modules = ["maplegotchi.core"]
+forbidden_modules = [
+  "maplegotchi.sensors",
+  "maplegotchi.storage",
+  "maplegotchi.api",
+  "maplegotchi.runtime",
+  "maplegotchi.config",
+  "maplegotchi.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "brain depends only on core models"
+type = "forbidden"
+source_modules = ["maplegotchi.brain"]
+forbidden_modules = [
+  "maplegotchi.sensors",
+  "maplegotchi.storage",
+  "maplegotchi.api",
+  "maplegotchi.runtime",
+  "maplegotchi.config",
+  "maplegotchi.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "sensors only read: no storage/api/runtime/brain"
+type = "forbidden"
+source_modules = ["maplegotchi.sensors"]
+forbidden_modules = [
+  "maplegotchi.storage",
+  "maplegotchi.api",
+  "maplegotchi.runtime",
+  "maplegotchi.brain",
+  "maplegotchi.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "storage does not reach sensors/api/runtime/brain"
+type = "forbidden"
+source_modules = ["maplegotchi.storage"]
+forbidden_modules = [
+  "maplegotchi.sensors",
+  "maplegotchi.api",
+  "maplegotchi.runtime",
+  "maplegotchi.brain",
+  "maplegotchi.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "api does not read sensors directly"
+type = "forbidden"
+source_modules = ["maplegotchi.api"]
+forbidden_modules = ["maplegotchi.sensors", "maplegotchi.cli"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
