@@ -86,6 +86,23 @@ PID=$(systemctl show -P MainPID maplegotchi)
 sudo nsenter --target "$PID" --mount --setuid "$(id -u maple-svc)" --setgid "$(id -g maple-svc)" \
      -- /bin/sh /opt/maplegotchi/current/deploy/verify/sandbox_probe.sh
 ```
+`check_boundaries.py` runs unprivileged, so it cannot stat files inside
+directories that are protected by design (`/etc/maplegotchi` 0750,
+`/data/maple` 0750, `/etc/polkit-1/rules.d` 0700). It reports those as
+**OWNER_CHECK** (never as "missing", never as FAIL; a path that provably does not
+exist is still a FAIL) and prints the command to run. Run it and compare:
+
+```bash
+sudo stat -c '%U:%G %a %n' /etc/maplegotchi/maplegotchi.env \
+    /etc/polkit-1/rules.d/50-maplegotchi-deny.rules /data/maple/maple.db
+# expected, exactly:
+# root:maple-svc 640 /etc/maplegotchi/maplegotchi.env
+# root:root 644 /etc/polkit-1/rules.d/50-maplegotchi-deny.rules
+# maple-svc:maple-svc 640 /data/maple/maple.db
+```
+Do not loosen these permissions or add your user to `maple-svc` to make the
+unprivileged check pass.
+
 If `sandbox_probe.sh` reports any FAIL, stop Maple (`sudo systemctl stop maplegotchi`)
 and report it before continuing.
 
@@ -122,7 +139,7 @@ run one backup, verify the restic snapshot and a restore.
 |---|---|---|
 | Identity | process runs as maple-svc; no supplementary/privileged groups; caps empty; no_new_privs; seccomp | `check_boundaries.py` |
 | Filesystem | can write `/data/maple`; cannot write `/opt/maplegotchi`, `/etc/maplegotchi`, `/data/monitor`; `/data` shows only `maple monitor`; siblings, homes, Docker socket, other processes invisible | `sandbox_probe.sh` |
-| Files | ownership/modes per `docs/deployment.md`; nothing under `/opt` writable by non-root; release matches `SHA256SUMS`; installed unit = release unit | `check_boundaries.py` |
+| Files | ownership/modes per `docs/deployment.md`; nothing under `/opt` writable by non-root; release matches `SHA256SUMS`; installed unit = release unit | `check_boundaries.py`; protected paths (OWNER_CHECK) via `sudo stat -c '%U:%G %a %n' …` (step 6) |
 | Runtime | service active; only `127.0.0.1:8470`; `/api/health` ok; frontend served by the backend with security headers; untrusted Origin → 403; no `/api/docs`; heartbeat fresh; `maple.db` created | `check_boundaries.py`, step 5 |
 | Persistence | after restart: same name + `born_at`; revision and ticks continue | step 7 |
 | Monitoring | CPU/RAM/disk/load/temperature `available` from psutil; `metrics_collector` and `backup` observed; `maplegotchi` sees itself `active`; `grafana`, `lycan_watch` `unknown` (`not_observable:*`); no qbittorrent/jellyfin | `check_boundaries.py` |

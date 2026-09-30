@@ -143,4 +143,8 @@ backup API into `$RUN_DIR/maple.db`, `integrity_check` must be `ok`, then restic
 ## Verification
 `deploy/verify/check_boundaries.py` (owner, no sudo) and
 `deploy/verify/sandbox_probe.sh` (owner via `nsenter`); the full checklist is
-`deploy/install.md` §Verify.
+`deploy/install.md` §Verify. The unprivileged verifier distinguishes "does not
+exist" (FAIL) from "permission denied" (OWNER_CHECK): metadata of files inside
+the protected `/etc/maplegotchi`, `/data/maple` and polkit `rules.d` directories
+is confirmed by the owner with `sudo stat -c '%U:%G %a %n' …`, which the script
+prints with the exact expected output. Permissions are never loosened for it.

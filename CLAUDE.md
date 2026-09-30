@@ -306,7 +306,7 @@ CI / tests:
 - ESLint bans `eval`, `new Function`, `innerHTML`-style sinks in the frontend.
 - Later phases add: path-jail tests; D-Bus method allowlist test; external monitoring datasource read-only tests (write attempts fail, API has no write methods); heartbeat external-Brain guard; cooldown persistence tests.
 
-On paolo-core, `deploy/verify/check_boundaries.py` (owner, no sudo) asserts §4.2, the account, process credentials (uid, groups, capabilities, no_new_privs, seccomp), listening sockets (127.0.0.1:8470 only), HTTP headers/Origin, the live service map, and restart continuity; `deploy/verify/sandbox_probe.sh` (via `nsenter` into the service's mount namespace) asserts that `maple-svc` can write only `/data/maple` and cannot see `/data` siblings, homes, or the Docker socket. Tailscale Serve/Funnel status is checked by hand (`deploy/install.md`).
+On paolo-core, `deploy/verify/check_boundaries.py` (owner, no sudo) asserts §4.2, the account, process credentials (uid, groups, capabilities, no_new_privs, seccomp), listening sockets (127.0.0.1:8470 only), HTTP headers/Origin, the live service map, and restart continuity; `deploy/verify/sandbox_probe.sh` (via `nsenter` into the service's mount namespace) asserts that `maple-svc` can write only `/data/maple` and cannot see `/data` siblings, homes, or the Docker socket. Permission-denied paths are reported as OWNER_CHECK (not FAIL, not "missing") with the exact `sudo stat -c '%U:%G %a %n' …` command to run; only provably missing paths FAIL. Tailscale Serve/Funnel status is checked by hand (`deploy/install.md`).
 
 ---
 

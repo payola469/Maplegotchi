@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import errno
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -209,3 +211,125 @@ def test_before_the_first_heartbeat_the_checks_are_pending_not_failed() -> None:
     verdict = statuses(cb.evaluate_snapshot(snap))
     assert verdict["no observations yet"] == "WARN"
     assert "FAIL" not in verdict.values()
+
+
+# ---------------------------------------------------------------- protected metadata
+
+
+class FakeStat:
+    def __init__(self, uid: int, gid: int, mode: int) -> None:
+        self.st_uid, self.st_gid, self.st_mode = uid, gid, 0o100000 | mode
+
+
+def lstat_returning(result: FakeStat | BaseException) -> Any:
+    def lstat(path: Path) -> FakeStat:
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    return lstat
+
+
+ENV = cb.Expected(Path("/etc/maplegotchi/maplegotchi.env"), 0, 996, 0o640, "root", "maple-svc")
+
+
+def test_true_missing_is_a_fail(tmp_path: Path) -> None:
+    for absent in (tmp_path / "nope", tmp_path / "no-dir" / "nope"):
+        probe = cb.probe_metadata(absent)
+        assert isinstance(probe, cb.Missing)
+        result = cb.evaluate_metadata(ENV, probe)
+        assert (result.status, result.detail) == ("FAIL", "missing (does not exist)")
+
+
+def test_permission_denied_is_an_owner_check_not_missing() -> None:
+    denied = PermissionError(errno.EACCES, "Permission denied")
+    probe = cb.probe_metadata(ENV.path, lstat=lstat_returning(denied))
+    assert probe == cb.Denied("Permission denied")
+    result = cb.evaluate_metadata(ENV, probe)
+    assert result.status == "OWNER_CHECK" and "missing" not in result.detail
+    assert result.owner_stat == "root:maple-svc 640 /etc/maplegotchi/maplegotchi.env"
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or getattr(os, "geteuid", lambda: 0)() == 0,
+    reason="needs POSIX permissions and a non-root user",
+)
+def test_real_eacces_from_an_unsearchable_directory(tmp_path: Path) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    (protected / "secret.env").write_text("x", encoding="utf-8")
+    protected.chmod(0o000)
+    try:
+        assert isinstance(cb.probe_metadata(protected / "secret.env"), cb.Denied)
+        assert isinstance(cb.probe_metadata(protected / "absent.env"), cb.Denied)  # unknowable
+    finally:
+        protected.chmod(0o700)
+
+
+def test_correct_accessible_metadata_passes() -> None:
+    probe = cb.probe_metadata(ENV.path, lstat=lstat_returning(FakeStat(0, 996, 0o640)))
+    assert probe == cb.Metadata(0, 996, 0o640)
+    assert cb.evaluate_metadata(ENV, probe).status == "PASS"
+
+
+@pytest.mark.parametrize(
+    "wrong",
+    [
+        FakeStat(996, 996, 0o640),
+        FakeStat(0, 0, 0o640),
+        FakeStat(0, 996, 0o644),
+        FakeStat(0, 996, 0o660),
+    ],
+)
+def test_incorrect_accessible_metadata_fails(wrong: FakeStat) -> None:
+    result = cb.evaluate_metadata(ENV, cb.probe_metadata(ENV.path, lstat=lstat_returning(wrong)))
+    assert result.status == "FAIL"
+    assert "want root:maple-svc 640 /etc/maplegotchi/maplegotchi.env" in result.detail
+
+
+def test_other_os_errors_are_not_mistaken_for_denied(tmp_path: Path) -> None:
+    with pytest.raises(OSError):
+        cb.probe_metadata(ENV.path, lstat=lstat_returning(OSError(errno.EIO, "I/O error")))
+
+
+def test_owner_command_matches_the_real_paolo_core_output() -> None:
+    """The three Stage C paths, denied to the owner; expected lines = actual sudo stat output."""
+    denied = cb.Denied("Permission denied")
+    by_path = {e.path.as_posix(): e for e in cb.file_expectations(996, 996)}
+    results = [
+        cb.evaluate_metadata(by_path[p], denied)
+        for p in (
+            "/etc/maplegotchi/maplegotchi.env",
+            "/etc/polkit-1/rules.d/50-maplegotchi-deny.rules",
+            "/data/maple/maple.db",
+        )
+    ]
+    assert {r.status for r in results} == {"OWNER_CHECK"}
+    command = cb.owner_stat_command([*results, cb.Result("PASS", "other")])
+    assert command is not None
+    cmd, lines = command
+    assert cmd == (
+        "sudo stat -c '%U:%G %a %n' /etc/maplegotchi/maplegotchi.env "
+        "/etc/polkit-1/rules.d/50-maplegotchi-deny.rules /data/maple/maple.db"
+    )
+    assert lines == [  # verbatim from the owner's run on paolo-core
+        "root:maple-svc 640 /etc/maplegotchi/maplegotchi.env",
+        "root:root 644 /etc/polkit-1/rules.d/50-maplegotchi-deny.rules",
+        "maple-svc:maple-svc 640 /data/maple/maple.db",
+    ]
+    assert cb.owner_stat_command([cb.Result("PASS", "x")]) is None
+
+
+def test_owner_checks_do_not_fail_the_run_but_missing_does(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    owner = cb.evaluate_metadata(ENV, cb.Denied("Permission denied"))
+    monkeypatch.setattr(cb, "IS_LINUX", True)
+    monkeypatch.setattr(cb, "run_all", lambda record, compare: [owner, cb.Result("PASS", "x")])
+    assert cb.main([]) == 0
+    out = capsys.readouterr().out
+    assert "1 owner checks" in out
+    assert "sudo stat -c '%U:%G %a %n' /etc/maplegotchi/maplegotchi.env" in out
+    missing = cb.evaluate_metadata(ENV, cb.Missing())
+    monkeypatch.setattr(cb, "run_all", lambda record, compare: [owner, missing])
+    assert cb.main([]) == 1

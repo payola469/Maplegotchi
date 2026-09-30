@@ -10,6 +10,13 @@ it may write is the optional `--record` file you name (for the restart check).
     sudo systemctl restart maplegotchi                  # (owner, separately)
     python3 check_boundaries.py --compare /tmp/maple-before.json
 
+Protected paths (the env file under /etc/maplegotchi 0750, Maple's database
+under /data/maple 0750, polkit's rules.d) cannot be stat()ed by an unprivileged
+user. Permission denied is NOT reported as "missing": such a path becomes an
+OWNER_CHECK with the exact `sudo stat -c '%U:%G %a %n' ...` command and the
+expected output lines, printed at the end. Only a path that provably does not
+exist (ENOENT from a readable parent) is a FAIL.
+
 Checks: account and groups, file ownership/modes (code, config, data), release
 integrity, the running process (uid, groups, capabilities, no_new_privs,
 seccomp), listening sockets (loopback only), HTTP (health, frontend, headers,
@@ -69,9 +76,10 @@ IS_LINUX: bool = sys.platform.startswith("linux")
 
 @dataclass(frozen=True)
 class Result:
-    status: str  # PASS | FAIL | WARN | INFO
+    status: str  # PASS | FAIL | WARN | INFO | OWNER_CHECK
     check: str
     detail: str = ""
+    owner_stat: str | None = None  # expected `stat -c '%U:%G %a %n'` line, if OWNER_CHECK
 
     def __str__(self) -> str:
         return f"[{self.status}] {self.check}" + (f": {self.detail}" if self.detail else "")
@@ -312,6 +320,78 @@ def compare_identity(before: Mapping[str, Any], after: Mapping[str, Any]) -> lis
 # ---------------------------------------------------------------- host probes (Linux only)
 
 
+@dataclass(frozen=True)
+class Metadata:
+    uid: int
+    gid: int
+    mode: int
+
+
+class Missing:
+    """lstat() said ENOENT: the path does not exist."""
+
+
+@dataclass(frozen=True)
+class Denied:
+    """lstat() was refused (EACCES/EPERM): unverifiable without privilege."""
+
+    error: str
+
+
+Probe = Metadata | Missing | Denied
+
+
+def probe_metadata(path: Path, lstat: Any = os.lstat) -> Probe:
+    """Owner/group/mode of `path`, telling "does not exist" apart from "not allowed to look"."""
+    try:
+        st = lstat(path)
+    except FileNotFoundError:
+        return Missing()
+    except PermissionError as exc:
+        return Denied(exc.strerror or type(exc).__name__)
+    return Metadata(st.st_uid, st.st_gid, stat.S_IMODE(st.st_mode))
+
+
+@dataclass(frozen=True)
+class Expected:
+    path: Path
+    uid: int
+    gid: int
+    mode: int
+    owner: str  # names, for the owner-run `stat -c '%U:%G %a %n'` comparison
+    group: str
+
+    def stat_line(self) -> str:
+        return f"{self.owner}:{self.group} {self.mode:o} {self.path.as_posix()}"
+
+
+def evaluate_metadata(expected: Expected, probe: Probe) -> Result:
+    check = f"{expected.path.as_posix()} owner/mode"
+    if isinstance(probe, Missing):
+        return Result("FAIL", check, "missing (does not exist)")
+    if isinstance(probe, Denied):
+        return Result(
+            "OWNER_CHECK",
+            check,
+            f"not readable without privilege ({probe.error}); expect '{expected.stat_line()}'",
+            owner_stat=expected.stat_line(),
+        )
+    got = (probe.uid, probe.gid, probe.mode)
+    want = (expected.uid, expected.gid, expected.mode)
+    return ok(
+        check, got == want, f"{probe.uid}:{probe.gid} {probe.mode:o} (want {expected.stat_line()})"
+    )
+
+
+def owner_stat_command(results: Sequence[Result]) -> tuple[str, list[str]] | None:
+    """The one sudo command the owner runs for every OWNER_CHECK, and its expected lines."""
+    lines = [r.owner_stat for r in results if r.status == "OWNER_CHECK" and r.owner_stat]
+    if not lines:
+        return None
+    paths = " ".join(line.split(" ", 2)[2] for line in lines)
+    return f"sudo stat -c '%U:%G %a %n' {paths}", lines
+
+
 def _mode(path: Path) -> tuple[int, int, int] | None:
     try:
         st = path.lstat()
@@ -320,26 +400,20 @@ def _mode(path: Path) -> tuple[int, int, int] | None:
     return st.st_uid, st.st_gid, stat.S_IMODE(st.st_mode)
 
 
-def check_files(uid: int, gid: int) -> list[Result]:
-    results = []
-    expectations = [
-        (ETC, 0, gid, 0o750),
-        (ENV_FILE, 0, gid, 0o640),
-        (DATA, uid, gid, 0o750),
-        (UNIT_FILE, 0, 0, 0o644),
-        (POLKIT_RULE, 0, 0, 0o644),
+def file_expectations(uid: int, gid: int) -> list[Expected]:
+    svc = ACCOUNT
+    return [
+        Expected(ETC, 0, gid, 0o750, "root", svc),
+        Expected(ENV_FILE, 0, gid, 0o640, "root", svc),  # under 0750: owner-check for paolo
+        Expected(DATA, uid, gid, 0o750, svc, svc),
+        Expected(DATA / "maple.db", uid, gid, 0o640, svc, svc),  # under 0750: owner-check
+        Expected(UNIT_FILE, 0, 0, 0o644, "root", "root"),
+        Expected(POLKIT_RULE, 0, 0, 0o644, "root", "root"),  # rules.d is 0700 root
     ]
-    for path, want_uid, want_gid, want_mode in expectations:
-        got = _mode(path)
-        results.append(
-            ok(
-                f"{path} owner/mode",
-                got == (want_uid, want_gid, want_mode),
-                "missing" if got is None else f"{got[0]}:{got[1]} {got[2]:o}",
-            )
-        )
-    db = _mode(DATA / "maple.db")
-    results.append(ok("maple.db exists and is owned by maple-svc", db is not None and db[0] == uid))
+
+
+def check_files(uid: int, gid: int) -> list[Result]:
+    results = [evaluate_metadata(e, probe_metadata(e.path)) for e in file_expectations(uid, gid)]
 
     writable_by_others: list[str] = []
     owned_by_maple: list[str] = []
@@ -548,10 +622,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     for result in results:
         print(result)
     failed = [r for r in results if r.status == "FAIL"]
+    owner_checks = sum(r.status == "OWNER_CHECK" for r in results)
     print(
         f"\n{len(results)} checks, {len(failed)} failed, "
-        f"{sum(r.status == 'WARN' for r in results)} warnings"
+        f"{sum(r.status == 'WARN' for r in results)} warnings, {owner_checks} owner checks"
     )
+    command = owner_stat_command(results)
+    if command is not None:
+        cmd, lines = command
+        print("\nOWNER_CHECK: these paths are protected from this user by design. Run:")
+        print(f"  {cmd}")
+        print("and confirm the output is exactly:")
+        for line in lines:
+            print(f"  {line}")
     print("Also run by hand: tailscale serve status; tailscale funnel status; sandbox_probe.sh")
     return 1 if failed else 0
 
