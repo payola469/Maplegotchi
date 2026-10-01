@@ -264,13 +264,46 @@ describe("panels", () => {
   });
 });
 
+describe("layout", () => {
+  it("navigates to existing sections only, with one current section", async () => {
+    const { store } = mount();
+    await run(() => load(store, makeSnapshot()));
+    const nav = screen.getByRole("navigation", { name: "Sections" });
+    const links = Array.from(nav.querySelectorAll("a"));
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["#room", "#status", "#journal", "#activity", "#system"]);
+    for (const a of links) expect(document.querySelector(a.getAttribute("href") ?? "")).not.toBeNull();
+    expect(nav.querySelectorAll('[aria-current="location"]')).toHaveLength(1);
+
+    await run(() => fireEvent.click(links[2] as HTMLAnchorElement));
+    expect(links[2]?.getAttribute("aria-current")).toBe("location");
+    expect(nav.querySelectorAll('[aria-current="location"]')).toHaveLength(1);
+  });
+
+  it("renders the room and the Greet/Pet bar exactly once", async () => {
+    const { store, scene } = mount();
+    await run(() => load(store, makeSnapshot()));
+    await flush();
+    expect(scene.create).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByTestId("room-summary")).toHaveLength(1);
+    expect(screen.getAllByTestId("interaction-feedback")).toHaveLength(1);
+  });
+
+  it("opens Recent Activity by default and keeps Runtime collapsed", async () => {
+    const { store } = mount();
+    await run(() => load(store, makeSnapshot()));
+    const details = (name: string) => screen.getByRole("heading", { name }).closest("details");
+    expect(details("Recent Activity")?.open).toBe(true);
+    expect(details("Runtime")?.open).toBe(false);
+  });
+});
+
 describe("mobile smoke", () => {
   it("renders the room, both buttons and all panels at phone width", async () => {
     vi.stubGlobal("innerWidth", 390);
     const { store } = mount();
     await run(() => load(store, makeSnapshot()));
     expect(screen.getAllByRole("button")).toHaveLength(2);
-    for (const name of ["Maple", "Journal", "Server", "Timeline", "Runtime"]) {
+    for (const name of ["Maple", "Journal", "Server", "Recent Activity", "Runtime"]) {
       expect(screen.getByRole("heading", { name })).toBeTruthy();
     }
     expect(screen.getByTestId("room-summary").textContent).not.toBe("");

@@ -22,11 +22,12 @@ frontend/src/
 │   ├── layout/anchors.ts room size, named anchors, furniture boxes
 │   ├── animation/motion.ts walking between anchors, eased values
 │   ├── objects/furniture.ts vector furniture (temporary art)
-│   ├── maple/figure.ts   vector Maple (temporary art): poses, faces, reaction bubbles
+│   ├── maple/            pixel Maple: pixels.ts (art), sprites.ts (mapping), atlas.ts, figure.ts
 │   ├── assets/manifest.ts asset list + replacement contract
 │   └── scene/RoomScene.ts Pixi application, layers, one ticker
-├── ui/           App.tsx, panels.tsx, room/RoomView.tsx, interactions/InteractionBar.tsx, hooks.ts
-├── styles.css    all styling (no inline style attributes: CSP style-src 'self')
+├── ui/           App.tsx, panels.tsx, room/RoomView.tsx, interactions/InteractionBar.tsx, hooks.ts,
+│                 layout/AppShell.tsx (page shell: header, section navigation, grid areas)
+├── styles.css    all styling and design tokens (no inline style attributes: CSP style-src 'self')
 └── main.tsx      wiring: Store + API + LiveConnection + lazily loaded scene
 ```
 
@@ -40,12 +41,29 @@ with a dynamic import so the panels appear before the canvas is ready.
 ≤ 2) and never recreates it; snapshots call `update(visual)`. Layers, back to
 front:
 
-1. sky (window pane colour, mixed toward the phase's sky colour)
-2. walls, floor, window frame
-3. furniture (texture if the manifest names one, otherwise vector drawing)
-4. Maple
-5. darkness overlay (alpha from lighting)
-6. lamp glow and screen glow (additive, soft stacked rings)
+1. walls and floor:
+   - cream wall with a pixel dot pattern, ceiling shade and a garland;
+   - dark green wainscot with a wooden rail;
+   - plank floor with a contact shadow at the wall;
+   - wall decor: a framed picture and a small shelf.
+2. sky: the window pane in pixel bands around the mapped sky colour, a pixel
+   sun with clouds (day) or crescent moon with stars (night), and horizon
+   hills and trees tinted by the sky.
+3. window frame, sill and orange curtains.
+4. furniture (texture if the manifest names one, otherwise vector drawing)
+5. Maple
+6. vignette (static edge shading for depth)
+7. night: a navy `multiply` layer with alpha = darkness, plus a navy wash
+   with alpha = darkness × 0.4
+8. lamp glow (amber) and screen glow (teal) (additive, soft stacked rings)
+
+The room art (`objects/furniture.ts`) is a cozy pixel-art style:
+- blocky shapes on a 4-unit grid with dark 2-unit outlines;
+- warm wood, dark green and warm orange accents, navy for depth;
+- shared colours in `PALETTE`.
+
+Every piece is drawn inside its unchanged `FURNITURE` box. The art is
+decorative only: no clocks, dates or anything that could read as state.
 
 A single ticker advances motion, animates Maple and eases lighting. A
 `ResizeObserver` fits the canvas width to its container. `destroy()`
@@ -192,50 +210,122 @@ text; colour is never the only signal.
 
 There are no other interactions.
 
+## Page layout (`ui/layout/AppShell.tsx`)
+
+A cozy dashboard: warm cream background, soft rounded cards, dark green as the
+primary colour and a warm orange accent. The colours, radii, shadows and type
+are design tokens on `:root` in `styles.css`. The page is light only.
+
+`AppShell` is layout only. It holds no Maple state and shows no backend value
+of its own. `App` renders each existing component **exactly once** and passes
+it to a slot; the shell only places it in a grid area:
+
+| Area (id) | Component |
+|---|---|
+| header | name + "'s room" (`h1`), connection badge |
+| banners | disconnected / late-heartbeat banners |
+| `#room` | `RoomView` (canvas + room summary) |
+| `#status` | `StatusPanel` |
+| interactions | `InteractionBar` (Greet / Pet + feedback line) |
+| `#journal` | `JournalPanel` |
+| `#activity` | `TimelinePanel` ("Recent Activity") |
+| `#system` | `ServerPanel` + `RuntimePanel` |
+
+There is exactly one `RoomView` and one `InteractionBar`. Nothing is
+unmounted by navigation: the Pixi scene is never recreated by a layout change.
+
+**Section navigation:**
+- One `<nav aria-label="Sections">` holding in-page links to the five areas
+  (Room, Status, Journal, Activity, System). It is a sidebar on wide screens
+  and a fixed bottom bar on phones. This is done with CSS only, so the same
+  element serves both.
+- The current section is marked with `aria-current="location"`. It is
+  derived from the scroll position: the section whose top has passed a third
+  of the viewport, or the last one at the end of the page. The last link
+  clicked wins ties between side-by-side areas.
+- This is presentation only: local state in `AppShell`, one rAF-throttled
+  scroll/resize listener, and nothing at all when `requestAnimationFrame` is
+  missing. The highlight is a light pill plus an accent bar, so it is shape as
+  well as colour.
+
 ## Panels
 
-- **Maple:**
-  - name, age, activity and expression;
-  - mood, energy, curiosity and social as `<meter>` bars with numbers.
-- **Journal:** newest first.
+- **Maple** (status card):
+  - name;
+  - age, activity ("Doing") and expression ("Feeling") as small fact tiles;
+  - mood, energy, curiosity and social as `<meter>` bars with numbers. Meter
+    colours come from the meter's own low/high/optimum state, and the number
+    is always shown.
+- **Greet / Pet:**
+  - Greet is the green button and Pet the orange one, each with a decorative
+    icon (`aria-hidden`; the label stays the button's name);
+  - disabled buttons are dashed and muted and still show their hint or
+    countdown;
+  - the feedback line keeps its height whether or not a message is shown, so
+    nothing jumps;
+  - the line is tinted by outcome (accepted, waiting, error), and the text
+    always says what happened.
+- **Journal:** newest first. Entries are written in a serif "diary" face
+  (Maple's voice). `importance=notable` entries get a stronger accent and bold
+  text.
+- **Recent Activity** (the timeline): newest first, **open by default**. Each
+  event is a dot on a vertical line, with the time above the text. Dot styles
+  differ by kind (accepted interactions filled orange, downtime gaps dashed);
+  the text says what happened.
 - **Server:**
-  - sensor freshness badge and summary sentence;
-  - CPU, RAM, Disk (`/`) and temperature;
-  - allowlisted services.
-- **Timeline:** newest first; collapsed by default.
-- **Runtime:** connection, last update, heartbeat and Brain; collapsed by
-  default.
+  - sensor freshness badge (with a symbol: ● fresh, ◐ stale);
+  - summary sentence, with a left bar tinted by summary;
+  - CPU, RAM, Disk (`/`) and temperature as tiles;
+  - allowlisted services, each with its state word and a small dot (filled
+    for active and failed, hollow otherwise).
+- **Runtime:** connection, last update, heartbeat and Brain; **collapsed by
+  default**.
+
+Collapsible panels (Journal, Recent Activity, Server, Runtime) are still
+`<details>`/`<summary>`. Classes such as `service__state--active` exist for
+styling only.
 
 Missing readings say `no data`, and failed ones say `unavailable (reason)` or
 `unknown`. The UI never shows a made-up healthy value.
 
 ## Responsive behaviour
 
-- **Wider than 960 px:** the room on the left (flexible) and panels in a
-  340 px column.
-- **960 px and below:** the room on top, with panels in auto-fit columns
-  (two on a tablet).
-- **600 px and below:** one column, tighter padding, and buttons at least
-  52 px tall.
+| Width | Layout |
+|---|---|
+| > 1180 px | sidebar (208 px); room, Greet/Pet and Journal in the middle; status card with Recent Activity directly under it on the right (320 px); System below |
+| ≤ 1180 px | sidebar becomes an icon rail (76 px, labels under icons); right column 300 px; server readings in 2 columns |
+| ≤ 960 px | room and Greet/Pet full width; Status + Recent Activity side by side; Journal and System full width |
+| ≤ 760 px | navigation becomes a fixed bottom bar (safe-area aware; the page is padded so nothing hides behind it); System panels stack |
+| ≤ 600 px | one column: **room, compact status, Greet/Pet**, then Journal, Recent Activity, System; needs in two columns with the meter under each label; buttons at least 56 px tall |
 
 The canvas scales by width with a fixed 5:3 aspect ratio. `overflow-x` is
-hidden, and every grid track uses `minmax(0, …)`. Verified at 390 × 844 and
-820 × 1180 with no horizontal scroll.
+hidden, and every grid track uses `minmax(0, …)`. Verified at 1440 × 1000,
+820 × 1180 and 390 × 844 with no horizontal scroll.
 
 ## Accessibility
 
 - Real `<button>`s with a visible `:focus-visible` outline; hints are linked
-  with `aria-describedby`.
+  with `aria-describedby`. Navigation items are links (at least 44 px tall,
+  56 px in the bottom bar) with their own focus ring that stays visible on
+  the green background.
 - Semantic headings: `h1` for the room, `h2` for each panel.
 - `role="status"` on the feedback line and the connection badge.
 - `role="alert"` on the disconnected and late-heartbeat banners.
-- A DOM room summary replaces the decorative canvas.
-- Reduced motion is supported as described above.
+- A DOM room summary replaces the decorative canvas; all icons are
+  `aria-hidden`.
+- No state is shown by colour alone. Badges, dots and tints always sit next
+  to the word they describe.
+- Reduced motion is supported as described above, and it also turns off
+  smooth scrolling for the navigation.
+- Fonts are system fonts (`style-src`/`default-src 'self'`: no web-font
+  CDN).
 
 ## Assets and how to replace them
 
-All v0.1 art is **original and temporary**: furniture and Maple are drawn as
-vectors in code (`room/objects/furniture.ts`, `room/maple/figure.ts`).
+All v0.1 art is **original** and drawn in code, with no image files:
+- the furniture is pixel-style vector drawing (`room/objects/furniture.ts`);
+- Maple is pixel art stored as text grids (`room/maple/`).
+
 `room/assets/manifest.ts` lists every piece.
 
 - **Furniture:**
@@ -245,12 +335,63 @@ vectors in code (`room/objects/furniture.ts`, `room/maple/figure.ts`).
      `FURNITURE_ASSETS`.
   3. The scene draws the image in the same box. Anchors and mapping are
      unchanged.
-- **Maple:**
-  - one image per pose (`MAPLE_POSES`), a face overlay per expression
-    (`MAPLE_FACES`), and a bubble per reaction symbol (`REACTION_SYMBOLS`);
-  - origin is between Maple's feet; size is about 90 × 100 logical units.
-  - `figure.ts` is the only file to change. The mapping, anchors and tests
-    stay as they are.
+- **Maple** (pixel/chibi: short black hair, dark brown eyes, black glasses,
+  orange headphones, dark green hoodie):
+
+  | File | Role |
+  |---|---|
+  | `maple/pixels.ts` | palette + art as text grids (one character per pixel, `.` transparent): head, face overlays, body parts, book, bubble glyphs, sleep "z" |
+  | `maple/sprites.ts` | **the one mapping** (pure, tested): frame layouts, pose → frames (`POSE_FRAMES`), the fallback rules, bubble glyph per symbol, the list of frames the atlas needs |
+  | `maple/atlas.ts` | paints every frame once into a single canvas; one `CanvasSource` with `scaleMode: "nearest"`, sliced into sub-textures |
+  | `maple/figure.ts` | the Pixi figure (same API as before: `apply`, `animate`, `destroy`) |
+
+  - **Frames:**
+    - 24 × 28 pixels at 4 logical units per pixel (96 × 112 units, on the
+      room's 4-unit grid);
+    - origin between the feet;
+    - poses: `stand`, `walk` (two leg frames, alternating while walking),
+      `sleep`, `read` (open book), `sit_write` (pencil), `sit_monitor`
+      (typing, teal screen light), `rest` (mug);
+    - seated frames keep the feet on the bottom row;
+    - `sleep` is its own lying-down frame (40 × 18): the head on the pillow
+      and a green quilt over the body. Its origin (under the head, on the
+      mattress line) is held at a fixed point relative to the bed anchor, so
+      the anchor and its meaning are unchanged.
+  - **Fallback rules:**
+    - `sleep` always shows the closed-eye face, whatever the expression (as
+      before, where a sleeping Maple was always drawn sleepy);
+    - every other pose shows all five expressions;
+    - unknown backend values are still resolved by `room/visual.ts`
+      (`stand`, `calm`, `sparkle`), so the figure only ever sees known values.
+  - **Bubbles:** same meaning as before, drawn as pixel glyphs in a
+    stepped-corner bubble:
+    - `wave` "Hi!"
+    - `heart` ♥
+    - `sleepy_wave` "…hi"
+    - `sleepy_heart` ♥ z
+    - `sparkle` ✦
+  - **Crisp pixels:**
+    - only Maple's atlas samples with `nearest`, and its sprites use
+      `roundPixels`;
+    - the canvas, room, glows and lighting are unchanged.
+  - **Idle loops:** they move in whole steps (breathing bob, walk step,
+    seated/reading bob, sleep rise and fall) instead of stretching or tilting
+    the art. Under reduced motion they are still.
+  - **Responsive size** (`mapleUnitsPerPixel`, presentation only):
+    - the scene reports the room's on-screen scale to the figure on every
+      resize;
+    - a full-size room (scale ≥ 0.8, desktop) draws Maple at exactly 4 units
+      per pixel;
+    - a smaller room draws Maple a little larger: about 1.125× on tablets and
+      1.25× on phones;
+    - the size is snapped to whole canvas pixels when that stays within 10% of
+      the target, so the art stays even;
+    - anchors, logical coordinates and furniture are unchanged. Maple grows
+      from its origin (feet, or the pillow point when sleeping), so every
+      activity stays on its anchor.
+  - **To change the art:** edit the grids in `pixels.ts` (`sprites.test.ts`
+    checks sizes, palette and coverage). The mapping in `room/visual.ts`, the
+    anchors and the motion stay as they are.
 - Assets are served from the same origin (`img-src 'self'`); no external
   URLs are allowed.
 
@@ -270,14 +411,16 @@ vectors in code (`room/objects/furniture.ts`, `room/maple/figure.ts`).
 | File | Covers |
 |---|---|
 | `room/visual.test.ts` | all activities, locations, expressions and reactions; expiry at `until`; unknown fallbacks; day/night; room text |
+| `room/maple/sprites.test.ts` | pixel grids rectangular and in-palette; frame parts fit; every pose × expression composes a full frame with hair, headphones, hoodie and glasses and feet on the bottom row; expressions distinct while awake; sleep falls back to the closed-eye face; dedicated lying sleep frame (head left on the origin, quilt to the right, no shoes); two walk frames; atlas covers every frame once; a distinct bubble glyph per symbol; responsive scale exact on desktop, slightly larger (never smaller) on small rooms, snapped to whole canvas pixels |
 | `room/animation/motion.test.ts` | walk, speed, mid-walk redirect, snap, eased lighting |
 | `api/sse.test.ts`, `api/client.test.ts` | SSE parsing (chunking, CRLF, comments), `Last-Event-ID`, close; 200/429/403/network |
 | `state/store.test.ts` | revision monotonicity, server-clock estimate |
 | `state/live.test.ts` | coalescing, in-flight events, resync frame, late old snapshot, reconnect with backoff and last id, stale detection, offline, stop |
 | `state/interactions.test.ts` | Greet success, Greet cooldown, Pet success, 403/network rejection, no optimism, double click |
 | `state/presentation.test.ts` | countdown, formatting, honest unknowns |
-| `ui/App.test.tsx` | explicit states, one scene per mount, reaction expiry without heartbeat, reduced motion, availability and countdown, feedback, panels, mobile smoke |
+| `ui/App.test.tsx` | explicit states, one scene per mount, reaction expiry without heartbeat, reduced motion, availability and countdown, feedback, panels, section navigation (existing targets only, one current section), one room and one Greet/Pet bar, Recent Activity open / Runtime collapsed, mobile smoke |
 | `guards.test.ts` | no backend rule constants in UI code, no raw-HTML or inline styles, reduced-motion and mobile CSS present, manifest completeness |
 
 The tests don't compare pixels. Visual checks were done manually with
-headless-Edge screenshots (see the Phase 6 report).
+headless-Edge screenshots (see the Phase 6 report, and the v0.1 visual
+refresh at 1440, 820 and 390 px wide using DevTools device emulation).
