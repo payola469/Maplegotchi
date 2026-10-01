@@ -78,9 +78,35 @@ neighbours):
 
 It expands to the staged path only when staging succeeded, and to nothing
 otherwise (safe under `set -u`: the variable is always defined by the block).
-If `"$RUN_DIR/metrics.db"` happens to be the command's last argument (no trailing
-backslash), insert the Maple line directly *before* it instead: no existing line
-may change, and `check_patch.sh` enforces that.
+No existing line may change, and `check_patch.sh` enforces that.
+
+**Both insertions are verbatim.** The block goes in exactly as shipped in
+`maple-block.bash`, including every comment line; a shortened or reworded block
+fails `check_patch.sh` ("added lines are exactly the Maple block + the restic
+argument"). Only leading/trailing whitespace per line is ignored. The simplest
+way to get it exact is to read the file in rather than retype it (in `vim`:
+`:r /opt/maplegotchi/current/deploy/backup/maple-block.bash`).
+
+`check_patch.sh` also proves where the argument sits: it rebuilds the logical,
+backslash-continued command that contains it and requires that command to be
+`restic` with the `backup` subcommand, and the argument to directly follow
+`"$RUN_DIR/metrics.db" \`. This works for the real multi-line layout:
+
+```bash
+restic \
+    --repo "$REPO" \
+    --password-file "$PASSWORD_FILE" \
+    backup \
+    ...
+    "$RUN_DIR/metrics.db" \
+    ${MAPLE_DB_STAGED:+"$MAPLE_DB_STAGED"} \
+    ...
+```
+
+A line continues the command only if it ends in a backslash with nothing after
+it (`\ ` with a trailing space escapes the space and ends the command); a comment
+line also ends it. An unrecognised restic global option before `backup` makes the
+check fail rather than guess.
 
 Why the helper is called as a plain command (not `if helper; then`): a failing
 command inside an `if` condition does not trigger `errexit` or the ERR trap. As

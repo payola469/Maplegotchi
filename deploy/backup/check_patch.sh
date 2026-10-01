@@ -39,18 +39,61 @@ report "$order" "block comes after RUN_DIR is created (line ${rundir_at:-?} < ${
 order=1
 if [ -n "$block_at" ] && [ -n "$arg_at" ] && [ "$block_at" -lt "$arg_at" ]; then order=0; fi
 report "$order" "restic argument comes after the block (line ${arg_at:-?})"
-# Walking back from the argument, every line must be a continuation (ends in a
-# backslash) up to the line that invokes restic with the `backup` subcommand.
-inside=$(awk -v n="${arg_at:-0}" '
-    NR < n { line[NR] = $0 }
+# The argument must sit inside one logical, backslash-continued shell command
+# that invokes restic with the `backup` subcommand. The real script spreads it
+# over lines (`restic \`, `--repo … \`, `--password-file … \`, `backup \`, paths),
+# so the command is rebuilt from its first line, not matched on one line. A line
+# continues only if it ends in an odd number of backslashes with nothing after
+# them; a comment line ends the command. Global options before the subcommand
+# must be known restic options (value options consume the next word); anything
+# else fails closed. The argument must directly follow "$RUN_DIR/metrics.db".
+inside=$(RESTIC_ARG="$RESTIC_ARG" awk '
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    function continues(s,    i, k) {
+        if (s ~ /^[[:space:]]*#/) return 0
+        k = 0
+        for (i = length(s); i > 0 && substr(s, i, 1) == "\\"; i--) k++
+        return k % 2 == 1
+    }
+    { line[NR] = $0; if (trim($0) == ENVIRON["RESTIC_ARG"]) { hits++; at = NR } }
     END {
-        for (i = n - 1; i >= 1; i--) {
-            if (line[i] !~ /\\[[:space:]]*$/) { print "no"; exit }
-            if (line[i] ~ /restic/ && line[i] ~ /[[:space:]]backup([[:space:]]|$)/) { print "yes"; exit }
+        if (hits != 1) { print "no: argument line found " hits + 0 " times"; exit }
+        if (!continues(line[at])) { print "no: argument line does not continue"; exit }
+        start = at
+        while (start > 1 && continues(line[start - 1])) start--
+        if (start == at) { print "no: argument is not part of a continued command"; exit }
+        words = ""
+        for (i = start; i < at; i++) { w = line[i]; sub(/\\$/, "", w); words = words " " w }
+        n = split(words, tok, /[[:space:]]+/)
+        first = 1
+        while (first <= n && tok[first] == "") first++
+        if (tok[first] !~ /^(\/[^[:space:]]*\/)?restic$/) {
+            print "no: command starting at line " start " is not restic"; exit
         }
-        print "no"
+        cmd = ""
+        for (i = first + 1; i <= n; i++) {
+            t = tok[i]
+            if (t == "") continue
+            if (t ~ /^-/) {
+                if (t ~ /=/) continue
+                if (t ~ /^(-r|--repo|--repository-file|-p|--password-file|--password-command|--cache-dir|--cacert|--tls-client-cert|-o|--option|--limit-upload|--limit-download|--pack-size|--compression|--key-hint)$/) { i++; continue }
+                if (t ~ /^(-v|--verbose|-q|--quiet|--no-cache|--no-lock|--json|--cleanup-cache|--insecure-tls)$/) continue
+                print "no: unrecognised restic global option " t " before the subcommand"; exit
+            }
+            cmd = t; break
+        }
+        if (cmd != "backup") { print "no: restic subcommand is \"" cmd "\", not backup"; exit }
+        if (trim(line[at - 1]) != "\"$RUN_DIR/metrics.db\" \\") {
+            print "no: line " at - 1 " is not the \"$RUN_DIR/metrics.db\" argument"; exit
+        }
+        print "yes: restic backup command, lines " start "-" at
     }' "$PATCHED")
-report "$(ok [ "$inside" = yes ])" "argument is inside the final restic backup command"
+# shellcheck disable=SC2016
+label='argument is inside the restic backup command, directly after "$RUN_DIR/metrics.db"'
+case $inside in
+    yes:*) report 0 "$label (${inside#yes: })" ;;
+    *) report 1 "$label (${inside#no: })" ;;
+esac
 report "$(ok [ -x "$HELPER" ])" "helper installed ($HELPER)"
 
 if [ "$failed" -eq 0 ]; then echo "check_patch: OK"; else echo "check_patch: FAILED"; fi
