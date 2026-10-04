@@ -1,3 +1,5 @@
+import pytest
+
 from maplegotchi.core.journal import BrainContext, BrainKind, Trigger, TriggerKind
 from maplegotchi.runtime.external_brain import ExternalHttpBrain
 from tests.core.support import at_local, make_state
@@ -38,7 +40,9 @@ def test_external_http_brain_identity() -> None:
     assert brain.version == "1"
 
 
-def test_external_http_brain_posts_prompt_and_parses_draft(monkeypatch) -> None:
+def test_external_http_brain_posts_prompt_and_parses_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, object] = {}
 
     response = FakeResponse(
@@ -52,7 +56,12 @@ def test_external_http_brain_posts_prompt_and_parses_draft(monkeypatch) -> None:
         }
     )
 
-    def fake_post(url, *, json, timeout):
+    def fake_post(
+        url: str,
+        *,
+        json: dict[str, object],
+        timeout: float,
+    ) -> FakeResponse:
         captured["url"] = url
         captured["json"] = json
         captured["timeout"] = timeout
@@ -86,12 +95,17 @@ def test_external_http_brain_posts_prompt_and_parses_draft(monkeypatch) -> None:
     assert drafts[0].text == "I spent some time reading."
 
 
-def test_external_http_brain_ignores_invalid_response(monkeypatch) -> None:
+def test_external_http_brain_ignores_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     response = FakeResponse({"response": "not-json"})
+
+    def fake_post(*args: object, **kwargs: object) -> FakeResponse:
+        return response
 
     monkeypatch.setattr(
         "maplegotchi.runtime.external_brain.httpx2.post",
-        lambda *args, **kwargs: response,
+        fake_post,
     )
 
     brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471")

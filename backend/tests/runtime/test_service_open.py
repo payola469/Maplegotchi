@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from maplegotchi.config import BrainMode, SensesKind, Settings
 from maplegotchi.core.journal import BrainKind
 from maplegotchi.runtime.clock import FakeClock
@@ -5,7 +7,7 @@ from maplegotchi.runtime.service import MapleService
 from tests.persistence_support import BIRTH
 
 
-def test_open_defaults_to_rule_brain(tmp_path) -> None:
+def test_open_defaults_to_rule_brain(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
 
@@ -23,7 +25,7 @@ def test_open_defaults_to_rule_brain(tmp_path) -> None:
     service.runtime.close()
 
 
-def test_open_uses_external_brain_when_selected(tmp_path) -> None:
+def test_open_uses_external_brain_when_selected(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
 
