@@ -16,6 +16,21 @@ interface Props {
 
 const LABEL: Record<InteractionKind, string> = { greet: "Greet Maple", pet: "Pet Maple" };
 
+// Decorative stroke icons (aria-hidden; the label stays the button's name).
+const ICON_PATH: Record<InteractionKind, string> = {
+  greet: "M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 10.5h.01M15 10.5h.01M9.5 13a3.5 3.5 0 0 0 5 0",
+  pet: "M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.4-7.5 10-7.5 10z",
+};
+
+/** Styling only: the feedback text itself always says what happened. */
+function feedbackTone(feedback: InteractionFeedback | null): string {
+  if (!feedback) return "";
+  if (feedback.accepted) return " interactions__feedback--accepted";
+  return feedback.reason === "cooldown" || feedback.reason === "rate_limit"
+    ? " interactions__feedback--waiting"
+    : " interactions__feedback--error";
+}
+
 function feedbackText(feedback: InteractionFeedback, snapshot: SnapshotOut): string {
   const name = snapshot.maple.identity.name;
   if (feedback.accepted) {
@@ -65,11 +80,14 @@ export function InteractionBar({ snapshot, serverNowMs, pending, feedback, disab
             <button
               key={kind}
               type="button"
-              class="interactions__button"
+              class={`interactions__button interactions__button--${kind}`}
               disabled={disabled || unavailable || pending[kind]}
               aria-describedby={`${kind}-hint`}
               onClick={() => onInteract(kind)}
             >
+              <svg class="interactions__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d={ICON_PATH[kind]} />
+              </svg>
               <span class="interactions__label">{LABEL[kind]}</span>
               <span class="interactions__hint" id={`${kind}-hint`}>
                 {hint}
@@ -78,7 +96,7 @@ export function InteractionBar({ snapshot, serverNowMs, pending, feedback, disab
           );
         })}
       </div>
-      <p class="interactions__feedback" role="status" aria-live="polite" data-testid="interaction-feedback">
+      <p class={`interactions__feedback${feedbackTone(feedback)}`} role="status" aria-live="polite" data-testid="interaction-feedback">
         {feedback ? feedbackText(feedback, snapshot) : ""}
       </p>
     </div>

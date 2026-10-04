@@ -34,11 +34,13 @@ export const FURNITURE_ASSETS: Readonly<Record<FurnitureKey, FurnitureAsset>> = 
   rug: { key: "rug", description: "round rug in the middle of the floor" },
 };
 
-// Maple replacement contract (documented for artists; v0.1 draws Maple in code):
-// one image per pose — stand, walk, sleep, sit_write, sit_monitor, read, rest —
-// plus a face overlay per expression — calm, happy, curious, sleepy, focused —
-// and one reaction bubble per symbol — wave, heart, sleepy_wave, sleepy_heart,
-// sparkle. Origin: between Maple's feet. Size: about 90 x 100 logical units.
+// Maple contract: pixel art as text grids in room/maple/pixels.ts, composed by
+// room/maple/sprites.ts into one frame per pose (walk: two) — stand, walk, sleep,
+// sit_write, sit_monitor, read, rest — times one face per expression — calm,
+// happy, curious, sleepy, focused (sleep always uses its closed-eye face) — plus
+// one bubble glyph per symbol — wave, heart, sleepy_wave, sleepy_heart, sparkle.
+// Frames are 24 x 28 pixels at 4 logical units per pixel (96 x 112 units).
+// Origin: between Maple's feet.
 export const MAPLE_POSES = [
   "stand",
   "walk",

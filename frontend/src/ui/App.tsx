@@ -4,6 +4,7 @@ import type { CreateRoomScene } from "../room/scene/RoomScene";
 import type { Store } from "../state/store";
 import { useReducedMotion, useStore } from "./hooks";
 import { InteractionBar } from "./interactions/InteractionBar";
+import { AppShell } from "./layout/AppShell";
 import {
   ConnectionBadge,
   JournalPanel,
@@ -69,27 +70,34 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
   const stale = state.status === "stale" || state.status === "offline" || state.status === "reconnecting";
   const overdue = snapshot.freshness.heartbeat_status !== "fresh";
 
+  // Each component below is rendered exactly once; AppShell only places it.
   return (
-    <div class="app">
-      <header class="topbar">
-        <h1>
-          {snapshot.maple.identity.name}
-          <span class="topbar__sub">'s room</span>
-        </h1>
-        <ConnectionBadge status={state.status} />
-      </header>
-      {stale ? (
-        <p class="banner banner--warn" role="alert">
-          Not connected — showing Maple as last seen at{" "}
-          {state.lastUpdateMs ? new Date(state.lastUpdateMs).toLocaleTimeString() : "an unknown time"}.
-        </p>
-      ) : null}
-      {!stale && overdue ? (
-        <p class="banner banner--warn" role="alert">
-          Maple's heartbeat is late; the room may not be current.
-        </p>
-      ) : null}
-      <main class="layout">
+    <AppShell
+      header={
+        <header class="topbar">
+          <h1>
+            {snapshot.maple.identity.name}
+            <span class="topbar__sub">'s room</span>
+          </h1>
+          <ConnectionBadge status={state.status} />
+        </header>
+      }
+      banners={
+        <>
+          {stale ? (
+            <p class="banner banner--warn" role="alert">
+              Not connected — showing Maple as last seen at{" "}
+              {state.lastUpdateMs ? new Date(state.lastUpdateMs).toLocaleTimeString() : "an unknown time"}.
+            </p>
+          ) : null}
+          {!stale && overdue ? (
+            <p class="banner banner--warn" role="alert">
+              Maple's heartbeat is late; the room may not be current.
+            </p>
+          ) : null}
+        </>
+      }
+      room={
         <section class="room-card" aria-labelledby="room-heading">
           <h2 id="room-heading" class="visually-hidden">
             Maple's room
@@ -102,6 +110,11 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
             createScene={createScene}
             onReactionEnded={onReactionEnded}
           />
+        </section>
+      }
+      status={<StatusPanel snapshot={snapshot} />}
+      interactions={
+        <div class="card interactions-card">
           <InteractionBar
             snapshot={snapshot}
             serverNowMs={serverNowMs}
@@ -111,15 +124,16 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
             onInteract={onInteract}
             onRefresh={onRefresh}
           />
-        </section>
-        <div class="panels">
-          <StatusPanel snapshot={snapshot} />
-          <JournalPanel snapshot={snapshot} />
+        </div>
+      }
+      journal={<JournalPanel snapshot={snapshot} />}
+      activity={<TimelinePanel snapshot={snapshot} />}
+      system={
+        <div class="system">
           <ServerPanel snapshot={snapshot} />
-          <TimelinePanel snapshot={snapshot} />
           <RuntimePanel snapshot={snapshot} status={state.status} lastUpdateMs={state.lastUpdateMs} />
         </div>
-      </main>
-    </div>
+      }
+    />
   );
 }

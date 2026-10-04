@@ -1,5 +1,6 @@
 // Secondary DOM panels. Everything shown here is a backend value; missing or
 // unknown data is shown as such, never as a healthy-looking placeholder.
+// Class names exist for styling only; colour is never the only signal.
 
 import type { SnapshotOut, TimelineEventOut } from "../api/types";
 import type { ConnectionStatus } from "../state/store";
@@ -14,21 +15,27 @@ export function StatusPanel({ snapshot }: { snapshot: SnapshotOut }) {
     ["Social", needs.social],
   ];
   return (
-    <section class="panel" aria-labelledby="status-heading">
+    <section class="panel panel--status" aria-labelledby="status-heading">
       <h2 id="status-heading">{identity.name}</h2>
-      <dl class="facts">
-        <dt>Age</dt>
-        <dd>{formatAge(identity.age_seconds)}</dd>
-        <dt>Doing</dt>
-        <dd>{activity.kind.replace(/_/g, " ")}</dd>
-        <dt>Feeling</dt>
-        <dd>{expression}</dd>
+      <dl class="facts facts--tiles">
+        <div class="fact">
+          <dt>Age</dt>
+          <dd>{formatAge(identity.age_seconds)}</dd>
+        </div>
+        <div class="fact">
+          <dt>Doing</dt>
+          <dd>{activity.kind.replace(/_/g, " ")}</dd>
+        </div>
+        <div class="fact">
+          <dt>Feeling</dt>
+          <dd>{expression}</dd>
+        </div>
       </dl>
       <ul class="needs">
         {bars.map(([label, value]) => (
           <li key={label}>
             <label>
-              <span>{label}</span>
+              <span class="needs__label">{label}</span>
               <meter min={0} max={100} low={25} high={75} optimum={100} value={value} />
               <span class="needs__value">{Math.round(value)}</span>
             </label>
@@ -49,6 +56,11 @@ const SERVICE_NAMES: Record<string, string> = {
   backup: "Backups",
 };
 
+/** CSS-safe modifier for a backend word (styling only; the word itself is shown as text). */
+function tone(word: string): string {
+  return word.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+
 export function ServerPanel({ snapshot }: { snapshot: SnapshotOut }) {
   const server = snapshot.server;
   const readings = hostReadings(snapshot);
@@ -59,32 +71,33 @@ export function ServerPanel({ snapshot }: { snapshot: SnapshotOut }) {
         ? `stale — last observed ${formatClock(server.observed_at)}`
         : "no observations yet";
   return (
-    <details class="panel" open>
+    <details class="panel panel--server" open>
       <summary>
         <h2>Server</h2>
         <span class={`badge badge--${server.sensor_status}`}>{sensorNote}</span>
       </summary>
-      <p class="server__summary">{SUMMARY_TEXT[server.summary] ?? server.summary}</p>
-      <dl class="facts facts--grid">
+      <p class={`server__summary server__summary--${tone(server.summary)}`}>
+        {SUMMARY_TEXT[server.summary] ?? server.summary}
+      </p>
+      <dl class="readings">
         {readings.map((r) => (
-          <>
-            <dt key={`${r.label}-t`}>{r.label}</dt>
-            <dd key={`${r.label}-d`} class={r.known ? "" : "unknown"}>
-              {r.text}
-            </dd>
-          </>
+          <div key={r.label} class={`reading${r.known ? "" : " reading--unknown"}`}>
+            <dt>{r.label}</dt>
+            <dd class={r.known ? "" : "unknown"}>{r.text}</dd>
+          </div>
         ))}
       </dl>
       {server.services.length > 0 ? (
         <ul class="services">
-          {server.services.map((s) => (
-            <li key={s.service_id} class={`service service--${s.status}`}>
-              <span>{SERVICE_NAMES[s.service_id] ?? s.service_id}</span>
-              <span class="service__state">
-                {s.status === "available" ? (s.state ?? "?") : s.status}
-              </span>
-            </li>
-          ))}
+          {server.services.map((s) => {
+            const shown = s.status === "available" ? (s.state ?? "?") : s.status;
+            return (
+              <li key={s.service_id} class={`service service--${s.status}`}>
+                <span class="service__name">{SERVICE_NAMES[s.service_id] ?? s.service_id}</span>
+                <span class={`service__state service__state--${tone(shown)}`}>{shown}</span>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </details>
@@ -94,7 +107,7 @@ export function ServerPanel({ snapshot }: { snapshot: SnapshotOut }) {
 export function JournalPanel({ snapshot }: { snapshot: SnapshotOut }) {
   const entries = [...snapshot.journal].reverse();
   return (
-    <details class="panel" open>
+    <details class="panel panel--journal" open>
       <summary>
         <h2>Journal</h2>
       </summary>
@@ -132,14 +145,15 @@ function timelineText(e: TimelineEventOut, name: string): string {
 export function TimelinePanel({ snapshot }: { snapshot: SnapshotOut }) {
   const events = [...snapshot.timeline].reverse();
   return (
-    <details class="panel">
+    <details class="panel panel--activity" open>
       <summary>
-        <h2>Timeline</h2>
+        <h2>Recent Activity</h2>
       </summary>
       <ol class="timeline">
         {events.map((e) => (
-          <li key={e.id}>
-            <time dateTime={e.at}>{formatClock(e.at)}</time> {timelineText(e, snapshot.maple.identity.name)}
+          <li key={e.id} class={`timeline__event timeline__event--${tone(e.kind)}`}>
+            <time dateTime={e.at}>{formatClock(e.at)}</time>{" "}
+            <span class="timeline__text">{timelineText(e, snapshot.maple.identity.name)}</span>
           </li>
         ))}
       </ol>
@@ -166,7 +180,7 @@ export function ConnectionBadge({ status }: { status: ConnectionStatus }) {
 export function RuntimePanel({ snapshot, status, lastUpdateMs }: { snapshot: SnapshotOut; status: ConnectionStatus; lastUpdateMs: number | null }) {
   const f = snapshot.freshness;
   return (
-    <details class="panel">
+    <details class="panel panel--runtime">
       <summary>
         <h2>Runtime</h2>
       </summary>
