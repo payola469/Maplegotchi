@@ -264,12 +264,30 @@ class RuleBrainSubclass(RuleBrain):
     pass
 
 
-@pytest.mark.parametrize("brain", [ExternalStub(), Impostor(), RuleBrainSubclass()])
-def test_only_the_builtin_rule_brain_may_run(tmp_path: Path, brain: object) -> None:
+def test_external_brain_may_run(tmp_path: Path) -> None:
+    data_dir = make_data_dir(tmp_path)
+    runtime = LifeRuntime.open(
+        data_dir,
+        FakeClock(at(5)),
+        PARAMS,
+        new_seed=lambda: SEED,
+        brain=ExternalStub(),
+    )
+    runtime.close()
+
+
+@pytest.mark.parametrize("brain", [Impostor(), RuleBrainSubclass()])
+def test_only_builtin_rule_brain_may_claim_rule_kind(tmp_path: Path, brain: object) -> None:
     data_dir = make_data_dir(tmp_path)
     with pytest.raises(ExternalBrainNotAllowed):
-        LifeRuntime.open(data_dir, FakeClock(at(5)), PARAMS, new_seed=lambda: SEED, brain=brain)  # type: ignore[arg-type]
-    assert list(data_dir.root.iterdir()) == []  # refused before touching storage
+        LifeRuntime.open(
+            data_dir,
+            FakeClock(at(5)),
+            PARAMS,
+            new_seed=lambda: SEED,
+            brain=brain,  # type: ignore[arg-type]
+        )
+    assert list(data_dir.root.iterdir()) == []
 
 
 def test_every_entry_is_labelled_with_its_brain(tmp_path: Path) -> None:

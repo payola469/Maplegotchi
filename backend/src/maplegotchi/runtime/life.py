@@ -92,16 +92,23 @@ class CommittedInteraction:
 
 
 class ExternalBrainNotAllowed(RuntimeError):
-    """v0.1 wires only the built-in RuleBrain (D6, D10)."""
+    """The configured Brain is not a supported Maple Brain."""
 
 
-def require_rule_brain(brain: Brain) -> RuleBrain:
-    # Exact class, not just `kind`: an external brain must not pass by claiming "rule".
-    if type(brain) is not RuleBrain or brain.kind is not BrainKind.RULE:
-        raise ExternalBrainNotAllowed(
-            f"only the built-in RuleBrain may run in v0.1, got {type(brain).__name__}"
-        )
-    return brain
+def require_supported_brain(brain: Brain) -> Brain:
+    if brain.kind is BrainKind.RULE:
+        if type(brain) is not RuleBrain:
+            raise ExternalBrainNotAllowed(
+                f"only the built-in RuleBrain may claim kind=rule, got {type(brain).__name__}"
+            )
+        return brain
+
+    if brain.kind is BrainKind.EXTERNAL:
+        return brain
+
+    raise ExternalBrainNotAllowed(
+        f"unsupported Brain kind from {type(brain).__name__}"
+    )
 
 
 class LifeRuntime:
@@ -114,7 +121,7 @@ class LifeRuntime:
         brain: Brain | None = None,
         journal: JournalParameters | None = None,
     ) -> None:
-        self._brain = require_rule_brain(brain if brain is not None else RuleBrain())
+        self._brain = require_supported_brain(brain if brain is not None else RuleBrain())
         self._repo: LifeRepository | None = repository
         self._clock = clock
         self._params = params
@@ -142,7 +149,9 @@ class LifeRuntime:
         `name` and `new_seed` are used only at birth; an existing Maple keeps its
         own identity and seed.
         """
-        require_rule_brain(brain if brain is not None else RuleBrain())  # refuse before opening
+        require_supported_brain(
+            brain if brain is not None else RuleBrain()
+        )  # refuse before opening
 
         def first_life() -> tuple[MapleState, Born]:
             born_at = clock.now()

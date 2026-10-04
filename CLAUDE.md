@@ -38,6 +38,7 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D21 | 2026-09-30 | systemd D-Bus transport via **dbus-fast**, behind `ReadOnlySystemdClient`: only `GetUnit` + `Properties.Get(Unit.ActiveState)` for allowlisted units, refused otherwise in client and transport; all failures → `unknown`. | 0022 |
 | D22 | 2026-09-30 | Production runtime is uv-managed **CPython 3.12** under `/opt/maplegotchi/python` (not the host's 3.14); immutable `releases/<commit-sha>` with per-release venv from `uv.lock`; bundle built on the trusted build machine (incl. frontend); rollback swaps code only and never downgrades the database. All privileged steps are owner-run. | 0023 |
 | D23 | 2026-09-30 | Maple's database joins the nightly paolo-core backup via SQLite backup API → `$RUN_DIR/maple.db` (0600) → `integrity_check` = `ok` → added to the explicit restic paths only when staged; no `maple.db` = intentional skip; a present but unstageable DB fails the job (`set -Eeuo pipefail`). Exact two-insertion patch in `deploy/backup/`. | 0024 |
+| D24 | 2026-10-04 | v0.2 may select an External Brain through a localhost-only HTTP runtime boundary. `brain/` stays pure; Maplegotchi never invokes Antigravity, provider CLIs, subprocesses, shells, or exec APIs directly. Provider execution belongs to a separate companion service. | 0025 |
 
 ---
 
@@ -182,7 +183,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 1. Collect `SensorReading`s and `get_service_health()` (per-source timeout; failure → `status="unavailable"` / `unknown`, never crashes the tick).
 2. `observations.derive(readings, recent_history) -> [Observation]` — factual only.
 3. `heartbeat.tick(state, observations, now, rng, brain)` — decay needs, advance activity, choose next activity, decide journal triggers.
-4. Journal text comes from the built-in RuleBrain (`kind="rule"`, the v0.1 "local" brain). An ordinary heartbeat never calls an external Brain; `runtime` refuses any Brain that is not the built-in RuleBrain.
+4. Journal text comes from the configured Brain. `RuleBrain` remains the default; v0.2 may use an External Brain through the localhost-only runtime boundary defined by ADR-0025. Brain output remains advisory and existing validation still applies.
 5. Persist state, observations, journal entries, timeline events, and RNG counters in **one SQLite transaction**; then publish the snapshot over SSE.
 
 **Missed ticks:** the gap is recorded on the timeline; catch-up is bounded (capped decay, no mass replay). Maple is never "killed" by downtime.
@@ -215,7 +216,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - The context passed to a Brain is an explicit, serialisable `BrainContext` built by `core` — never DB handles, file paths, sensor objects, or config.
 - Brain output is **advisory**: `core` validates it and may ignore it. A Brain cannot write state, files, or call tools.
 - Maple's identity lives in Maple's data and is passed *to* the Brain. Replacing the Brain must not change identity, state schema, or history.
-- v0.1 ships only `RuleBrain` (`kind="rule"`). No network calls, no API keys. The runtime accepts only the built-in `RuleBrain` class; any other Brain (including one claiming `kind="rule"`) is refused.
+- v0.1 shipped only `RuleBrain` (`kind="rule"`). In v0.2, `RuleBrain` remains the default, while runtime may explicitly select an External Brain through a localhost-only HTTP boundary. `maplegotchi.brain` remains pure and provider execution stays in a separate companion service (ADR-0025). A non-built-in Brain claiming `kind="rule"` is still refused.
 - Phase 4 defines only `compose_journal`; behavior and reactions stay core rules. Triggers, deduplication, grounding, and the daily window are decided in core, never by a Brain. Details: `docs/journal.md` [PROPOSED].
 
 ### 3.7 Randomness and determinism

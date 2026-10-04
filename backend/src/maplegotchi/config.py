@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DEFAULT_PORT = 8470
 DEV_ORIGINS = (
@@ -42,6 +43,11 @@ class Mode(StrEnum):
 class SensesKind(StrEnum):
     PAOLO_CORE = "paolo_core"
     FAKE = "fake"
+
+
+class BrainMode(StrEnum):
+    RULE = "rule"
+    ANTIGRAVITY = "antigravity"
 
 
 class SettingsError(ValueError):
@@ -67,6 +73,8 @@ class Settings:
     static_dir: Path | None = None
     senses: SensesKind = SensesKind.PAOLO_CORE
     monitor_db: Path = field(default=Path("/data/monitor/metrics.db"))
+    brain: BrainMode = BrainMode.RULE
+    brain_url: str = "http://127.0.0.1:8471"
     heartbeat_seconds: int = 300
     loop_poll_seconds: float = 5.0
 
@@ -87,6 +95,16 @@ class Settings:
                 raise SettingsError("production origins must be https (Tailscale Serve)")
             if self.senses is not SensesKind.PAOLO_CORE:
                 raise SettingsError("production refuses fake senses")
+        if self.brain is BrainMode.ANTIGRAVITY:
+            parsed = urlsplit(self.brain_url)
+            if (
+                parsed.scheme != "http"
+                or parsed.hostname is None
+                or not _is_loopback(parsed.hostname)
+            ):
+                raise SettingsError(
+                    "MAPLE_BRAIN_URL must use http and a loopback host"
+                )
         if self.heartbeat_seconds < 1 or self.loop_poll_seconds <= 0:
             raise SettingsError("heartbeat and poll intervals must be positive")
 
@@ -117,5 +135,7 @@ def settings_from_env(environ: Mapping[str, str]) -> Settings:
         static_dir=Path(static) if static else None,
         senses=SensesKind(environ.get("MAPLE_SENSES", SensesKind.PAOLO_CORE)),
         monitor_db=Path(environ.get("MAPLE_MONITOR_DB", "/data/monitor/metrics.db")),
+        brain=BrainMode(environ.get("MAPLE_BRAIN", BrainMode.RULE)),
+        brain_url=environ.get("MAPLE_BRAIN_URL", "http://127.0.0.1:8471"),
         heartbeat_seconds=int(environ.get("MAPLE_HEARTBEAT_SECONDS", 300)),
     )

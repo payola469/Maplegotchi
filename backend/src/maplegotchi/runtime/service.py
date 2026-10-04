@@ -35,6 +35,7 @@ from maplegotchi.core.observations import (
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.reflection import ReflectionState, server_summary
 from maplegotchi.core.state import Expression, InteractionKind, MapleState, Reaction
+from maplegotchi.runtime.brain_factory import build_brain
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
@@ -152,7 +153,11 @@ class MapleService:
 
     @classmethod
     def open(
-        cls, settings: Settings, *, clock: Clock | None = None, senses: Senses | None = None
+        cls,
+        settings: Settings,
+        *,
+        clock: Clock | None = None,
+        senses: Senses | None = None,
     ) -> MapleService:
         clock = clock or SystemClock()
         params = CoreParameters(heartbeat_interval=timedelta(seconds=settings.heartbeat_seconds))
@@ -162,7 +167,8 @@ class MapleService:
                 if settings.senses is SensesKind.FAKE
                 else paolo_core_senses(settings.monitor_db)
             )
-        runtime = LifeRuntime.open(DataDir(settings.data_dir), clock, params)
+        brain = build_brain(settings)
+        runtime = LifeRuntime.open(DataDir(settings.data_dir), clock, params, brain=brain)
         return cls(runtime, senses, clock, params)
 
     # ------------------------------------------------------------ reads
