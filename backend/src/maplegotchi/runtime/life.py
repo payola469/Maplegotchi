@@ -106,9 +106,7 @@ def require_supported_brain(brain: Brain) -> Brain:
     if brain.kind is BrainKind.EXTERNAL:
         return brain
 
-    raise ExternalBrainNotAllowed(
-        f"unsupported Brain kind from {type(brain).__name__}"
-    )
+    raise ExternalBrainNotAllowed(f"unsupported Brain kind from {type(brain).__name__}")
 
 
 class LifeRuntime:

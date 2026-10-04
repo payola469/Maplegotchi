@@ -102,9 +102,7 @@ class Settings:
                 or parsed.hostname is None
                 or not _is_loopback(parsed.hostname)
             ):
-                raise SettingsError(
-                    "MAPLE_BRAIN_URL must use http and a loopback host"
-                )
+                raise SettingsError("MAPLE_BRAIN_URL must use http and a loopback host")
         if self.heartbeat_seconds < 1 or self.loop_poll_seconds <= 0:
             raise SettingsError("heartbeat and poll intervals must be positive")
 
