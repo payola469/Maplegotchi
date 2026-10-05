@@ -219,3 +219,17 @@ describe("LiveConnection", () => {
     expect(t.streams).toHaveLength(1); // no reconnect after stop
   });
 });
+
+describe("shared life events over SSE (Phase A8)", () => {
+  it("adds the commit's life events to the store", () => {
+    t.live.start();
+    const events = [
+      { id: "action:3", type: "walking_started", at: "2026-09-30T10:00:00Z", revision: 12,
+        goal_id: 1, action_id: 4, priority: null, payload: { furniture: "bookshelf" } },
+    ]; // prettier-ignore
+    t.latest().h.onFrame({ id: "b-12", event: "life", data: JSON.stringify({ revision: 12, events }) });
+    expect(t.store.get().lifeEvents.map((e) => e.id)).toEqual(["action:3"]);
+    t.latest().h.onFrame({ id: "b-13", event: "life", data: JSON.stringify({ revision: 13, events: "nope" }) });
+    expect(t.store.get().lifeEvents).toHaveLength(1);
+  });
+});

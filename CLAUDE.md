@@ -3,7 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
-> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8) implemented; later autonomy phases follow in order, one commit each. Not deployed.
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector) implemented; later autonomy phases follow in order, one commit each. Not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -124,6 +124,7 @@ Maplegotchi/
 │   │   │   proposal.py tasks.py   (v0.2 A4 Director context/validation; A5 reader/writer rules)
 │   │   │   memory.py   (v0.2 A6: creation, consolidation, preferences, retrieval)
 │   │   │   daily.py    (v0.2 A7: Daily Reflection)
+│   │   │   presence.py (v0.2 A8: speech bubble from real state)
 │   │   ├── library/               (v0.2 A5: approved read-only documentation, by catalog id)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure

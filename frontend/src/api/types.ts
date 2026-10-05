@@ -139,6 +139,12 @@ export interface MapleOut {
   goal: GoalOut | null;
   suspended_goal: GoalOut | null;
   action_priority: string; // critical | high | normal | low
+  bubble: BubbleOut | null; // the speech bubble, derived by the backend from real state
+}
+
+export interface BubbleOut {
+  kind: string; // needs_attention | thinking | reading | writing | waiting_for_paolo | approval_required
+  text: string;
 }
 
 export interface DayOut {

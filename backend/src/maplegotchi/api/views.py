@@ -9,6 +9,7 @@ from datetime import datetime
 from maplegotchi.api.models import (
     ActivityOut,
     BrainOut,
+    BubbleOut,
     DayOut,
     DecisionOut,
     DirectorOut,
@@ -44,6 +45,7 @@ from maplegotchi.api.models import (
     TaskOut,
     TimelineEventOut,
 )
+from maplegotchi.core import presence
 from maplegotchi.core import room as room_model
 from maplegotchi.core.audit import DecisionRecord, Verdict
 from maplegotchi.core.daily import DailyReflection
@@ -251,7 +253,13 @@ def maple(snap: LiveSnapshot) -> MapleOut:
         goal=goal(state.goal),
         suspended_goal=goal(state.suspended_goal),
         action_priority=state.action_priority.value,
+        bubble=_bubble(state, snap.now),
     )
+
+
+def _bubble(state: MapleState, now: datetime) -> BubbleOut | None:
+    found = presence.bubble(state, now)
+    return BubbleOut(kind=found.kind.value, text=found.text) if found else None
 
 
 def goal(value: Goal | None) -> GoalOut | None:

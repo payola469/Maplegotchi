@@ -80,7 +80,9 @@ against this list.
     "goal": {"id": 3, "type": "learn", "summary": "Learn something new", "source": "rule",
              "started_at": "…Z", "horizon_until": "…Z"} | null,
     "suspended_goal": GoalOut | null,   // paused by an interruption
-    "action_priority": "critical|high|normal|low"
+    "action_priority": "critical|high|normal|low",
+    // additive (A8): what the speech bubble says, derived from real state
+    "bubble": {"kind": "needs_attention|thinking|reading|writing|waiting_for_paolo", "text": "…"} | null
   },
   "day": {"local_time": "2026-01-01T07:05:00+07:00", "local_hour": 7.0833, "phase": "morning",
           "is_night": false, "timezone": "Asia/Bangkok", "utc_offset_minutes": 420},

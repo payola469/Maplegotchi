@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "preact/hooks";
-import type { SnapshotOut } from "../../api/types";
+import type { RoomOut, SnapshotOut } from "../../api/types";
 import type { CreateRoomScene, RoomSceneHandle } from "../../room/scene/RoomScene";
 import { describeRoom, toVisual } from "../../room/visual";
+import { RoomOverlay } from "./RoomOverlay";
 
 interface Props {
   snapshot: SnapshotOut;
@@ -10,9 +11,18 @@ interface Props {
   stale: boolean;
   createScene: CreateRoomScene;
   onReactionEnded: () => void;
+  room?: RoomOut | null;
 }
 
-export function RoomView({ snapshot, serverNowMs, reducedMotion, stale, createScene, onReactionEnded }: Props) {
+export function RoomView({
+  snapshot,
+  serverNowMs,
+  reducedMotion,
+  stale,
+  createScene,
+  onReactionEnded,
+  room = null,
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<RoomSceneHandle | null>(null);
   const visual = useMemo(
@@ -56,7 +66,10 @@ export function RoomView({ snapshot, serverNowMs, reducedMotion, stale, createSc
 
   return (
     <div class={`room${stale ? " room--stale" : ""}`}>
-      <div class="room__canvas" ref={host} />
+      <div class="room__stage">
+        <div class="room__canvas" ref={host} />
+        <RoomOverlay snapshot={snapshot} visual={visual} room={room} />
+      </div>
       <p class="room__summary" data-testid="room-summary">
         {describeRoom(snapshot, visual)}
         {!visual.recognised ? " (Some of Maple's state is new to this display.)" : ""}

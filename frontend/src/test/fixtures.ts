@@ -62,6 +62,7 @@ export function makeMaple(overrides: Partial<MapleOut> = {}): MapleOut {
     goal: null,
     suspended_goal: null,
     action_priority: "normal",
+    bubble: null,
     ...overrides,
   };
 }

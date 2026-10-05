@@ -164,3 +164,9 @@ with `expired` / `no_longer_relevant`.
   goal type (×4 among everyday goals) when nothing more urgent applies, and the
   Director sees `intent` in its context.
 
+## Room UX (A8)
+
+The backend derives Maple's speech bubble from real state (`core/presence.py`,
+`maple.bubble`); the frontend adds furniture hotspots from `/api/room`, a live feed
+of the shared life events, and a separate owner Inspector (`docs/frontend.md`).
+

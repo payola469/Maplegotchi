@@ -106,6 +106,12 @@ class ReactionOut(_Out):
     until: datetime
 
 
+class BubbleOut(_Out):
+    # needs_attention | thinking | reading | writing | waiting_for_paolo | approval_required
+    kind: str
+    text: str
+
+
 class GoalOut(_Out):
     id: int
     type: str  # one of the 16 goal types (ADR-0026 §6)
@@ -135,6 +141,7 @@ class MapleOut(_Out):
     goal: GoalOut | None
     suspended_goal: GoalOut | None  # paused by an interruption
     action_priority: str  # critical | high | normal | low
+    bubble: BubbleOut | None  # what the speech bubble says, from real state (A8)
 
 
 class DayOut(_Out):

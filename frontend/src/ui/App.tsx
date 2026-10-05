@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
+import type { ReadApi } from "../api/read";
 import type { InteractionKind } from "../api/types";
 import type { CreateRoomScene } from "../room/scene/RoomScene";
 import type { Store } from "../state/store";
+import { ActivityFeed } from "./feed";
 import { useReducedMotion, useStore } from "./hooks";
+import { Inspector } from "./inspector/Inspector";
 import { InteractionBar } from "./interactions/InteractionBar";
 import { AppShell } from "./layout/AppShell";
 import {
@@ -20,10 +23,12 @@ export interface AppProps {
   createScene: CreateRoomScene;
   onInteract: (kind: InteractionKind) => void;
   onRefresh: () => void;
+  readApi?: ReadApi; // enables the owner Inspector
 }
 
-export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
+export function App({ store, createScene, onInteract, onRefresh, readApi }: AppProps) {
   const state = useStore(store);
+  const [inspecting, setInspecting] = useState(false);
   const reducedMotion = useReducedMotion();
   const [serverNowMs, setServerNowMs] = useState(() => store.serverNow());
   const snapshot = state.snapshot;
@@ -67,6 +72,17 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
     );
   }
 
+  if (inspecting && readApi) {
+    return (
+      <Inspector
+        snapshot={snapshot}
+        lifeEvents={state.lifeEvents}
+        api={readApi}
+        onClose={() => setInspecting(false)}
+      />
+    );
+  }
+
   const stale = state.status === "stale" || state.status === "offline" || state.status === "reconnecting";
   const overdue = snapshot.freshness.heartbeat_status !== "fresh";
 
@@ -80,6 +96,11 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
             <span class="topbar__sub">'s room</span>
           </h1>
           <ConnectionBadge status={state.status} />
+          {readApi ? (
+            <button type="button" class="topbar__inspect" onClick={() => setInspecting(true)}>
+              Inspector
+            </button>
+          ) : null}
         </header>
       }
       banners={
@@ -109,6 +130,7 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
             stale={stale}
             createScene={createScene}
             onReactionEnded={onReactionEnded}
+            room={state.room}
           />
         </section>
       }
@@ -127,7 +149,12 @@ export function App({ store, createScene, onInteract, onRefresh }: AppProps) {
         </div>
       }
       journal={<JournalPanel snapshot={snapshot} />}
-      activity={<TimelinePanel snapshot={snapshot} />}
+      activity={
+        <>
+          <ActivityFeed events={state.lifeEvents} />
+          <TimelinePanel snapshot={snapshot} />
+        </>
+      }
       system={
         <div class="system">
           <ServerPanel snapshot={snapshot} />
