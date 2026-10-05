@@ -57,6 +57,7 @@ EXPECTED_TABLES = {
     "tool_use",
     "memory",  # v7 (ADR-0030)
     "memory_event",
+    "daily_reflection",  # v8 (ADR-0031)
 }
 EXPECTED_TRIGGERS = {
     "maple_immutable_update",
@@ -87,6 +88,8 @@ EXPECTED_TRIGGERS = {
     "memory_identity_is_fixed",
     "memory_event_append_only_update",
     "memory_event_append_only_delete",
+    "daily_reflection_append_only_update",  # v8 (ADR-0031)
+    "daily_reflection_append_only_delete",
 }
 
 
@@ -101,8 +104,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6, 7]
-    assert LATEST == 7
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert LATEST == 8
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])

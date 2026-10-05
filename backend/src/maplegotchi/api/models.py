@@ -297,7 +297,7 @@ class DecisionOut(_Out):
 class LifeEventOut(_Out):
     """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
 
-    id: str  # "<store>:<row id>", store = timeline | action | decision | tool | memory
+    id: str  # "<store>:<row id>": timeline | action | decision | tool | memory | reflection
     type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
     at: datetime
     revision: int
@@ -339,6 +339,32 @@ class MemoryOut(_Out):
     evidence_days: list[str]
     created_at: datetime
     last_seen_at: datetime
+
+
+class MemoryCandidateOut(_Out):
+    memory_id: int
+    text: str
+    reason: str
+
+
+class ReflectionOut(_Out):
+    """One Daily Reflection (ADR-0031)."""
+
+    day: str  # the Maple day (local 06:00 to 06:00)
+    created_at: datetime
+    recovered: bool  # written late, after a restart/failure/oversleep
+    summary: str
+    learned: list[str]
+    moments: list[str]
+    memory_candidates: list[MemoryCandidateOut]
+    promoted: list[int]  # at most one memory id
+    preference_candidates: list[list[str]]  # [key, text]
+    intent: GoalIntentOut
+
+
+class GoalIntentOut(_Out):
+    type: str
+    summary: str
 
 
 class HealthOut(_Out):

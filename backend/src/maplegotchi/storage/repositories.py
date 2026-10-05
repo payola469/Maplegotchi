@@ -19,6 +19,7 @@ from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.audit import ActionEvent, DecisionRecord
+from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.goals import Goal, GoalEndReason, GoalSource, GoalType
 from maplegotchi.core.identity import Identity
@@ -62,8 +63,9 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
-from maplegotchi.storage import audit_rows, memory_rows, tool_rows
+from maplegotchi.storage import audit_rows, daily_rows, memory_rows, tool_rows
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
 from maplegotchi.storage.memory_rows import StoredMemoryEvent
 from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
@@ -565,6 +567,24 @@ class LifeRepository:
             self._conn, revision=revision, since_revision=since_revision, limit=limit
         )
 
+    def reflections(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredReflection]:
+        """Daily Reflections, oldest day first (ADR-0031)."""
+        return daily_rows.reflections(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def reflection_for(self, day: date) -> StoredReflection | None:
+        return daily_rows.reflection_for(self._conn, day)
+
+    def rows_between(self, table: str, start: datetime, end: datetime) -> list[Any]:
+        return daily_rows.rows_between(self._conn, table, start, end)
+
     def documents(self, *, limit: int | None = None) -> list[StoredDocument]:
         """Maple's workspace documents, oldest first."""
         return tool_rows.documents(self._conn, limit=limit)
@@ -597,6 +617,7 @@ class LifeRepository:
         decisions: Sequence[DecisionRecord] = (),
         tools: Sequence[ToolRecord] = (),
         memories: Sequence[MemoryChange] = (),
+        daily: DailyReflection | None = None,
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
         observations it used), action lifecycle events, and decision audit rows.
@@ -649,6 +670,8 @@ class LifeRepository:
             audit_rows.insert_actions(self._conn, new_revision, actions)
             tool_rows.insert_tools(self._conn, new_revision, tools)
             memory_rows.apply_changes(self._conn, new_revision, memories)
+            if daily is not None:
+                daily_rows.insert_reflection(self._conn, new_revision, daily)
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

@@ -133,6 +133,7 @@ def build_context(
     recent: Sequence[DecisionRecord] = (),
     catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
     memories: Sequence[Memory] = (),
+    intent: tuple[GoalType, str] | None = None,
 ) -> DecisionContext:
     """The `maple.decision.v1` context core shows a Director (ADR-0026 §4)."""
     require_utc(now, "now")
@@ -220,6 +221,8 @@ def build_context(
             ],
             "write_kinds": [k.value for k in WriteKind],
         },
+        # Yesterday's Daily Reflection intent for today (ADR-0031), if any.
+        "intent": {"type": intent[0].value, "summary": intent[1]} if intent else None,
         # A few relevant memories, never the archive or the whole history (ADR-0030).
         "memories": [
             {"kind": m.kind.value, "tier": m.tier.value, "text": m.text}
@@ -426,6 +429,7 @@ def decide_with_proposal(
     failure: RejectionCode | None = None,
     latency_ms: int | None = None,
     catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
+    intent: GoalType | None = None,
 ) -> DecisionOutcome:
     """Execute a Director's proposal if core accepts it, else rule direction.
 
@@ -461,7 +465,7 @@ def decide_with_proposal(
         )
         return replace(outcome, record=record)
     # Refused or missing: rule direction decides, and the audit says why.
-    plan = rule_plan(prepared, now, inputs, params, rng, catalog)
+    plan = rule_plan(prepared, now, inputs, params, rng, catalog, intent)
     outcome = execute(prepared, now, trigger, plan, rng)
     transport = checked in (
         RejectionCode.TIMEOUT,

@@ -37,6 +37,7 @@ no rows or domain objects are returned.
 | GET | `/api/documents/{id}` | `DocumentOut` | one document with its body and cited sources; 404 if none |
 | GET | `/api/memory?tier=short_term\|long_term\|archive&limit=1..500` | `MemoryOut[]` | Maple's memories, most recently seen last (ADR-0030) |
 | GET | `/api/memory/search?q=…&limit=1..100` | `MemoryOut[]` | keyword search across every tier, archive included |
+| GET | `/api/reflections?limit=1..100` | `ReflectionOut[]` | Daily Reflections, most recent days, oldest first (ADR-0031) |
 | GET | `/api/life-events?after_revision=N&limit=1..500` | `LifeEventsOut` | every life event after revision N, whole revisions only; continue from `last_revision` |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
 | GET | `/api/journal?limit=1..100` | `JournalEntryOut[]` | most recent, oldest first (default 20) |
@@ -262,6 +263,7 @@ Three append-only stores, one envelope:
 | `timeline` (significant life events) | `born`, `activity_changed`, `interaction_accepted`, `downtime_gap`, `goal_started`, `goal_suspended`, `goal_resumed`, `goal_completed`, `goal_abandoned` |
 | `action` (action lifecycle) | `destination_selected`, `walking_started`, `walking_cancelled`, `arrived`, `activity_started`, `activity_completed`, `activity_interrupted`, `activity_resumed`, `needs_attention` |
 | `decision` (audit) | `goal_proposed` (a new goal was proposed), `decision_made`, `decision_rejected` (rejected or stale proposal) |
+| `reflection` (ADR-0031) | `daily_reflection` (payload: day, recovered, summary, intent_type, intent_summary, promoted) |
 | `memory` (ADR-0030) | `memory_created`, `memory_reinforced`, `memory_promoted`, `memory_archived`, `memory_confirmed`, `memory_rejected` |
 | `tool` (reader/writer provenance, ADR-0029) | `read_started`, `read_completed`, `read_failed`, `write_started`, `write_completed`, `write_failed` (payload: tool, target, title, category, status, detail, chars, document_id) |
 
@@ -272,7 +274,7 @@ Three append-only stores, one envelope:
              "arrives_at": "…Z", "distance": 400.0}}
 ```
 
-- Ordering: by revision, then decision → timeline → action → tool → memory, then row id.
+- Ordering: by revision, then decision → timeline → action → tool → memory → reflection, then row id.
 - The snapshot's `maple.activity.task` (`tool`, `target`, `title`, `category`) says what
   Maple is reading or writing; null for other activities.
 - Live: the SSE `life` event carries the envelopes of one commit. Catch-up or

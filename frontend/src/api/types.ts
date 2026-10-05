@@ -313,3 +313,17 @@ export interface MemoryOut {
   created_at: string;
   last_seen_at: string;
 }
+
+// Daily Reflection (ADR-0031).
+export interface ReflectionOut {
+  day: string;
+  created_at: string;
+  recovered: boolean;
+  summary: string;
+  learned: string[];
+  moments: string[];
+  memory_candidates: { memory_id: number; text: string; reason: string }[];
+  promoted: number[];
+  preference_candidates: string[][];
+  intent: { type: string; summary: string };
+}

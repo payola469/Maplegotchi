@@ -12,7 +12,7 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **7**) |
+| Schema version | `PRAGMA user_version` (currently **8**) |
 | Pre-migration copies | `pre-migration/maple.v<N>.<UTC stamp>.<hex>.db` (ADR-0028 R2; never pruned or restored automatically) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
@@ -115,6 +115,10 @@ tables: `document` (Maple's workspace: kind, title, body ≤ 4,000 chars, source
 Migration 7 (memory, ADR-0030) adds `memory` (never deleted; kind, text, key and
 birth are fixed by a trigger; tier/status/evidence may change) and the append-only
 `memory_event` log. A unique `key` deduplicates memories.
+
+Migration 8 (Daily Reflection, ADR-0031) adds the append-only `daily_reflection`
+table: one row per Maple day (unique `day`), written in the transaction that
+triggered it.
 
 ## Canonical vs derived state
 

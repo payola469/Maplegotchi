@@ -149,3 +149,18 @@ with `expired` / `no_longer_relevant`.
 - Memory is Maple's data in maple.db; a test switches the Director and checks that
   nothing in memory changes.
 
+## Daily Reflection (A7, ADR-0031)
+
+- A Maple day runs 06:00 → 06:00 local. When a `sleep` action begins between 20:00
+  and 06:00, the runtime gathers that day's facts from Maple's own records
+  (`runtime/daily.py`: goals, completed activities, readings, writings,
+  Greet/Pet, serious server events, interruptions, failures) and core writes the
+  reflection (`core/daily.py`). If the previous day was missed (restart, failure,
+  sleeping through), the first awake transition afterwards writes it `recovered`.
+- Outputs: summary, learned (reading extracts), important moments, up to 3 memory
+  candidates (only the strongest, importance ≥ 0.6, is promoted), preference
+  candidates (one day of evidence each), and tomorrow's intent.
+- It never changes needs. The next day's rule direction leans toward the intent's
+  goal type (×4 among everyday goals) when nothing more urgent applies, and the
+  Director sees `intent` in its context.
+

@@ -219,6 +219,7 @@ def test_context_is_frozen_json_and_minimal() -> None:
         "contract", "maple", "time", "trigger", "needs", "current", "goal", "suspended_goal",
         "must_resolve_suspended_goal", "signals", "server", "allowed", "recent_decisions",
         "memories",  # ADR-0030: a few relevant memories only
+        "intent",  # ADR-0031: yesterday's reflection intent
     }  # fmt: skip
     with pytest.raises(TypeError):
         ctx.data["maple"] = {"name": "Not Maple"}  # type: ignore[index]

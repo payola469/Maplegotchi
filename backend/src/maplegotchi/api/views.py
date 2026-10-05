@@ -17,6 +17,7 @@ from maplegotchi.api.models import (
     ExecutedOut,
     FreshnessOut,
     FurnitureOut,
+    GoalIntentOut,
     GoalOut,
     IdentityOut,
     InteractionAvailabilityOut,
@@ -25,6 +26,7 @@ from maplegotchi.api.models import (
     JournalEntryOut,
     LifeEventOut,
     MapleOut,
+    MemoryCandidateOut,
     MemoryOut,
     NeedsOut,
     ObservationOut,
@@ -32,6 +34,7 @@ from maplegotchi.api.models import (
     PositionOut,
     ProposalOut,
     ReactionOut,
+    ReflectionOut,
     RoomOut,
     RouteOut,
     ServerOut,
@@ -43,6 +46,7 @@ from maplegotchi.api.models import (
 )
 from maplegotchi.core import room as room_model
 from maplegotchi.core.audit import DecisionRecord, Verdict
+from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
 from maplegotchi.core.memory import Memory
@@ -151,6 +155,24 @@ def memory(m: Memory) -> MemoryOut:
         evidence_days=[d.isoformat() for d in m.evidence_days],
         created_at=m.created_at,
         last_seen_at=m.last_seen_at,
+    )
+
+
+def reflection(r: DailyReflection) -> ReflectionOut:
+    return ReflectionOut(
+        day=r.day.isoformat(),
+        created_at=r.created_at,
+        recovered=r.recovered,
+        summary=r.summary,
+        learned=list(r.learned),
+        moments=list(r.moments),
+        memory_candidates=[
+            MemoryCandidateOut(memory_id=c.memory_id, text=c.text, reason=c.reason)
+            for c in r.memory_candidates
+        ],
+        promoted=list(r.promoted),
+        preference_candidates=[list(p) for p in r.preference_candidates],
+        intent=GoalIntentOut(type=r.intent_type.value, summary=r.intent_summary),
     )
 
 
@@ -483,6 +505,30 @@ def life_events(records: LifeRecords) -> list[LifeEventOut]:
                         "detail": tr.detail,
                         "chars": tr.chars,
                         "document_id": t.document_id,
+                    },
+                ),
+            )
+        )
+    for sr in records.reflections:
+        day = sr.reflection
+        keyed.append(
+            (
+                (sr.revision, 5, sr.id),
+                LifeEventOut(
+                    id=f"reflection:{sr.id}",
+                    type="daily_reflection",
+                    at=day.created_at,
+                    revision=sr.revision,
+                    goal_id=None,
+                    action_id=None,
+                    priority=None,
+                    payload={
+                        "day": day.day.isoformat(),
+                        "recovered": int(day.recovered),
+                        "summary": day.summary,
+                        "intent_type": day.intent_type.value,
+                        "intent_summary": day.intent_summary,
+                        "promoted": len(day.promoted),
                     },
                 ),
             )

@@ -76,8 +76,10 @@ from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.tasks import ToolRecord
 from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
+from maplegotchi.runtime.daily import reflect_if_due, todays_intent
 from maplegotchi.runtime.tasks import TaskWorker, relevant_memories
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
 from maplegotchi.storage.memory_rows import StoredMemoryEvent
@@ -162,9 +164,17 @@ class LifeRecords:
     decisions: tuple[StoredDecision, ...]
     tools: tuple[StoredToolUse, ...] = ()
     memory: tuple[StoredMemoryEvent, ...] = ()
+    reflections: tuple[StoredReflection, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.timeline or self.actions or self.decisions or self.tools or self.memory)
+        return bool(
+            self.timeline
+            or self.actions
+            or self.decisions
+            or self.tools
+            or self.memory
+            or self.reflections
+        )
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -300,6 +310,7 @@ class LifeRuntime:
                 tuple(repo.decisions(revision=revision)),
                 tuple(repo.tool_uses(revision=revision)),
                 tuple(repo.memory_events(revision=revision)),
+                tuple(repo.reflections(revision=revision)),
             )
 
     def life_since(self, revision: int, *, limit: int) -> LifeRecords:
@@ -312,6 +323,7 @@ class LifeRuntime:
                 tuple(repo.decisions(since_revision=revision, limit=limit)),
                 tuple(repo.tool_uses(since_revision=revision, limit=limit)),
                 tuple(repo.memory_events(since_revision=revision, limit=limit)),
+                tuple(repo.reflections(since_revision=revision, limit=limit)),
             )
 
     def documents(self, *, limit: int) -> list[StoredDocument]:
@@ -371,6 +383,7 @@ class LifeRuntime:
             prepared = prepare(self._state, now, trigger, self._params)
             recent = [d.record for d in repo.decisions(limit=3)]
             memories = relevant_memories(repo, prepared.state, now)
+            intent = todays_intent(repo, now, self._params.utc_offset)
             context = build_context(
                 prepared,
                 now,
@@ -381,6 +394,7 @@ class LifeRuntime:
                 recent=recent,
                 catalog=self._tasks.catalog(repo),
                 memories=memories,
+                intent=(intent.intent_type, intent.intent_summary) if intent else None,
             )
             return PendingDecision(self._revision, trigger, inputs, context)
 
@@ -421,6 +435,7 @@ class LifeRuntime:
                 )
                 self._revision = revision
                 return None
+            intent = todays_intent(repo, now, self._params.utc_offset)
             outcome = decide_with_proposal(
                 self._state,
                 now,
@@ -432,6 +447,7 @@ class LifeRuntime:
                 failure=failure,
                 latency_ms=latency_ms,
                 catalog=self._tasks.catalog(repo),  # as it is now, not when asked
+                intent=intent.intent_type if intent else None,
             )
             return self._commit_decision(repo, outcome, now)
 
@@ -465,6 +481,10 @@ class LifeRuntime:
     def memories(self, *, tiers: Sequence[Tier] | None = None, limit: int) -> list[Memory]:
         with self._lock:
             return self._repository().memories(tiers=tiers, limit=limit)
+
+    def reflections(self, *, limit: int) -> list[StoredReflection]:
+        with self._lock:
+            return self._repository().reflections(limit=limit)
 
     def memory_search(self, text: str, *, limit: int) -> tuple[Memory, ...]:
         with self._lock:
@@ -507,8 +527,15 @@ class LifeRuntime:
             trigger = decision_due(self._state, now)
             if trigger is None:
                 return None
+            intent = todays_intent(repo, now, self._params.utc_offset)
             outcome = decide(
-                self._state, now, trigger, inputs, self._params, catalog=self._tasks.catalog(repo)
+                self._state,
+                now,
+                trigger,
+                inputs,
+                self._params,
+                catalog=self._tasks.catalog(repo),
+                intent=intent.intent_type if intent else None,
             )
             return self._commit_decision(repo, outcome, now)
 
@@ -531,6 +558,9 @@ class LifeRuntime:
             repo, self._state, outcome.state, now, server_line=self._server_line(repo)
         )
         remembered = self._memory_changes(repo, outcome.events, tools, now)
+        daily = reflect_if_due(repo, self._state, outcome.state, now, self._params.utc_offset)
+        if daily is not None:
+            remembered += daily.memory_changes
         revision = repo.commit(
             outcome.state,
             expected_revision=self._revision,
@@ -541,6 +571,7 @@ class LifeRuntime:
             decisions=(outcome.record,),
             tools=tools,
             memories=remembered,
+            daily=daily.reflection if daily else None,
         )
         self._state, self._revision, self._reflection = outcome.state, revision, reflection
         return CommittedDecision(outcome, revision, entries)
@@ -621,6 +652,9 @@ class LifeRuntime:
                 repo, state, result.state, now, server_line=self._server_line(repo)
             )
             remembered = self._memory_changes(repo, result.events, tools, now, consolidate=True)
+            daily = reflect_if_due(repo, state, result.state, now, self._params.utc_offset)
+            if daily is not None:
+                remembered += daily.memory_changes
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
@@ -633,6 +667,7 @@ class LifeRuntime:
                 decisions=(result.decision,) if result.decision else (),
                 tools=tools,
                 memories=remembered,
+                daily=daily.reflection if daily else None,
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
             return CommittedTick(result, revision, entries)

@@ -636,6 +636,36 @@ CREATE TRIGGER memory_event_append_only_delete BEFORE DELETE ON memory_event
 BEGIN SELECT RAISE(ABORT, 'memory events are append-only'); END;
 """
 
+# Schema v8 (ADR-0031): one append-only Daily Reflection per Maple day.
+_V8_DAILY = f"""
+CREATE TABLE daily_reflection (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id              INTEGER NOT NULL REFERENCES maple (id),
+    revision              INTEGER NOT NULL CHECK (revision >= 1),
+    day                   TEXT    NOT NULL UNIQUE CHECK (day {_DATE}),
+    created_at            TEXT    NOT NULL CHECK (created_at {_UTC_TS}),
+    recovered             INTEGER NOT NULL CHECK (recovered IN (0, 1)),
+    summary               TEXT    NOT NULL CHECK (length(summary) BETWEEN 1 AND 1000),
+    learned               TEXT    NOT NULL CHECK (json_valid(learned)),
+    moments               TEXT    NOT NULL CHECK (json_valid(moments)),
+    memory_candidates     TEXT    NOT NULL CHECK (json_valid(memory_candidates)),
+    promoted              TEXT    NOT NULL CHECK (json_valid(promoted)),
+    preference_candidates TEXT    NOT NULL CHECK (json_valid(preference_candidates)),
+    intent_type           TEXT    NOT NULL CHECK (intent_type IN
+                              ('learn', 'create', 'recover', 'reflect', 'monitor', 'socialize',
+                               'explore', 'organize', 'maintain', 'practice', 'plan', 'wait',
+                               'play', 'help', 'investigate', 'remember')),
+    intent_summary        TEXT    NOT NULL CHECK (length(intent_summary) BETWEEN 1 AND 120),
+    needs                 TEXT    NOT NULL CHECK (json_valid(needs))
+) STRICT;
+
+CREATE TRIGGER daily_reflection_append_only_update BEFORE UPDATE ON daily_reflection
+BEGIN SELECT RAISE(ABORT, 'daily reflections are append-only'); END;
+
+CREATE TRIGGER daily_reflection_append_only_delete BEFORE DELETE ON daily_reflection
+BEGIN SELECT RAISE(ABORT, 'daily reflections are append-only'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -651,6 +681,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(5, "goals: critical interruption tracking", _V5_CRITICAL),
     Migration(6, "reader/writer: task, workspace documents, provenance", _V6_TOOLS),
     Migration(7, "memory: short-term, long-term, archive", _V7_MEMORY),
+    Migration(8, "daily reflection", _V8_DAILY),
 )
 
 

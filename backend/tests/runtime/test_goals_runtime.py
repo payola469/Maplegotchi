@@ -16,9 +16,11 @@ from maplegotchi.core.observations import (
 )
 from maplegotchi.core.priority import Priority
 from maplegotchi.core.timeline import GoalStarted, GoalSuspended
+from maplegotchi.runtime.clock import FakeClock
 from maplegotchi.storage.db import PRE_MIGRATION_DIR
 from maplegotchi.storage.migrations import MIGRATIONS, migrate, schema_version
-from tests.persistence_support import new_life, open_runtime, raw_db
+from tests.persistence_support import make_data_dir, new_life, open_runtime, raw_db
+from tests.storage.legacy_support import LEGACY_BORN, LEGACY_SEED, write_legacy_life
 
 TICK = timedelta(seconds=300)
 
@@ -79,23 +81,17 @@ def test_critical_interruption_is_persisted(tmp_path: Path) -> None:
         assert reopened.state.critical_since == state.critical_since
 
 
-def test_v4_database_upgrades_to_v5_with_a_snapshot(tmp_path: Path) -> None:
-    data_dir, clock, runtime = new_life(tmp_path)
-    runtime.close()
-    with raw_db(data_dir) as conn:  # take this database back to exactly v4
-        conn.execute("DROP TABLE memory_event")  # v7
-        conn.execute("DROP TABLE memory")
-        for trigger in ("document_append_only_update", "document_append_only_delete",
-                        "tool_use_append_only_update", "tool_use_append_only_delete"):  # fmt: skip
-            conn.execute(f"DROP TRIGGER {trigger}")
-        conn.execute("DROP TABLE tool_use")
-        conn.execute("DROP TABLE document")
-        for column in ("task_tool", "task_target", "task_title", "task_category",
-                       "critical_since"):  # fmt: skip
-            conn.execute(f"ALTER TABLE life_state DROP COLUMN {column}")
-        conn.execute("PRAGMA user_version = 4")
+def test_v4_database_upgrades_to_latest_with_a_snapshot(tmp_path: Path) -> None:
+    # A real v4 database: a life stored by an old release, migrated by v4 code only.
+    data_dir = make_data_dir(tmp_path)
+    conn = sqlite3.connect(data_dir.path("maple.db"), isolation_level=None)
+    write_legacy_life(conn, version=3)
+    assert migrate(conn, MIGRATIONS[:4]) == 4
+    conn.close()
+    clock = FakeClock(datetime.fromisoformat(LEGACY_BORN) + timedelta(hours=2))
     with open_runtime(data_dir, clock) as reopened:
         assert reopened.state.critical_since is None
+        assert reopened.state.rng.seed_hex == LEGACY_SEED
     with raw_db(data_dir) as conn:
         assert schema_version(conn) == len(MIGRATIONS)
     copies = list((data_dir.root / PRE_MIGRATION_DIR).glob("maple.v4.*.db"))

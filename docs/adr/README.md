@@ -35,6 +35,7 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0028](0028-activity-set-v2-events-and-schema-v4.md) | Activity set v2, life events, schema v4 rollback/recovery (D27) |
 | [0029](0029-reader-writer-tools.md) | Real reading/writing: approved sources, workspace in maple.db, provenance (D28) |
 | [0030](0030-memory.md) | Memory tiers, relevant retrieval, preferences by evidence (D29) |
+| [0031](0031-daily-reflection.md) | Daily Reflection: day summary, memory candidates, tomorrow intent (D30) |
 
 ## Template
 

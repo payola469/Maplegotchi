@@ -27,6 +27,7 @@ from maplegotchi.api.models import (
     MapleOut,
     MemoryOut,
     ObservationOut,
+    ReflectionOut,
     RoomOut,
     ServerOut,
     SnapshotOut,
@@ -66,6 +67,7 @@ def _complete_cutoff(records: LifeRecords, limit: int) -> int | None:
         records.decisions,
         records.tools,
         records.memory,
+        records.reflections,
     )
     capped = [max(row.revision for row in rows) for rows in stores if len(rows) >= limit]
     return min(capped) if capped else None
@@ -172,6 +174,11 @@ def create_app(
     ) -> list[MemoryOut]:
         """Keyword search across every tier, including the archive."""
         return [views.memory(m) for m in service.runtime.memory_search(q, limit=limit)]
+
+    @api.get("/reflections", response_model=list[ReflectionOut])
+    def reflections(limit: int = Query(7, ge=1, le=MAX_RECENT)) -> list[ReflectionOut]:
+        """Daily Reflections, most recent `limit` days, oldest first (ADR-0031)."""
+        return [views.reflection(r.reflection) for r in service.runtime.reflections(limit=limit)]
 
     @api.get("/room", response_model=RoomOut)
     def room() -> RoomOut:

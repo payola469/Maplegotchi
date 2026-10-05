@@ -3,7 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
-> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7) implemented; later autonomy phases follow in order, one commit each. Not deployed.
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8) implemented; later autonomy phases follow in order, one commit each. Not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -44,6 +44,7 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D26 | 2026-10-05 | Room **interaction points** (id, location, x/y, facing, pose, allowed_actions) in pure `core/room.py`, served by `/api/room`. Writing Desk (`desk`) ≠ Computer Desk (`terminal`); new `sofa`. Movement is **backend-modeled**: action → destination → path → arrive → activity begins (`activity_started_at = arrives_at`); phase derived from `now`; rerouting cancels the old destination and paths from the current position. | 0027 |
 | D28 | 2026-10-05 | **Real reader/writer**: Maple reads only an allowlisted catalog by id (release-bundled `maplegotchi/library`, its own documents, recent journal, latest observations); writes only documents into its workspace — the append-only `document` table in maple.db (no new filesystem write path); deterministic core writer; `tool_use` provenance for every read/write; the current task is part of state and the API. | 0029 |
 | D29 | 2026-10-05 | **Memory** is Maple's data (maple.db `memory` + append-only `memory_event`), never provider-owned: `short_term` (~36 h) → `archive` (searchable, never injected) unless explicitly promoted to `long_term`; preferences go candidate → accepted only with evidence on 3 distinct days or explicit confirmation; Directors/writer get ≤ 5 relevant memories. | 0030 |
+| D30 | 2026-10-06 | **Daily Reflection** once per Maple day (06:00→06:00 local) when the night's sleep begins, or recovered at the first awake transition after a missed day: summary, learned, moments, memory candidates (only the strongest, importance ≥ 0.6, promoted), preference candidates (evidence only), tomorrow intent. Never changes needs; influences via memory, preferences and intent (rule direction lean + Director `intent`). | 0031 |
 | D27 | 2026-10-05 | Activity set v2 adds `think` (window/plant corner) with bounded durations; one life-event envelope over the timeline (goal-level kinds only), new append-only `action_event` and `decision` tables, and the existing SSE hub. Schema v4 is forward-only, one transaction with in-transaction verification, preceded by a verified automatic pre-migration snapshot plus the owner's `maple-db-snapshot` copy; returning to a pre-v4 release is an owner-run v3 restore (loses life since). | 0028 |
 
 ---
@@ -122,6 +123,7 @@ Maplegotchi/
 │   │   │   audit.py   (v0.2 A3: decision records, action lifecycle events)
 │   │   │   proposal.py tasks.py   (v0.2 A4 Director context/validation; A5 reader/writer rules)
 │   │   │   memory.py   (v0.2 A6: creation, consolidation, preferences, retrieval)
+│   │   │   daily.py    (v0.2 A7: Daily Reflection)
 │   │   ├── library/               (v0.2 A5: approved read-only documentation, by catalog id)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure

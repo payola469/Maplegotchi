@@ -84,6 +84,7 @@ from maplegotchi.core.timeline import (
 )
 
 CURIOUS_GOAL = 70.0
+INTENT_WEIGHT = 4.0  # how strongly the daily intent leans everyday goal choices
 LONELY_GOAL = 30.0
 HAPPY_GOAL = 70.0
 
@@ -290,7 +291,12 @@ def resume_is_relevant(state: MapleState, now: datetime, inputs: BehaviorInputs)
 
 
 def rule_goal_type(
-    state: MapleState, now: datetime, inputs: BehaviorInputs, params: CoreParameters, rng: RngStream
+    state: MapleState,
+    now: datetime,
+    inputs: BehaviorInputs,
+    params: CoreParameters,
+    rng: RngStream,
+    intent: GoalType | None = None,
 ) -> GoalType:
     needs = state.needs
     if needs.energy < LOW_ENERGY or is_night(local_hour(now, params.utc_offset)):
@@ -303,8 +309,14 @@ def rule_goal_type(
         return GoalType.SOCIALIZE
     if needs.mood >= HAPPY_GOAL:
         return rng.weighted_choice([GoalType.CREATE, GoalType.PLAY], [1.0, 1.0])
-    everyday = [t for t in GoalType if t not in (GoalType.RECOVER, GoalType.MONITOR)]
-    return rng.weighted_choice(everyday, [1.0] * len(everyday))
+    everyday: list[GoalType] = [
+        t for t in GoalType if t not in (GoalType.RECOVER, GoalType.MONITOR)
+    ]
+    if intent is not None and intent not in everyday:
+        everyday.append(intent)
+    # Yesterday's reflection leans today's choices toward its intent (ADR-0031 §5).
+    weights = [INTENT_WEIGHT if t is intent else 1.0 for t in everyday]
+    return rng.weighted_choice(everyday, weights)
 
 
 def rule_plan(
@@ -314,6 +326,7 @@ def rule_plan(
     params: CoreParameters,
     rng: RngStream,
     catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
+    intent: GoalType | None = None,
 ) -> Plan:
     """Core's own direction: the fallback that is always available (ADR-0026 §1)."""
     state = prepared.state
@@ -324,7 +337,7 @@ def rule_plan(
     elif state.goal is not None:
         op, goal_type = GoalOp.KEEP, state.goal.type
     else:
-        op, goal_type = GoalOp.NEW, rule_goal_type(state, now, inputs, params, rng)
+        op, goal_type = GoalOp.NEW, rule_goal_type(state, now, inputs, params, rng, intent)
     bias = dict.fromkeys(AFFINITY[goal_type], AFFINITY_BOOST)
     choice = choose_next_activity(state, now, inputs, params, rng, bias=bias)
     horizon = None
@@ -575,6 +588,7 @@ def decide(
     *,
     fallback_code: RejectionCode | None = None,
     catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
+    intent: GoalType | None = None,
 ) -> DecisionOutcome:
     """A rule-direction decision at `now` (deterministic for a given state and time).
 
@@ -583,7 +597,7 @@ def decide(
     """
     prepared = prepare(state, now, trigger, params)
     rng = decision_rng(state)
-    plan = rule_plan(prepared, now, inputs, params, rng, catalog)
+    plan = rule_plan(prepared, now, inputs, params, rng, catalog, intent)
     outcome = execute(prepared, now, trigger, plan, rng)
     record = decision_record(
         prepared,
