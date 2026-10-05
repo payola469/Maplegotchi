@@ -42,6 +42,7 @@ from maplegotchi.core.audit import DecisionRecord, Verdict
 from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
 from maplegotchi.core.observations import Metric, ObservationSnapshot
+from maplegotchi.core.proposal import DirectorLabel
 from maplegotchi.core.room import Pose, Route
 from maplegotchi.core.state import MapleState, Reaction
 from maplegotchi.core.timeline import (
@@ -70,6 +71,10 @@ TIMEZONE = "Asia/Bangkok"  # D16
 
 def brain(label: BrainLabel) -> BrainOut:
     return BrainOut(kind=label.kind.value, name=label.name, version=label.version)
+
+
+def director(label: DirectorLabel) -> BrainOut:
+    return BrainOut(kind=label.kind, name=label.name, version=label.version)
 
 
 def reaction(value: Reaction | None) -> ReactionOut | None:
@@ -460,6 +465,7 @@ def snapshot(snap: LiveSnapshot) -> SnapshotOut:
         timeline=[timeline_event(e) for e in snap.timeline],
         freshness=freshness(snap),
         brain=brain(snap.brain),
+        director=director(snap.director),
     )
 
 
@@ -470,7 +476,12 @@ def _offset(snap: LiveSnapshot) -> str:
 
 
 def status(snap: LiveSnapshot) -> StatusOut:
-    return StatusOut(revision=snap.revision, freshness=freshness(snap), brain=brain(snap.brain))
+    return StatusOut(
+        revision=snap.revision,
+        freshness=freshness(snap),
+        brain=brain(snap.brain),
+        director=director(snap.director),
+    )
 
 
 def interaction(result: InteractionResult, kind: str) -> InteractionOut:

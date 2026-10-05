@@ -12,13 +12,20 @@ then the heartbeat commits through the same serialized path as Greet/Pet.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 
+import httpx2
+
+from maplegotchi.brain.director import Director, DirectorKind
 from maplegotchi.config import SensesKind, Settings
 from maplegotchi.core.attention import ServerAttention, assess_server_attention
+from maplegotchi.core.audit import RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION
 from maplegotchi.core.daytime import DayPhase, day_phase, is_night, local_hour
+from maplegotchi.core.direction import RejectionCode
 from maplegotchi.core.heartbeat import TickResult
 from maplegotchi.core.interactions import (
     Accepted,
@@ -33,9 +40,10 @@ from maplegotchi.core.observations import (
     ServiceState,
 )
 from maplegotchi.core.parameters import CoreParameters
+from maplegotchi.core.proposal import DecisionContext, DirectorLabel
 from maplegotchi.core.reflection import ReflectionState, server_summary
 from maplegotchi.core.state import Expression, InteractionKind, MapleState, Reaction
-from maplegotchi.runtime.brain_factory import build_brain
+from maplegotchi.runtime.brain_factory import build_brain, build_director
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
@@ -115,6 +123,7 @@ class LiveSnapshot:
     timeline: tuple[StoredEvent, ...]
     freshness: Freshness
     brain: BrainLabel
+    director: DirectorLabel
     interactions: tuple[InteractionAvailability, ...]
 
 
@@ -123,6 +132,23 @@ class InteractionResult:
     outcome: InteractionOutcome
     revision: int  # the interaction's own committed revision (unchanged if rejected)
     snapshot: LiveSnapshot  # read after the commit, so snapshot.revision >= revision
+
+
+class DirectorNotAllowed(RuntimeError):
+    """The configured object is not an external Director (rule direction is core's own)."""
+
+
+def require_supported_director(director: Director | None) -> Director | None:
+    if director is None:
+        return None
+    if getattr(director, "kind", None) is not DirectorKind.EXTERNAL:
+        raise DirectorNotAllowed(
+            f"only external Directors can be wired; rule direction is core's own "
+            f"(got {type(director).__name__})"
+        )
+    if not callable(getattr(director, "propose_decision", None)):
+        raise DirectorNotAllowed(f"{type(director).__name__} has no propose_decision")
+    return director
 
 
 def fake_senses() -> Senses:
@@ -142,12 +168,20 @@ class MapleService:
         clock: Clock,
         params: CoreParameters,
         hub: EventHub | None = None,
+        director: Director | None = None,
+        director_timeout_seconds: float = 15.0,
     ) -> None:
         self.runtime = runtime
         self.senses = senses
         self.clock = clock
         self.params = params
         self.hub = hub or EventHub()
+        self.director = require_supported_director(director)
+        self.director_timeout_seconds = director_timeout_seconds
+        self._director_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="maple-director"
+        )
+        self._director_call: concurrent.futures.Future[object | None] | None = None
         self._loop_task: asyncio.Task[None] | None = None
         self._loop_error: str | None = None
         self._stop = asyncio.Event()
@@ -175,7 +209,14 @@ class MapleService:
             )
         brain = build_brain(settings)
         runtime = LifeRuntime.open(DataDir(settings.data_dir), clock, params, brain=brain)
-        return cls(runtime, senses, clock, params)
+        return cls(
+            runtime,
+            senses,
+            clock,
+            params,
+            director=build_director(settings),
+            director_timeout_seconds=settings.director_timeout_seconds,
+        )
 
     # ------------------------------------------------------------ reads
 
@@ -262,6 +303,7 @@ class MapleService:
             timeline=view.timeline,
             freshness=self.freshness(state, now, server.observed_at),
             brain=BrainLabel(brain.kind, brain.name, brain.version),
+            director=self.director_label,
             interactions=self.interaction_availability(state, now),
         )
 
@@ -280,10 +322,29 @@ class MapleService:
         )
 
     def decide(self) -> None:
-        """Run a due decision transition (ADR-0026 §3): next goal and action."""
+        """Run a due decision transition (ADR-0026 §3): next goal and action.
+
+        With a Director, its proposal is requested OUTSIDE the writer lock, with a
+        hard deadline; core then re-validates it against the current state. Any
+        failure becomes a recorded rule-direction fallback; it never stops the loop.
+        """
         if not self.runtime.decision_is_due():
             return
-        committed = self.runtime.decide_committed()
+        director = self.director
+        if director is None:
+            committed = self.runtime.decide_committed()
+        else:
+            pending = self.runtime.pending_decision()
+            if pending is None:
+                return
+            raw, failure, latency = self._ask_director(director, pending.context)
+            committed = self.runtime.decide_proposal_committed(
+                pending,
+                director=DirectorLabel(director.kind.value, director.name, director.version),
+                raw=raw,
+                failure=failure,
+                latency_ms=latency,
+            )
         if committed is None:
             return
         self._publish(
@@ -294,6 +355,29 @@ class MapleService:
             events=bool(committed.outcome.events),
             journal=bool(committed.journal),
         )
+
+    def _ask_director(
+        self, director: Director, context: DecisionContext
+    ) -> tuple[object, RejectionCode | None, int]:
+        """(raw proposal, failure code, latency ms). Never raises; never holds the lock."""
+        started = time.perf_counter()
+        if self._director_call is not None and not self._director_call.done():
+            # A previous call is still stuck past its deadline: do not pile up.
+            return None, RejectionCode.TIMEOUT, 0
+        future = self._director_pool.submit(director.propose_decision, context)
+        self._director_call = future
+        raw: object = None
+        failure: RejectionCode | None = None
+        try:
+            raw = future.result(timeout=self.director_timeout_seconds)
+        except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            failure = RejectionCode.TIMEOUT
+        except Exception:  # transport, HTTP status, decoding, contract: all just "no answer"
+            failure = RejectionCode.TRANSPORT_ERROR
+        if failure is None and raw is None:
+            failure = RejectionCode.NO_PROPOSAL
+        latency = int((time.perf_counter() - started) * 1000)
+        return raw, failure, latency
 
     def step(self) -> None:
         """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""
@@ -375,5 +459,13 @@ class MapleService:
             await self._loop_task
             self._loop_task = None
 
+    @property
+    def director_label(self) -> DirectorLabel:
+        director = self.director
+        if director is None:
+            return DirectorLabel("rule", RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION)
+        return DirectorLabel(director.kind.value, director.name, director.version)
+
     def close(self) -> None:
+        self._director_pool.shutdown(wait=False, cancel_futures=True)
         self.runtime.close()

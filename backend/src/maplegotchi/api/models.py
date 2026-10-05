@@ -220,13 +220,15 @@ class SnapshotOut(_Out):
     journal: list[JournalEntryOut]
     timeline: list[TimelineEventOut]
     freshness: FreshnessOut
-    brain: BrainOut
+    brain: BrainOut  # who words the journal
+    director: BrainOut  # who proposes goals and actions (additive, ADR-0026)
 
 
 class StatusOut(_Out):
     revision: int
     freshness: FreshnessOut
     brain: BrainOut
+    director: BrainOut
 
 
 class InteractionOut(_Out):

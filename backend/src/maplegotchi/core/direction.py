@@ -113,6 +113,7 @@ class RejectionCode(StrEnum):
     GOAL_OPERATION_INVALID = "goal_operation_invalid"
     ACTION_NOT_ALLOWED = "action_not_allowed"
     NO_DESTINATION = "no_destination"
+    DURATION_OUT_OF_RANGE = "duration_out_of_range"  # far outside; slightly outside is clamped
     STALE = "stale"
     TIMEOUT = "timeout"
     TRANSPORT_ERROR = "transport_error"

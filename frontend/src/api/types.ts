@@ -210,6 +210,7 @@ export interface SnapshotOut {
   timeline: TimelineEventOut[];
   freshness: FreshnessOut;
   brain: BrainOut;
+  director: BrainOut; // who proposes goals and actions (ADR-0026)
 }
 
 export interface InteractionOut {

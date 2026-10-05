@@ -18,8 +18,18 @@ from maplegotchi.sensors.service_health.interface import INTENDED_SERVICES, Serv
 from tests.api.support import TRUSTED, make_client, make_service
 from tests.persistence_support import BIRTH, TICK
 
-SNAPSHOT_KEYS = {"revision", "generated_at", "maple", "day", "server", "journal", "timeline",
-                 "freshness", "brain"}  # fmt: skip
+SNAPSHOT_KEYS = {
+    "revision",
+    "generated_at",
+    "maple",
+    "day",
+    "server",
+    "journal",
+    "timeline",
+    "freshness",
+    "brain",
+    "director",
+}  # fmt: skip  -- director: additive, ADR-0026
 
 
 def honest_senses() -> Senses:

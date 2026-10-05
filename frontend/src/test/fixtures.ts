@@ -129,6 +129,7 @@ export function makeSnapshot(overrides: Partial<SnapshotOut> = {}, maple: Partia
       sse_keepalive_seconds: 15,
     },
     brain: { kind: "rule", name: "rule_brain", version: "1" },
+    director: { kind: "rule", name: "rule_director", version: "1" },
     ...overrides,
   };
 }

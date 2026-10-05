@@ -96,3 +96,24 @@ with `expired` / `no_longer_relevant`.
 - The heartbeat's overdue rule decision is recorded as `fallback` / `timeout`.
 - The API serves the stores as one envelope stream (`docs/api.md` → Life events).
 
+## The AI Director (A4, ADR-0026 §2-§5)
+
+- `brain/director.py`: the `Director` protocol (`propose_decision(context)`),
+  separate from the journal `Brain`. Rule direction is not a Director; it is
+  core's own and always the fallback.
+- `MAPLE_DIRECTOR=rule|antigravity` (default `rule`); `antigravity` uses
+  `runtime/external_director.py` → companion `POST /decide`
+  (`docs/brain-contract.md`), loopback only, no redirects, 16 KB cap.
+- Flow (`MapleService.decide`): the runtime builds a frozen `maple.decision.v1`
+  context under the lock; the service asks the Director **outside** the lock with
+  a hard deadline (`MAPLE_DIRECTOR_TIMEOUT_SECONDS`, default 15 s; a stuck call is
+  never stacked); the runtime then re-validates the answer against the state as it
+  is now (`decide_proposal_committed`). If the decision stopped being due, the
+  proposal is recorded `stale` and nothing changes.
+- Validation (`core/proposal.py`): strict parsing, clamping within ×0.5–×2 of a
+  range, `check_plan` against current state, hard rules first. Everything else
+  falls back to rule direction in the same transition, with the reason recorded.
+- The heartbeat applies rule direction if a decision stays undecided past
+  `decision_grace` (120 s in production) — a hung companion cannot stall Maple.
+- `GET /api/snapshot` and `/api/status` carry `director` (`kind`, `name`, `version`).
+

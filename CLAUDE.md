@@ -3,7 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
-> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model implemented; later autonomy phases follow in order, one commit each. Not deployed.
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback) implemented; later autonomy phases follow in order, one commit each. Not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -120,6 +120,7 @@ Maplegotchi/
 │   │   │   audit.py   (v0.2 A3: decision records, action lifecycle events)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
+│   │   │                             #   director.py (v0.2 A4: Director protocol) — pure
 │   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
 │   │   │   └── service_health/ (P3)  # interface.py (get_service_health), monitor_db.py (#1),
 │   │   │                             #   systemd_dbus.py (#2), dbus_transport.py (P7), fake.py
@@ -224,6 +225,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - Brain output is **advisory**: `core` validates it and may ignore it. A Brain cannot write state, files, or call tools.
 - Maple's identity lives in Maple's data and is passed *to* the Brain. Replacing the Brain must not change identity, state schema, or history.
 - v0.1 shipped only `RuleBrain` (`kind="rule"`). In v0.2, `RuleBrain` remains the default, while runtime may explicitly select an External Brain through a localhost-only HTTP boundary. `maplegotchi.brain` remains pure and provider execution stays in a separate companion service (ADR-0025). A non-built-in Brain claiming `kind="rule"` is still refused.
+- v0.2 adds a separate `Director` protocol (`brain/director.py`, ADR-0026): it proposes goal + action + duration + one concise reason as data; core validates, clamps or rejects, executes, and records the audit; rule direction is the always-available fallback (`docs/autonomy.md`, `docs/brain-contract.md`).
 - Phase 4 defines only `compose_journal`; behavior and reactions stay core rules. Triggers, deduplication, grounding, and the daily window are decided in core, never by a Brain. Details: `docs/journal.md` [PROPOSED].
 
 ### 3.7 Randomness and determinism

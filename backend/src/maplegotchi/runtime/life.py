@@ -23,9 +23,16 @@ from types import TracebackType
 
 from maplegotchi.brain.interface import Brain
 from maplegotchi.brain.rule_brain import RuleBrain
-from maplegotchi.core.attention import behavior_inputs
+from maplegotchi.core.attention import ServerAttention, assess_server_attention, behavior_inputs
 from maplegotchi.core.behavior import BehaviorInputs
-from maplegotchi.core.direction import DecisionOutcome, decide, decision_due
+from maplegotchi.core.direction import (
+    DecisionOutcome,
+    DecisionTrigger,
+    RejectionCode,
+    decide,
+    decision_due,
+    prepare,
+)
 from maplegotchi.core.heartbeat import TickResult, heartbeat
 from maplegotchi.core.interactions import Accepted, InteractionOutcome, apply_interaction
 from maplegotchi.core.journal import (
@@ -39,6 +46,13 @@ from maplegotchi.core.journal import (
 from maplegotchi.core.movement import arrival_actions, settle_movement
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
+from maplegotchi.core.proposal import (
+    DecisionContext,
+    DirectorLabel,
+    build_context,
+    decide_with_proposal,
+    stale_record,
+)
 from maplegotchi.core.reflection import (
     JournalParameters,
     ReflectionState,
@@ -113,6 +127,16 @@ class CommittedDecision:
     outcome: DecisionOutcome
     revision: int
     journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class PendingDecision:
+    """A due decision, handed to a Director outside the lock (ADR-0026 §3)."""
+
+    revision: int
+    trigger: DecisionTrigger
+    inputs: BehaviorInputs
+    context: DecisionContext
 
 
 @dataclass(frozen=True)
@@ -301,6 +325,87 @@ class LifeRuntime:
         now = self._clock.now()
         return now >= state.last_updated_at and decision_due(state, now) is not None
 
+    def pending_decision(self) -> PendingDecision | None:
+        """The context for a due decision, or None. Reads only; commits nothing."""
+        attention = self._latest_attention()
+        inputs = BehaviorInputs(server_attention=attention.level)
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                return None
+            prepared = prepare(self._state, now, trigger, self._params)
+            recent = [d.record for d in repo.decisions(limit=3)]
+            context = build_context(
+                prepared,
+                now,
+                trigger,
+                inputs,
+                self._params,
+                server_reasons=attention.reasons,
+                recent=recent,
+            )
+            return PendingDecision(self._revision, trigger, inputs, context)
+
+    def decide_proposal_committed(
+        self,
+        pending: PendingDecision,
+        *,
+        director: DirectorLabel,
+        raw: object = None,
+        failure: RejectionCode | None = None,
+        latency_ms: int | None = None,
+    ) -> CommittedDecision | None:
+        """Apply a Director's answer: re-validated against the state as it is NOW.
+
+        If the decision stopped being due while the Director was thinking (a
+        heartbeat or an interruption handled it), the proposal is recorded as
+        stale and nothing else changes. Returns None only if there was no answer
+        and nothing is due any more.
+        """
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                if failure is not None:
+                    return None
+                record = stale_record(
+                    self._state,
+                    now,
+                    pending.inputs,
+                    self._params,
+                    director=director,
+                    raw=raw,
+                    latency_ms=latency_ms,
+                )
+                revision = repo.commit(
+                    self._state, expected_revision=self._revision, events=(), decisions=(record,)
+                )
+                self._revision = revision
+                return None
+            outcome = decide_with_proposal(
+                self._state,
+                now,
+                trigger,
+                pending.inputs,
+                self._params,
+                director=director,
+                raw=raw,
+                failure=failure,
+                latency_ms=latency_ms,
+            )
+            return self._commit_decision(repo, outcome, now)
+
+    def _latest_attention(self) -> ServerAttention:
+        latest = self.latest_observations()
+        if not latest:
+            return assess_server_attention(None)
+        observed_at = max(s.observation.observed_at for s in latest)
+        snapshot = ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
+        return assess_server_attention(snapshot)
+
     def latest_inputs(self) -> BehaviorInputs:
         """Behavior inputs from the most recent stored observations (facts only)."""
         latest = self.latest_observations()
@@ -323,28 +428,34 @@ class LifeRuntime:
             if trigger is None:
                 return None
             outcome = decide(self._state, now, trigger, inputs, self._params)
-            if outcome.record is None:  # pragma: no cover - decide() always records
-                raise RuntimeError("decision without an audit record")
-            triggers, reflection = settle_triggers(
-                self._reflection,
-                events=outcome.events,
-                now=now,
-                params=self._params,
-                journal=self._journal_params,
-            )
-            entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
-            reflection = mark_journaled(reflection, triggers, _written(entries), now)
-            revision = repo.commit(
-                outcome.state,
-                expected_revision=self._revision,
-                events=outcome.events,
-                journal=entries,
-                reflection=reflection,
-                actions=outcome.actions,
-                decisions=(outcome.record,),
-            )
-            self._state, self._revision, self._reflection = outcome.state, revision, reflection
-            return CommittedDecision(outcome, revision, entries)
+            return self._commit_decision(repo, outcome, now)
+
+    def _commit_decision(
+        self, repo: LifeRepository, outcome: DecisionOutcome, now: datetime
+    ) -> CommittedDecision:
+        """Commit a decision with its journal, actions and audit row (lock held)."""
+        if outcome.record is None:  # pragma: no cover - every decision is recorded
+            raise RuntimeError("decision without an audit record")
+        triggers, reflection = settle_triggers(
+            self._reflection,
+            events=outcome.events,
+            now=now,
+            params=self._params,
+            journal=self._journal_params,
+        )
+        entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
+        reflection = mark_journaled(reflection, triggers, _written(entries), now)
+        revision = repo.commit(
+            outcome.state,
+            expected_revision=self._revision,
+            events=outcome.events,
+            journal=entries,
+            reflection=reflection,
+            actions=outcome.actions,
+            decisions=(outcome.record,),
+        )
+        self._state, self._revision, self._reflection = outcome.state, revision, reflection
+        return CommittedDecision(outcome, revision, entries)
 
     def settle_committed(self) -> CommittedArrival | None:
         """Record an arrival that has happened (ADR-0027 §5): the activity begins.

@@ -88,7 +88,8 @@ against this list.
   "journal":  [JournalEntryOut…],       // 10 most recent, oldest first
   "timeline": [TimelineEventOut…],      // 10 most recent, oldest first
   "freshness": {…},                     // below
-  "brain": {"kind": "rule", "name": "rule_brain", "version": "1"}
+  "brain": {"kind": "rule", "name": "rule_brain", "version": "1"},
+  "director": {"kind": "rule", "name": "rule_director", "version": "1"}  // additive (ADR-0026)
 }
 ```
 

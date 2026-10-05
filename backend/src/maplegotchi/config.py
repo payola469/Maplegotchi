@@ -50,6 +50,11 @@ class BrainMode(StrEnum):
     ANTIGRAVITY = "antigravity"
 
 
+class DirectorMode(StrEnum):
+    RULE = "rule"  # core's rule direction only (always the fallback)
+    ANTIGRAVITY = "antigravity"  # the loopback companion's /decide (ADR-0026)
+
+
 class SettingsError(ValueError):
     pass
 
@@ -75,6 +80,8 @@ class Settings:
     monitor_db: Path = field(default=Path("/data/monitor/metrics.db"))
     brain: BrainMode = BrainMode.RULE
     brain_url: str = "http://127.0.0.1:8471"
+    director: DirectorMode = DirectorMode.RULE
+    director_timeout_seconds: float = 15.0
     heartbeat_seconds: int = 300
     loop_poll_seconds: float = 5.0
 
@@ -95,7 +102,9 @@ class Settings:
                 raise SettingsError("production origins must be https (Tailscale Serve)")
             if self.senses is not SensesKind.PAOLO_CORE:
                 raise SettingsError("production refuses fake senses")
-        if self.brain is BrainMode.ANTIGRAVITY:
+        if not 1.0 <= self.director_timeout_seconds <= 30.0:
+            raise SettingsError("MAPLE_DIRECTOR_TIMEOUT_SECONDS must be within 1-30")
+        if self.brain is BrainMode.ANTIGRAVITY or self.director is DirectorMode.ANTIGRAVITY:
             parsed = urlsplit(self.brain_url)
             if (
                 parsed.scheme != "http"
@@ -135,5 +144,7 @@ def settings_from_env(environ: Mapping[str, str]) -> Settings:
         monitor_db=Path(environ.get("MAPLE_MONITOR_DB", "/data/monitor/metrics.db")),
         brain=BrainMode(environ.get("MAPLE_BRAIN", BrainMode.RULE)),
         brain_url=environ.get("MAPLE_BRAIN_URL", "http://127.0.0.1:8471"),
+        director=DirectorMode(environ.get("MAPLE_DIRECTOR", DirectorMode.RULE)),
+        director_timeout_seconds=float(environ.get("MAPLE_DIRECTOR_TIMEOUT_SECONDS", 15.0)),
         heartbeat_seconds=int(environ.get("MAPLE_HEARTBEAT_SECONDS", 300)),
     )
