@@ -133,3 +133,19 @@ with `expired` / `no_longer_relevant`.
   write produces nothing (`write_failed`/`interrupted`).
 - The workspace is the `document` table in maple.db: backed up nightly, no new files.
 
+## Memory (A6, ADR-0030)
+
+- `core/memory.py` creates short-term memories from what a transition produced:
+  goal outcomes, a serious server problem, the first Greet/Pet of a local day,
+  completed readings and writings. Committed in the same transaction.
+- Each heartbeat consolidates: short-term memories older than 36 h move to the
+  archive. Nothing is promoted automatically; `promote` is explicit (Daily
+  Reflection, A7), and preferences need evidence on 3 distinct days or explicit
+  confirmation (`reinforce_preference`, `confirm_preference`, `reject_preference`).
+- Retrieval (`retrieve`): keyword overlap with the goal/activity/task, tier,
+  importance, evidence, recency; archive and rejected preferences excluded; ≤ 5 items.
+  Used by the Director context (`memories`) and the writer; `memory:long_term` is a
+  readable source once long-term memories exist.
+- Memory is Maple's data in maple.db; a test switches the Director and checks that
+  nothing in memory changes.
+

@@ -583,6 +583,59 @@ CREATE TRIGGER tool_use_append_only_delete BEFORE DELETE ON tool_use
 BEGIN SELECT RAISE(ABORT, 'tool provenance is append-only'); END;
 """
 
+# Schema v7 (ADR-0030): Maple's memory and its append-only lifecycle log.
+_V7_MEMORY = f"""
+CREATE TABLE memory (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id      INTEGER NOT NULL REFERENCES maple (id),
+    revision      INTEGER NOT NULL CHECK (revision >= 1),
+    kind          TEXT    NOT NULL CHECK (kind IN
+                      ('event', 'goal_outcome', 'reading', 'writing', 'interaction',
+                       'conversation', 'knowledge', 'moment', 'preference')),
+    tier          TEXT    NOT NULL CHECK (tier IN ('short_term', 'long_term', 'archive')),
+    status        TEXT    NOT NULL CHECK (status IN
+                      ('active', 'candidate', 'accepted', 'rejected')),
+    key           TEXT    CHECK (length(key) BETWEEN 1 AND 120),
+    text          TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 240
+                                      AND instr(text, char(10)) = 0),
+    source        TEXT    CHECK (length(source) BETWEEN 1 AND 60),
+    importance    REAL    NOT NULL CHECK (importance BETWEEN 0 AND 1),
+    evidence_days TEXT    NOT NULL CHECK (json_valid(evidence_days)),
+    created_at    TEXT    NOT NULL CHECK (created_at {_UTC_TS}),
+    last_seen_at  TEXT    NOT NULL CHECK (last_seen_at {_UTC_TS}),
+    CHECK ((kind = 'preference') = (status <> 'active'))
+) STRICT;
+
+CREATE UNIQUE INDEX memory_by_key ON memory (key) WHERE key IS NOT NULL;
+
+CREATE INDEX memory_by_tier ON memory (tier, last_seen_at);
+
+CREATE TRIGGER memory_no_delete BEFORE DELETE ON memory
+BEGIN SELECT RAISE(ABORT, 'memories are never deleted'); END;
+
+CREATE TRIGGER memory_identity_is_fixed BEFORE UPDATE ON memory
+WHEN NEW.kind <> OLD.kind OR NEW.text <> OLD.text OR NEW.created_at <> OLD.created_at
+  OR NEW.key IS NOT OLD.key
+BEGIN SELECT RAISE(ABORT, 'a memory keeps its kind, text, key and birth'); END;
+
+CREATE TABLE memory_event (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id  INTEGER NOT NULL REFERENCES maple (id),
+    revision  INTEGER NOT NULL CHECK (revision >= 1),
+    memory_id INTEGER NOT NULL REFERENCES memory (id),
+    kind      TEXT    NOT NULL CHECK (kind IN
+                  ('created', 'reinforced', 'promoted', 'archived', 'confirmed', 'rejected')),
+    at        TEXT    NOT NULL CHECK (at {_UTC_TS}),
+    detail    TEXT    CHECK (length(detail) BETWEEN 1 AND 200)
+) STRICT;
+
+CREATE TRIGGER memory_event_append_only_update BEFORE UPDATE ON memory_event
+BEGIN SELECT RAISE(ABORT, 'memory events are append-only'); END;
+
+CREATE TRIGGER memory_event_append_only_delete BEFORE DELETE ON memory_event
+BEGIN SELECT RAISE(ABORT, 'memory events are append-only'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -597,6 +650,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration(5, "goals: critical interruption tracking", _V5_CRITICAL),
     Migration(6, "reader/writer: task, workspace documents, provenance", _V6_TOOLS),
+    Migration(7, "memory: short-term, long-term, archive", _V7_MEMORY),
 )
 
 

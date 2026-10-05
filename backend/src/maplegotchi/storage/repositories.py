@@ -29,6 +29,7 @@ from maplegotchi.core.journal import (
     JournalEntry,
     TriggerKind,
 )
+from maplegotchi.core.memory import Memory, MemoryChange, Tier
 from maplegotchi.core.observations import (
     Metric,
     Observation,
@@ -61,9 +62,10 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
-from maplegotchi.storage import audit_rows, tool_rows
+from maplegotchi.storage import audit_rows, memory_rows, tool_rows
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
+from maplegotchi.storage.memory_rows import StoredMemoryEvent
 from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 MAPLE_ID = 1
@@ -543,6 +545,26 @@ class LifeRepository:
             operation=operation,
         )
 
+    def memories(
+        self, *, tiers: Sequence[Tier] | None = None, limit: int | None = None
+    ) -> list[Memory]:
+        """Maple's memories (ADR-0030), most recently seen last."""
+        return memory_rows.memories(self._conn, tiers=tiers, limit=limit)
+
+    def memory_by_key(self, key: str) -> Memory | None:
+        return memory_rows.memory_by_key(self._conn, key)
+
+    def memory_events(
+        self,
+        *,
+        revision: int | None = None,
+        since_revision: int | None = None,
+        limit: int | None = None,
+    ) -> list[StoredMemoryEvent]:
+        return memory_rows.memory_events(
+            self._conn, revision=revision, since_revision=since_revision, limit=limit
+        )
+
     def documents(self, *, limit: int | None = None) -> list[StoredDocument]:
         """Maple's workspace documents, oldest first."""
         return tool_rows.documents(self._conn, limit=limit)
@@ -574,6 +596,7 @@ class LifeRepository:
         actions: Sequence[ActionEvent] = (),
         decisions: Sequence[DecisionRecord] = (),
         tools: Sequence[ToolRecord] = (),
+        memories: Sequence[MemoryChange] = (),
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
         observations it used), action lifecycle events, and decision audit rows.
@@ -625,6 +648,7 @@ class LifeRepository:
             self._insert_events(new_revision, events, tick_id)
             audit_rows.insert_actions(self._conn, new_revision, actions)
             tool_rows.insert_tools(self._conn, new_revision, tools)
+            memory_rows.apply_changes(self._conn, new_revision, memories)
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

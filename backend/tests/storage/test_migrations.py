@@ -55,6 +55,8 @@ EXPECTED_TABLES = {
     "action_event",
     "document",  # v6 (ADR-0029)
     "tool_use",
+    "memory",  # v7 (ADR-0030)
+    "memory_event",
 }
 EXPECTED_TRIGGERS = {
     "maple_immutable_update",
@@ -81,6 +83,10 @@ EXPECTED_TRIGGERS = {
     "document_append_only_delete",
     "tool_use_append_only_update",
     "tool_use_append_only_delete",
+    "memory_no_delete",  # v7 (ADR-0030)
+    "memory_identity_is_fixed",
+    "memory_event_append_only_update",
+    "memory_event_append_only_delete",
 }
 
 
@@ -95,8 +101,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6]
-    assert LATEST == 6
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6, 7]
+    assert LATEST == 7
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])
@@ -193,7 +199,7 @@ def test_failed_migration_rolls_back_completely(tmp_path: Path) -> None:
 def test_newer_schema_is_refused(tmp_path: Path) -> None:
     conn = fresh(tmp_path)
     migrate(conn)
-    conn.execute("PRAGMA user_version = 7")
+    conn.execute(f"PRAGMA user_version = {LATEST + 1}")
     with pytest.raises(SchemaTooNewError):
         migrate(conn)
     conn.close()

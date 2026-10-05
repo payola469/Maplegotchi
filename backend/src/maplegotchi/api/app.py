@@ -25,6 +25,7 @@ from maplegotchi.api.models import (
     JournalEntryOut,
     LifeEventsOut,
     MapleOut,
+    MemoryOut,
     ObservationOut,
     RoomOut,
     ServerOut,
@@ -42,6 +43,7 @@ from maplegotchi.api.static import install_frontend
 from maplegotchi.api.stream import event_stream
 from maplegotchi.config import Settings
 from maplegotchi.core.interactions import Rejected
+from maplegotchi.core.memory import Tier
 from maplegotchi.core.state import InteractionKind
 from maplegotchi.runtime.life import LifeRecords, RuntimeClosedError
 from maplegotchi.runtime.service import MapleService
@@ -49,6 +51,7 @@ from maplegotchi.storage.errors import StorageError
 
 MAX_RECENT = 100
 MAX_LIFE_EVENTS = 500
+MAX_MEMORY = 500
 
 
 def _complete_cutoff(records: LifeRecords, limit: int) -> int | None:
@@ -62,6 +65,7 @@ def _complete_cutoff(records: LifeRecords, limit: int) -> int | None:
         records.actions,
         records.decisions,
         records.tools,
+        records.memory,
     )
     capped = [max(row.revision for row in rows) for rows in stores if len(rows) >= limit]
     return min(capped) if capped else None
@@ -152,6 +156,22 @@ def create_app(
         if found is None:
             return JSONResponse({"detail": "no such document"}, status_code=404)
         return JSONResponse(views.document(found).model_dump(mode="json"))
+
+    @api.get("/memory", response_model=list[MemoryOut])
+    def memory(
+        tier: Tier | None = None, limit: int = Query(50, ge=1, le=MAX_MEMORY)
+    ) -> list[MemoryOut]:
+        """Maple's memories, most recently seen last (ADR-0030)."""
+        found = service.runtime.memories(tiers=(tier,) if tier else None, limit=limit)
+        return [views.memory(m) for m in found]
+
+    @api.get("/memory/search", response_model=list[MemoryOut])
+    def memory_search(
+        q: str = Query(min_length=1, max_length=100),
+        limit: int = Query(20, ge=1, le=MAX_RECENT),
+    ) -> list[MemoryOut]:
+        """Keyword search across every tier, including the archive."""
+        return [views.memory(m) for m in service.runtime.memory_search(q, limit=limit)]
 
     @api.get("/room", response_model=RoomOut)
     def room() -> RoomOut:

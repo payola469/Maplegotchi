@@ -116,6 +116,7 @@ LIBRARY_CATALOG: tuple[SourceRef, ...] = (
 )
 JOURNAL_SOURCE = SourceRef("journal:recent", SourceKind.JOURNAL, "My recent journal", "self")
 SERVER_SOURCE = SourceRef("server:status", SourceKind.SERVER, "paolo-core status", "server")
+MEMORY_SOURCE = SourceRef("memory:long_term", SourceKind.MEMORY, "Things I remember", "self")
 
 WRITE_TITLES = {
     WriteKind.NOTE: "A note",

@@ -19,11 +19,13 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import datetime
 
+from maplegotchi.core.memory import Memory, MemoryQuery, Tier, retrieve
 from maplegotchi.core.state import MapleState
 from maplegotchi.core.tasks import (
     JOURNAL_SOURCE,
     LIBRARY_CATALOG,
     MAX_DETAIL,
+    MEMORY_SOURCE,
     SERVER_SOURCE,
     Reading,
     SourceKind,
@@ -68,6 +70,8 @@ class TaskWorker:
             refs.append(JOURNAL_SOURCE)
         if repo.latest_observation_tick() is not None:
             refs.append(SERVER_SOURCE)
+        if repo.memories(tiers=(Tier.LONG_TERM,), limit=1):
+            refs.append(MEMORY_SOURCE)
         return tuple(refs)
 
     def source_text(self, repo: LifeRepository, target: str) -> str:
@@ -87,6 +91,11 @@ class TaskWorker:
             if not entries:
                 raise SourceUnavailable(target)
             return "\n\n".join(e.entry.text for e in entries)
+        if target == MEMORY_SOURCE.id:
+            remembered = repo.memories(tiers=(Tier.LONG_TERM,), limit=20)
+            if not remembered:
+                raise SourceUnavailable(target)
+            return "Things I remember.\n\n" + "\n".join(m.text for m in remembered)
         if target == SERVER_SOURCE.id:
             tick = repo.latest_observation_tick()
             if tick is None:
@@ -221,6 +230,8 @@ class TaskWorker:
         )
         journal = tuple(e.entry.text for e in repo.journal(limit=3))
         goal = state.goal
+        if not memories:
+            memories = tuple(m.text for m in relevant_memories(repo, state, now, limit=2))
         return WritingInputs(
             now=now,
             name=state.identity.name,
@@ -231,3 +242,22 @@ class TaskWorker:
             server=server_line,
             memories=tuple(memories),
         )
+
+
+def relevant_memories(
+    repo: LifeRepository, state: MapleState, now: datetime, *, limit: int = 5
+) -> tuple[Memory, ...]:
+    """A few memories relevant to what Maple is doing now (never the archive)."""
+    goal = state.goal
+    text = " ".join(
+        part
+        for part in (
+            goal.summary if goal else "",
+            state.activity.value,
+            state.task.title if state.task else "",
+        )
+        if part
+    )
+    query = MemoryQuery(text=text, goal_type=goal.type if goal else None)
+    usable = repo.memories(tiers=(Tier.SHORT_TERM, Tier.LONG_TERM), limit=500)
+    return retrieve(usable, query, now, limit)

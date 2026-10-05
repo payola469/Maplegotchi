@@ -297,7 +297,7 @@ class DecisionOut(_Out):
 class LifeEventOut(_Out):
     """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
 
-    id: str  # "<store>:<row id>", store = timeline | action | decision | tool
+    id: str  # "<store>:<row id>", store = timeline | action | decision | tool | memory
     type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
     at: datetime
     revision: int
@@ -325,6 +325,20 @@ class DocumentSummaryOut(_Out):
 class DocumentOut(DocumentSummaryOut):
     body: str
     sources: list[str]  # catalog ids it drew on
+
+
+class MemoryOut(_Out):
+    id: int
+    kind: str
+    tier: str  # short_term | long_term | archive
+    status: str  # active, or candidate | accepted | rejected for preferences
+    text: str
+    key: str | None
+    source: str | None
+    importance: float
+    evidence_days: list[str]
+    created_at: datetime
+    last_seen_at: datetime
 
 
 class HealthOut(_Out):

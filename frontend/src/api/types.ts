@@ -298,3 +298,18 @@ export interface LifeEventsOut {
   events: LifeEventOut[];
   last_revision: number;
 }
+
+// Maple's memory (ADR-0030).
+export interface MemoryOut {
+  id: number;
+  kind: string;
+  tier: string; // short_term | long_term | archive
+  status: string; // active, or candidate | accepted | rejected (preferences)
+  text: string;
+  key: string | null;
+  source: string | null;
+  importance: number;
+  evidence_days: string[];
+  created_at: string;
+  last_seen_at: string;
+}

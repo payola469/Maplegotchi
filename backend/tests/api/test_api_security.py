@@ -22,6 +22,8 @@ EXPECTED_ROUTES = {
     ("GET", "/api/life-events"),  # read-only unified life events (ADR-0028 §2)
     ("GET", "/api/documents"),  # read-only workspace listing (ADR-0029)
     ("GET", "/api/documents/{document_id}"),  # one workspace document (ADR-0029)
+    ("GET", "/api/memory"),  # read-only memory listing (ADR-0030)
+    ("GET", "/api/memory/search"),  # read-only memory search (ADR-0030)
     ("GET", "/api/journal"),
     ("GET", "/api/timeline"),
     ("GET", "/api/events"),

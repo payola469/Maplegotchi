@@ -75,7 +75,7 @@ def test_life_events_cover_walking_arrival_and_starting(tmp_path: Path) -> None:
     if "walking_started" in types:
         assert "arrived" in types
     keys = [(e["revision"], e["id"].split(":")[0]) for e in events]
-    order = {"decision": 0, "timeline": 1, "action": 2, "tool": 3}
+    order = {"decision": 0, "timeline": 1, "action": 2, "tool": 3, "memory": 4}
     assert keys == sorted(keys, key=lambda k: (k[0], order[k[1]]))
     assert body["last_revision"] == events[-1]["revision"]
     for e in events:

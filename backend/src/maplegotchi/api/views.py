@@ -25,6 +25,7 @@ from maplegotchi.api.models import (
     JournalEntryOut,
     LifeEventOut,
     MapleOut,
+    MemoryOut,
     NeedsOut,
     ObservationOut,
     PathPointOut,
@@ -44,6 +45,7 @@ from maplegotchi.core import room as room_model
 from maplegotchi.core.audit import DecisionRecord, Verdict
 from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
+from maplegotchi.core.memory import Memory
 from maplegotchi.core.observations import Metric, ObservationSnapshot
 from maplegotchi.core.proposal import DirectorLabel
 from maplegotchi.core.room import Pose, Route
@@ -131,6 +133,24 @@ def activity(state: MapleState, now: datetime) -> ActivityOut:
             if state.task
             else None
         ),
+    )
+
+
+def memory(m: Memory) -> MemoryOut:
+    if m.id is None:  # pragma: no cover - only stored memories are served
+        raise ValueError("memory is not stored")
+    return MemoryOut(
+        id=m.id,
+        kind=m.kind.value,
+        tier=m.tier.value,
+        status=m.status.value,
+        text=m.text,
+        key=m.key,
+        source=m.source,
+        importance=m.importance,
+        evidence_days=[d.isoformat() for d in m.evidence_days],
+        created_at=m.created_at,
+        last_seen_at=m.last_seen_at,
     )
 
 
@@ -463,6 +483,28 @@ def life_events(records: LifeRecords) -> list[LifeEventOut]:
                         "detail": tr.detail,
                         "chars": tr.chars,
                         "document_id": t.document_id,
+                    },
+                ),
+            )
+        )
+    for me in records.memory:
+        keyed.append(
+            (
+                (me.revision, 4, me.id),
+                LifeEventOut(
+                    id=f"memory:{me.id}",
+                    type=f"memory_{me.event.kind.value}",
+                    at=me.event.at,
+                    revision=me.revision,
+                    goal_id=None,
+                    action_id=None,
+                    priority=None,
+                    payload={
+                        "memory_id": me.memory_id,
+                        "kind": me.memory_kind.value,
+                        "tier": me.tier.value,
+                        "text": me.memory_text,
+                        "detail": me.event.detail,
                     },
                 ),
             )

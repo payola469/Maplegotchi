@@ -54,6 +54,7 @@ from maplegotchi.core.goals import (
     summary_problems,
 )
 from maplegotchi.core.journal import text_problems
+from maplegotchi.core.memory import RETRIEVE_LIMIT, Memory
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.room import FURNITURE_AT
 from maplegotchi.core.signals import classify_signals
@@ -131,6 +132,7 @@ def build_context(
     server_reasons: Sequence[str] = (),
     recent: Sequence[DecisionRecord] = (),
     catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
+    memories: Sequence[Memory] = (),
 ) -> DecisionContext:
     """The `maple.decision.v1` context core shows a Director (ADR-0026 §4)."""
     require_utc(now, "now")
@@ -218,6 +220,11 @@ def build_context(
             ],
             "write_kinds": [k.value for k in WriteKind],
         },
+        # A few relevant memories, never the archive or the whole history (ADR-0030).
+        "memories": [
+            {"kind": m.kind.value, "tier": m.tier.value, "text": m.text}
+            for m in list(memories)[:RETRIEVE_LIMIT]
+        ],
         "recent_decisions": [
             {
                 "at": r.at.isoformat(),

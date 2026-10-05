@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from types import TracebackType
@@ -43,6 +43,16 @@ from maplegotchi.core.journal import (
     TriggerKind,
     accept_drafts,
 )
+from maplegotchi.core.memory import (
+    Memory,
+    MemoryChange,
+    MemoryEvent,
+    MemoryEventKind,
+    Tier,
+    memories_from,
+)
+from maplegotchi.core.memory import consolidate as consolidate_memories
+from maplegotchi.core.memory import search as search_memories
 from maplegotchi.core.movement import arrival_actions, settle_movement
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
@@ -63,12 +73,14 @@ from maplegotchi.core.reflection import (
     settle_triggers,
 )
 from maplegotchi.core.state import InteractionKind, MapleState, birth
+from maplegotchi.core.tasks import ToolRecord
 from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
-from maplegotchi.runtime.tasks import TaskWorker
+from maplegotchi.runtime.tasks import TaskWorker, relevant_memories
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
+from maplegotchi.storage.memory_rows import StoredMemoryEvent
 from maplegotchi.storage.repositories import (
     LifeRepository,
     PersistedView,
@@ -149,9 +161,10 @@ class LifeRecords:
     actions: tuple[StoredActionEvent, ...]
     decisions: tuple[StoredDecision, ...]
     tools: tuple[StoredToolUse, ...] = ()
+    memory: tuple[StoredMemoryEvent, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.timeline or self.actions or self.decisions or self.tools)
+        return bool(self.timeline or self.actions or self.decisions or self.tools or self.memory)
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -278,7 +291,7 @@ class LifeRuntime:
             return repo.events(revision=revision), repo.journal(revision=revision)
 
     def life_written_at(self, revision: int) -> LifeRecords:
-        """Every life event (timeline, actions, decisions, tools) of exactly this revision."""
+        """Every life event (timeline, actions, decisions, tools, memory) of this revision."""
         with self._lock:
             repo = self._repository()
             return LifeRecords(
@@ -286,6 +299,7 @@ class LifeRuntime:
                 tuple(repo.action_events(revision=revision)),
                 tuple(repo.decisions(revision=revision)),
                 tuple(repo.tool_uses(revision=revision)),
+                tuple(repo.memory_events(revision=revision)),
             )
 
     def life_since(self, revision: int, *, limit: int) -> LifeRecords:
@@ -297,6 +311,7 @@ class LifeRuntime:
                 tuple(repo.action_events(since_revision=revision, limit=limit)),
                 tuple(repo.decisions(since_revision=revision, limit=limit)),
                 tuple(repo.tool_uses(since_revision=revision, limit=limit)),
+                tuple(repo.memory_events(since_revision=revision, limit=limit)),
             )
 
     def documents(self, *, limit: int) -> list[StoredDocument]:
@@ -355,6 +370,7 @@ class LifeRuntime:
                 return None
             prepared = prepare(self._state, now, trigger, self._params)
             recent = [d.record for d in repo.decisions(limit=3)]
+            memories = relevant_memories(repo, prepared.state, now)
             context = build_context(
                 prepared,
                 now,
@@ -364,6 +380,7 @@ class LifeRuntime:
                 server_reasons=attention.reasons,
                 recent=recent,
                 catalog=self._tasks.catalog(repo),
+                memories=memories,
             )
             return PendingDecision(self._revision, trigger, inputs, context)
 
@@ -426,6 +443,34 @@ class LifeRuntime:
         snapshot = ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
         return assess_server_attention(snapshot)
 
+    def _memory_changes(
+        self,
+        repo: LifeRepository,
+        events: Sequence[LifeEvent],
+        tools: Sequence[ToolRecord],
+        now: datetime,
+        *,
+        consolidate: bool = False,
+    ) -> tuple[MemoryChange, ...]:
+        """New memories from this transition, and (on heartbeats) consolidation (ADR-0030)."""
+        created = tuple(
+            MemoryChange(m, MemoryEvent(MemoryEventKind.CREATED, now))
+            for m in memories_from(events, tools, now, self._params.utc_offset)
+        )
+        if not consolidate:
+            return created
+        short = repo.memories(tiers=(Tier.SHORT_TERM,), limit=1000)
+        return created + consolidate_memories(short, now)
+
+    def memories(self, *, tiers: Sequence[Tier] | None = None, limit: int) -> list[Memory]:
+        with self._lock:
+            return self._repository().memories(tiers=tiers, limit=limit)
+
+    def memory_search(self, text: str, *, limit: int) -> tuple[Memory, ...]:
+        with self._lock:
+            everything = self._repository().memories(limit=5000)
+        return search_memories(everything, text, limit)
+
     @staticmethod
     def _server_line(repo: LifeRepository) -> str | None:
         """One factual line about the server for documents (lock held by the caller)."""
@@ -485,6 +530,7 @@ class LifeRuntime:
         tools = self._tasks.effects(
             repo, self._state, outcome.state, now, server_line=self._server_line(repo)
         )
+        remembered = self._memory_changes(repo, outcome.events, tools, now)
         revision = repo.commit(
             outcome.state,
             expected_revision=self._revision,
@@ -494,6 +540,7 @@ class LifeRuntime:
             actions=outcome.actions,
             decisions=(outcome.record,),
             tools=tools,
+            memories=remembered,
         )
         self._state, self._revision, self._reflection = outcome.state, revision, reflection
         return CommittedDecision(outcome, revision, entries)
@@ -573,6 +620,7 @@ class LifeRuntime:
             tools = self._tasks.effects(
                 repo, state, result.state, now, server_line=self._server_line(repo)
             )
+            remembered = self._memory_changes(repo, result.events, tools, now, consolidate=True)
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
@@ -584,6 +632,7 @@ class LifeRuntime:
                 actions=result.actions,
                 decisions=(result.decision,) if result.decision else (),
                 tools=tools,
+                memories=remembered,
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
             return CommittedTick(result, revision, entries)
@@ -627,6 +676,7 @@ class LifeRuntime:
                     journal=entries,
                     reflection=reflection,
                     actions=audit,
+                    memories=self._memory_changes(repo, (*arrival, outcome.event), (), now),
                 )
                 self._state, self._revision, self._reflection = outcome.state, revision, reflection
                 return CommittedInteraction(outcome, revision, entries)

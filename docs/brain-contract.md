@@ -45,6 +45,7 @@ journal text, or raw observation rows):
                "actions": [{"kind": "read", "min_minutes": 20, "max_minutes": 60,
                             "furniture": "bookshelf"}, …],   // after core's hard rules
                "end_reasons": ["director_abandoned", "no_longer_relevant", "superseded", "expired"]},
+   "memories": [{"kind": "reading", "tier": "short_term", "text": "I read Maple's room: …"}],  // ≤ 5
    "recent_decisions": [{"at": "…Z", "verdict": "accepted", "action": "write", "by": "rule"}]}}
 ```
 
