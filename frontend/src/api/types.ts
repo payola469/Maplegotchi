@@ -95,6 +95,15 @@ export interface InteractionAvailabilityOut {
   retry_after_seconds: number | null;
 }
 
+export interface GoalOut {
+  id: number;
+  type: string; // one of the 16 goal types (ADR-0026)
+  summary: string;
+  source: string; // rule | external
+  started_at: string;
+  horizon_until: string;
+}
+
 export interface MapleOut {
   revision: number;
   generated_at: string;
@@ -104,6 +113,9 @@ export interface MapleOut {
   expression: string;
   reaction: ReactionOut | null;
   interactions: InteractionAvailabilityOut[];
+  goal: GoalOut | null;
+  suspended_goal: GoalOut | null;
+  action_priority: string; // critical | high | normal | low
 }
 
 export interface DayOut {

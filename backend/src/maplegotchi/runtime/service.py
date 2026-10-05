@@ -47,6 +47,7 @@ from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.repositories import StoredEvent, StoredJournalEntry, StoredObservation
 
 HEARTBEAT_GRACE = timedelta(seconds=60)
+DECISION_GRACE = timedelta(seconds=120)
 RECENT_LIMIT = 10
 SSE_KEEPALIVE_SECONDS = 15
 
@@ -160,7 +161,12 @@ class MapleService:
         senses: Senses | None = None,
     ) -> MapleService:
         clock = clock or SystemClock()
-        params = CoreParameters(heartbeat_interval=timedelta(seconds=settings.heartbeat_seconds))
+        params = CoreParameters(
+            heartbeat_interval=timedelta(seconds=settings.heartbeat_seconds),
+            # Decisions have their own transition; the heartbeat steps in only if one
+            # is overdue (ADR-0026 §3).
+            decision_grace=DECISION_GRACE,
+        )
         if senses is None:
             senses = (
                 fake_senses()
@@ -273,13 +279,34 @@ class MapleService:
             committed.revision, events=bool(committed.events), journal=bool(committed.journal)
         )
 
+    def decide(self) -> None:
+        """Run a due decision transition (ADR-0026 §3): next goal and action."""
+        if not self.runtime.decision_is_due():
+            return
+        committed = self.runtime.decide_committed()
+        if committed is None:
+            return
+        self._publish(
+            "movement", {"revision": committed.revision, "state": committed.outcome.state}
+        )
+        self._publish_written(
+            committed.revision,
+            events=bool(committed.outcome.events),
+            journal=bool(committed.journal),
+        )
+
+    def step(self) -> None:
+        """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""
+        self.settle()
+        self.decide()
+        self.tick()
+
     def tick(self) -> TickResult | None:
-        """One life-loop step: observe (outside the lock) and heartbeat if due.
+        """Observe (outside the lock) and heartbeat if due.
 
         Events are published only after the runtime has durably committed the
         transition and released its lock; if the commit fails, nothing is published.
         """
-        self.settle()
         if not self.runtime.heartbeat_due():
             return None
         observations = self.senses.observe(self.clock.now())
@@ -327,7 +354,7 @@ class MapleService:
     async def _life_loop(self, poll_seconds: float) -> None:
         while not self._stop.is_set():
             try:
-                await asyncio.to_thread(self.tick)
+                await asyncio.to_thread(self.step)
                 self._loop_error = None
             except Exception as exc:  # fail soft: record, keep living, try again
                 self._loop_error = type(exc).__name__

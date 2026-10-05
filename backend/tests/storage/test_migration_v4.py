@@ -21,7 +21,7 @@ from maplegotchi.storage.db import (
     open_life_database,
 )
 from maplegotchi.storage.errors import MigrationError, SchemaTooNewError
-from maplegotchi.storage.migrations import MIGRATIONS, migrate, schema_version
+from maplegotchi.storage.migrations import MIGRATIONS, latest_version, migrate, schema_version
 from maplegotchi.storage.repositories import LifeRepository
 from tests.persistence_support import make_data_dir, open_runtime, raw_db
 from tests.storage.legacy_support import LEGACY_BORN, LEGACY_SEED, write_legacy_life
@@ -87,7 +87,7 @@ def test_v3_life_migrates_with_identity_seed_counters_and_history_intact(tmp_pat
     after = preserved(data_dir)
     assert after == before  # every preserved row, byte for byte (incl. ids)
     with raw_db(data_dir) as conn:
-        assert schema_version(conn) == 4
+        assert schema_version(conn) == latest_version()
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
         assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
@@ -261,7 +261,7 @@ def test_foreign_keys_are_restored_after_the_rebuild(tmp_path: Path) -> None:
     conn = sqlite3.connect(data_dir.path("maple.db"), isolation_level=None)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
-        assert migrate(conn) == 4
+        assert migrate(conn) == latest_version()
         assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         repo = LifeRepository(conn)
         assert repo.load().state.rng.seed_hex == LEGACY_SEED

@@ -1,7 +1,13 @@
 """One logical heartbeat of Maple's life, as a pure function.
 
 The caller supplies the time. There is no scheduler, no sleeping, and no Brain
-parameter: an ordinary heartbeat cannot invoke an external Brain (D6).
+parameter: an ordinary heartbeat cannot invoke an external Brain or Director (D6).
+
+A heartbeat evolves needs, records an arrival, and handles only what may not
+wait (ADR-0026): a critical or high-priority interruption, executed by core
+rules. Choosing the next goal and action is a separate decision transition;
+the heartbeat applies rule direction only when a decision is overdue by
+`CoreParameters.decision_grace` (0 by default, so a pure life never stalls).
 
 Need dynamics use only +, -, *, / (no exp/log), which IEEE 754 rounds exactly,
 so replays are bit-identical on Windows dev machines and on paolo-core.
@@ -12,20 +18,39 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
-from maplegotchi.core.activities import SPECS, Activity
-from maplegotchi.core.behavior import FORCED_SLEEP_ENERGY, BehaviorInputs, choose_next_activity
+from maplegotchi.core.activities import Activity
+from maplegotchi.core.behavior import BehaviorInputs
 from maplegotchi.core.daytime import is_night, local_hour, require_utc
-from maplegotchi.core.movement import begin_activity, choose_point, settle_movement
+from maplegotchi.core.direction import DecisionTrigger, decide, decision_due, interrupt
+from maplegotchi.core.movement import settle_movement
+from maplegotchi.core.needs import (
+    MOOD_RELAX_PER_HOUR,
+    SOCIAL_FLOOR,
+    SOCIAL_RELAX_PER_HOUR,
+    evolve_needs,
+    evolve_through,
+    mood_target,
+    needs_since,
+)
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.rng import RngStream
-from maplegotchi.core.state import NEED_MAX, MapleState, Needs, prune_interactions
+from maplegotchi.core.signals import SignalKind, classify_signals, interrupts
+from maplegotchi.core.state import NEED_MAX, MapleState, prune_interactions
 from maplegotchi.core.timeline import DowntimeGap, LifeEvent
 
-# Social fulfilment relaxes toward this floor when nobody interacts with Maple.
-SOCIAL_FLOOR = 20.0
-SOCIAL_RELAX_PER_HOUR = 0.03
-# Mood relaxes toward a target set by energy and social fulfilment.
-MOOD_RELAX_PER_HOUR = 0.15
+__all__ = [
+    "DOWNTIME_GAP_INTERVALS",
+    "MOOD_RELAX_PER_HOUR",
+    "SOCIAL_FLOOR",
+    "SOCIAL_RELAX_PER_HOUR",
+    "TickResult",
+    "evolve_needs",
+    "evolve_through",
+    "heartbeat",
+    "mood_target",
+    "wakes_rested",
+]
+
 # A gap longer than this many heartbeat intervals is recorded as downtime.
 DOWNTIME_GAP_INTERVALS = 2
 
@@ -37,64 +62,11 @@ class TickResult:
     events: tuple[LifeEvent, ...]
 
 
-def mood_target(energy: float, social: float) -> float:
-    """Mood Maple drifts toward: 20 when exhausted and lonely, 100 when rested and fulfilled."""
-    return 20.0 + 0.35 * energy + 0.45 * social
-
-
-def _relax(value: float, target: float, rate_per_hour: float, hours: float) -> float:
-    # Rational stand-in for exponential decay: monotonic, never overshoots, exact rounding.
-    return target + (value - target) / (1.0 + rate_per_hour * hours)
-
-
-def evolve_needs(needs: Needs, activity: Activity, elapsed: timedelta) -> Needs:
-    """Needs after spending `elapsed` doing `activity`."""
-    if elapsed < timedelta(0):
-        raise ValueError("elapsed must be >= 0")
-    hours = elapsed.total_seconds() / 3600.0
-    spec = SPECS[activity]
-    energy = needs.energy + spec.energy_per_hour * hours
-    curiosity = needs.curiosity + spec.curiosity_per_hour * hours
-    social = _relax(needs.social, SOCIAL_FLOOR, SOCIAL_RELAX_PER_HOUR, hours)
-    clamped_energy = min(NEED_MAX, max(0.0, energy))
-    target = mood_target(clamped_energy, social)
-    mood = _relax(needs.mood, target, MOOD_RELAX_PER_HOUR, hours) + spec.mood_per_hour * hours
-    return Needs.clamped(mood=mood, energy=energy, curiosity=curiosity, social=social)
-
-
-def evolve_through(state: MapleState, now: datetime, elapsed: timedelta) -> Needs:
-    """Needs over the window [now - elapsed, now], honouring a walk in progress.
-
-    Before departure Maple was still doing the previous activity; while walking the
-    `walk` spec applies; the new activity's spec applies only from arrival
-    (ADR-0027). Without a route this is exactly `evolve_needs` over the window.
-    """
-    route = state.route
-    if route is None:
-        return evolve_needs(state.needs, state.activity, elapsed)
-    start = now - elapsed
-    walk_start = min(max(route.departed_at, start), now)
-    walk_end = min(max(route.arrives_at, walk_start), now)
-    segments = (
-        (route.from_activity, walk_start - start),
-        (Activity.WALK, walk_end - walk_start),
-        (state.activity, now - walk_end),
-    )
-    needs = state.needs
-    for activity, span in segments:
-        if span > timedelta(0):  # zero spans are skipped: relaxing by 0 h is not exact
-            needs = evolve_needs(needs, activity, span)
-    return needs
-
-
-def needs_new_activity(state: MapleState, now: datetime, params: CoreParameters) -> bool:
-    if now >= state.activity_until:
-        return True
-    if state.activity is not Activity.SLEEP and state.needs.energy <= FORCED_SLEEP_ENERGY:
-        return True  # exhausted: interrupt whatever Maple is doing
+def wakes_rested(state: MapleState, now: datetime, params: CoreParameters) -> bool:
+    """A meaningful early completion: fully rested in daytime ends sleep."""
     fully_rested = state.needs.energy >= NEED_MAX
     daytime = not is_night(local_hour(now, params.utc_offset))
-    return state.activity is Activity.SLEEP and fully_rested and daytime
+    return state.activity is Activity.SLEEP and state.route is None and fully_rested and daytime
 
 
 def heartbeat(
@@ -103,7 +75,7 @@ def heartbeat(
     inputs: BehaviorInputs,
     params: CoreParameters,
 ) -> TickResult:
-    """Advance Maple's life to `now`: evolve needs, expire reactions, maybe change activity."""
+    """Advance Maple's life to `now`: evolve needs, expire reactions, handle interruptions."""
     require_utc(now, "now")
     if now <= state.last_tick_at:
         raise ValueError("heartbeat time must be after the previous heartbeat")
@@ -113,7 +85,7 @@ def heartbeat(
     tick_id = state.rng.tick_counter + 1
     rng = RngStream(state.rng.seed_hex, "tick", tick_id)
     gap = now - state.last_tick_at
-    elapsed = min(gap, params.max_catchup)
+    elapsed = min(now - needs_since(state), params.max_catchup)
 
     events: list[LifeEvent] = []
     if gap > params.heartbeat_interval * DOWNTIME_GAP_INTERVALS:
@@ -126,6 +98,7 @@ def heartbeat(
     advanced = replace(
         state,
         needs=evolve_through(state, now, elapsed),
+        needs_at=None,  # evolved up to this heartbeat
         reaction=reaction,
         recent_interactions=prune_interactions(state.recent_interactions, now),
         last_tick_at=now,
@@ -136,14 +109,32 @@ def heartbeat(
     advanced, arrival = settle_movement(advanced, now)
     events.extend(arrival)
 
-    if needs_new_activity(advanced, now, params):
-        choice = choose_next_activity(advanced, now, inputs, params, rng)
-        if choice.activity is advanced.activity and choice.location is advanced.location:
-            point = advanced.point  # continuing: stay put
-        else:
-            point = choose_point(choice.activity, choice.location, rng)
-        moved = begin_activity(advanced, now, choice.activity, point, choice.until)
-        events.extend(moved.events)
-        advanced = moved.state
+    # Interruptions that cannot wait for the current action (ADR-0026 §7).
+    signals = classify_signals(advanced, now, inputs)
+    kinds = {s.kind for s in signals}
+    if SignalKind.SERVER_PROBLEM not in kinds and advanced.critical_since is not None:
+        advanced = replace(advanced, critical_since=None)  # the serious problem has cleared
+    for signal in signals:
+        if signal.kind is SignalKind.EXHAUSTED and advanced.activity is Activity.SLEEP:
+            continue  # already going to bed / asleep
+        if signal.kind is SignalKind.SERVER_PROBLEM and advanced.critical_since is not None:
+            continue  # this problem is already being (or was) handled
+        if interrupts(signal, advanced.action_priority):
+            interrupted = interrupt(advanced, now, signal, rng)
+            return TickResult(
+                state=interrupted.state, tick_id=tick_id, events=(*events, *interrupted.events)
+            )
+
+    if wakes_rested(advanced, now, params):
+        advanced = replace(advanced, activity_until=now)  # sleep is complete
+
+    trigger = decision_due(advanced, now)
+    if trigger is not None and now >= advanced.activity_until + params.decision_grace:
+        overdue = params.decision_grace > timedelta(0)  # a Director had its chance
+        outcome = decide(
+            advanced, now, DecisionTrigger.OVERDUE if overdue else trigger, inputs, params
+        )
+        advanced = outcome.state
+        events.extend(outcome.events)
 
     return TickResult(state=advanced, tick_id=tick_id, events=tuple(events))

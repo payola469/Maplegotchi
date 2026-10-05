@@ -24,6 +24,8 @@ from types import TracebackType
 from maplegotchi.brain.interface import Brain
 from maplegotchi.brain.rule_brain import RuleBrain
 from maplegotchi.core.attention import behavior_inputs
+from maplegotchi.core.behavior import BehaviorInputs
+from maplegotchi.core.direction import DecisionOutcome, decide, decision_due
 from maplegotchi.core.heartbeat import TickResult, heartbeat
 from maplegotchi.core.interactions import Accepted, InteractionOutcome, apply_interaction
 from maplegotchi.core.journal import (
@@ -100,6 +102,15 @@ class CommittedArrival:
     state: MapleState
     revision: int
     events: tuple[LifeEvent, ...]
+    journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class CommittedDecision:
+    """A decision transition exactly as committed (ADR-0026 §3)."""
+
+    outcome: DecisionOutcome
+    revision: int
     journal: tuple[JournalEntry, ...]
 
 
@@ -247,7 +258,52 @@ class LifeRuntime:
         route = self._state.route
         return route is not None and self._clock.now() >= route.arrives_at
 
+    def decision_is_due(self) -> bool:
+        """Whether a decision transition would run now."""
+        state = self._state
+        now = self._clock.now()
+        return now >= state.last_updated_at and decision_due(state, now) is not None
+
+    def latest_inputs(self) -> BehaviorInputs:
+        """Behavior inputs from the most recent stored observations (facts only)."""
+        latest = self.latest_observations()
+        if not latest:
+            return BehaviorInputs()
+        observed_at = max(s.observation.observed_at for s in latest)
+        return behavior_inputs(
+            ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
+        )
+
     # ------------------------------------------------------------ transitions
+
+    def decide_committed(self, inputs: BehaviorInputs | None = None) -> CommittedDecision | None:
+        """Choose and begin Maple's next goal/action if a decision is due (rule direction)."""
+        inputs = inputs if inputs is not None else self.latest_inputs()
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                return None
+            outcome = decide(self._state, now, trigger, inputs, self._params)
+            triggers, reflection = settle_triggers(
+                self._reflection,
+                events=outcome.events,
+                now=now,
+                params=self._params,
+                journal=self._journal_params,
+            )
+            entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
+            reflection = mark_journaled(reflection, triggers, _written(entries), now)
+            revision = repo.commit(
+                outcome.state,
+                expected_revision=self._revision,
+                events=outcome.events,
+                journal=entries,
+                reflection=reflection,
+            )
+            self._state, self._revision, self._reflection = outcome.state, revision, reflection
+            return CommittedDecision(outcome, revision, entries)
 
     def settle_committed(self) -> CommittedArrival | None:
         """Record an arrival that has happened (ADR-0027 §5): the activity begins.

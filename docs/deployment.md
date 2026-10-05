@@ -79,7 +79,7 @@ owner once they are neither `current` nor `previous`.
 Code and data are separate: rollback swaps `current` back and restarts; it never
 copies, replaces, or downgrades `/data/maple/maple.db`.
 
-- Maple's schema version is `PRAGMA user_version` (currently **4**); migrations
+- Maple's schema version is `PRAGMA user_version` (currently **5**); migrations
   only move forward and run automatically at startup inside a transaction.
 - A release can open a database whose version is **≤** its own latest migration.
   A database **newer** than the code fails loudly (`SchemaTooNewError`) and is

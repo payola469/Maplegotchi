@@ -515,6 +515,12 @@ def _v4_verify(conn: sqlite3.Connection, before: object) -> None:
         raise MigrationError("schema v4 foreign key check failed")
 
 
+# Schema v5 (ADR-0026 §7): remember that a serious problem is being handled, so a
+# critical interruption happens once per problem, not at every heartbeat.
+_V5_CRITICAL = f"""
+ALTER TABLE life_state ADD COLUMN critical_since TEXT CHECK (critical_since {_UTC_TS});
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -527,6 +533,7 @@ MIGRATIONS: tuple[Migration, ...] = (
         capture=_v4_capture,
         verify=_v4_verify,
     ),
+    Migration(5, "goals: critical interruption tracking", _V5_CRITICAL),
 )
 
 

@@ -14,8 +14,10 @@ from enum import StrEnum
 
 from maplegotchi.core.activities import SPECS, Activity, RoomLocation
 from maplegotchi.core.daytime import require_utc
+from maplegotchi.core.goals import Goal
 from maplegotchi.core.identity import Identity
 from maplegotchi.core.parameters import GLOBAL_INTERACTION_LIMIT, GLOBAL_INTERACTION_WINDOW
+from maplegotchi.core.priority import Priority
 from maplegotchi.core.rng import RngState
 from maplegotchi.core.room import POINT_BY_ID, InteractionPoint, Route, canonical_point
 
@@ -139,6 +141,17 @@ class MapleState:
     # Set while Maple walks to `point`: the activity begins at route.arrives_at,
     # which then equals activity_started_at. None = Maple is at its point.
     route: Route | None = None
+    # ADR-0026: when needs were last evolved (None = at last_tick_at). Decisions
+    # between heartbeats evolve needs up to their own time.
+    needs_at: datetime | None = None
+    action_id: int = 0  # increases with every action started (0 = before v4)
+    action_priority: Priority = Priority.NORMAL  # how the current action began
+    goal: Goal | None = None  # the active short-term goal
+    suspended_goal: Goal | None = None  # paused by an interruption
+    suspended_action: Activity | None = None  # what Maple was doing when interrupted
+    goal_counter: int = 0  # ids handed out so far
+    reevaluate_since: datetime | None = None  # a high-priority input asked for a decision
+    critical_since: datetime | None = None  # a serious problem is being handled
 
     def __post_init__(self) -> None:
         for name in ("activity_started_at", "activity_until", "last_tick_at", "last_updated_at"):
@@ -170,6 +183,8 @@ class MapleState:
             if route.destination != point:
                 raise ValueError("route must end at the activity's interaction point")
 
+        self._check_autonomy(born)
+
         records = self.recent_interactions
         if len(records) > GLOBAL_INTERACTION_LIMIT:
             raise ValueError("more recent interactions than the global limit allows")
@@ -184,6 +199,38 @@ class MapleState:
         if self.reaction is not None:
             if not born <= self.reaction.started_at <= self.last_updated_at:
                 raise ValueError("reaction time outside Maple's life so far")
+
+    def _check_autonomy(self, born: datetime) -> None:
+        if self.needs_at is not None:
+            require_utc(self.needs_at, "needs_at")
+            if not self.last_tick_at <= self.needs_at <= self.last_updated_at:
+                raise ValueError("require last_tick_at <= needs_at <= last_updated_at")
+        for name in ("action_id", "goal_counter"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be an int >= 0")
+        if not isinstance(self.action_priority, Priority):
+            raise TypeError("action_priority must be a Priority")
+        goals = [g for g in (self.goal, self.suspended_goal) if g is not None]
+        for goal in goals:
+            if not isinstance(goal, Goal):
+                raise TypeError("goals must be Goal values")
+            if goal.id > self.goal_counter:
+                raise ValueError("goal id was never handed out")
+            if not born <= goal.started_at <= self.last_updated_at:
+                raise ValueError("goal start outside Maple's life so far")
+        if len(goals) == 2 and goals[0].id == goals[1].id:
+            raise ValueError("a goal cannot be active and suspended at once")
+        if (self.suspended_goal is None) != (self.suspended_action is None):
+            raise ValueError("a suspended goal and its interrupted action go together")
+        if self.suspended_action is not None and not isinstance(self.suspended_action, Activity):
+            raise TypeError("suspended_action must be an Activity")
+        for name in ("reevaluate_since", "critical_since"):
+            value = getattr(self, name)
+            if value is not None:
+                require_utc(value, name)
+                if not born <= value <= self.last_updated_at:
+                    raise ValueError(f"{name} outside Maple's life so far")
 
     @property
     def point(self) -> InteractionPoint:

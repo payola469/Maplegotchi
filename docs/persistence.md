@@ -12,7 +12,7 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **4**) |
+| Schema version | `PRAGMA user_version` (currently **5**) |
 | Pre-migration copies | `pre-migration/maple.v<N>.<UTC stamp>.<hex>.db` (ADR-0028 R2; never pruned or restored automatically) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
@@ -102,6 +102,11 @@ verified copy to `pre-migration/` (online backup API, DELETE journal,
 non-overwriting publish); if that fails, the migration is refused and `maple.db`
 is untouched (`PreMigrationSnapshotError`). Recovery procedure: ADR-0028 R5/R6 and
 `deploy/install.md` → Rollback.
+
+Migration 5 (goals) adds `life_state.critical_since` (ALTER TABLE ADD COLUMN):
+a serious problem interrupts once per problem, not at every heartbeat
+(`docs/autonomy.md`). Like every migration from v4 on, it is preceded by a
+verified `pre-migration/` copy.
 
 ## Canonical vs derived state
 

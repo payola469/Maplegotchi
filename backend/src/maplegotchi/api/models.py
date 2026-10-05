@@ -98,6 +98,15 @@ class ReactionOut(_Out):
     until: datetime
 
 
+class GoalOut(_Out):
+    id: int
+    type: str  # one of the 16 goal types (ADR-0026 §6)
+    summary: str
+    source: str  # rule | external
+    started_at: datetime
+    horizon_until: datetime
+
+
 class InteractionAvailabilityOut(_Out):
     kind: str
     available: bool
@@ -114,6 +123,10 @@ class MapleOut(_Out):
     expression: str  # at generated_at
     reaction: ReactionOut | None  # active at generated_at, else null
     interactions: list[InteractionAvailabilityOut]
+    # Additive (ADR-0026): Maple's short-term goal and how the current action began.
+    goal: GoalOut | None
+    suspended_goal: GoalOut | None  # paused by an interruption
+    action_priority: str  # critical | high | normal | low
 
 
 class DayOut(_Out):

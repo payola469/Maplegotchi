@@ -30,6 +30,10 @@ class CoreParameters:
     max_catchup: timedelta = timedelta(hours=6)
     # How long a Greet/Pet reaction is shown (D17); it ends by time, not by heartbeat.
     reaction_duration: timedelta = timedelta(seconds=8)
+    # How long a due decision may wait for its own decision transition (e.g. an
+    # external Director) before the heartbeat applies rule direction (ADR-0026 §3).
+    # 0 = the heartbeat decides as soon as a decision is due (pure lives, tests).
+    decision_grace: timedelta = timedelta(0)
 
     def __post_init__(self) -> None:
         if self.heartbeat_interval <= timedelta(0):
@@ -40,3 +44,5 @@ class CoreParameters:
             raise ValueError("max_catchup must be >= heartbeat_interval")
         if not timedelta(0) < self.reaction_duration <= timedelta(minutes=1):
             raise ValueError("reaction_duration must be in (0, 60s]")
+        if not timedelta(0) <= self.decision_grace <= timedelta(minutes=10):
+            raise ValueError("decision_grace must be in [0, 10 min]")

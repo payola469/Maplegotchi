@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from maplegotchi.core.activities import Activity
-from maplegotchi.core.heartbeat import evolve_needs
+from maplegotchi.core.heartbeat import evolve_needs, evolve_through
 from maplegotchi.core.interactions import Accepted, Rejected, RejectionReason
 from maplegotchi.core.state import Expression, InteractionKind
 from maplegotchi.core.timeline import DowntimeGap, InteractionAccepted
@@ -261,7 +261,8 @@ def test_short_downtime_advances_coherently(tmp_path: Path) -> None:
         result = runtime.heartbeat_if_due()
         assert result is not None and result.tick_id == before.rng.tick_counter + 1
         assert not any(isinstance(e, DowntimeGap) for e in result.events)
-        expected = evolve_needs(before.needs, before.activity, timedelta(minutes=8))
+        # Needs follow core's rule exactly, including a walk in progress (ADR-0027).
+        expected = evolve_through(before, clock.now(), timedelta(minutes=8))
         assert runtime.state.needs.energy == expected.energy
 
 

@@ -19,6 +19,7 @@ from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.daytime import require_utc
+from maplegotchi.core.goals import Goal, GoalEndReason, GoalSource, GoalType
 from maplegotchi.core.identity import Identity
 from maplegotchi.core.journal import (
     BrainKind,
@@ -33,6 +34,7 @@ from maplegotchi.core.observations import (
     ObservationStatus,
     ServiceState,
 )
+from maplegotchi.core.priority import Priority
 from maplegotchi.core.reflection import INITIAL_REFLECTION, ReflectionState
 from maplegotchi.core.rng import RngState
 from maplegotchi.core.room import PathPoint, Route
@@ -49,6 +51,11 @@ from maplegotchi.core.timeline import (
     ActivityChanged,
     Born,
     DowntimeGap,
+    GoalAbandoned,
+    GoalCompleted,
+    GoalResumed,
+    GoalStarted,
+    GoalSuspended,
     InteractionAccepted,
     LifeEvent,
 )
@@ -154,6 +161,34 @@ def encode_event(event: LifeEvent) -> tuple[str, str, str]:
             )
         case DowntimeGap(since=since, until=at):
             kind, payload = "downtime_gap", {"since": _ts(since)}
+        case GoalStarted(at=at, goal=goal):
+            kind, payload = (
+                "goal_started",
+                {
+                    "goal_id": goal.id,
+                    "goal_type": goal.type.value,
+                    "summary": goal.summary,
+                    "source": goal.source.value,
+                    "horizon_until": _ts(goal.horizon_until),
+                },
+            )
+        case GoalSuspended(at=at, goal_id=goal_id, goal_type=goal_type, cause=cause):
+            kind, payload = (
+                "goal_suspended",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "cause": cause},
+            )
+        case GoalResumed(at=at, goal_id=goal_id, goal_type=goal_type):
+            kind, payload = "goal_resumed", {"goal_id": goal_id, "goal_type": goal_type.value}
+        case GoalCompleted(at=at, goal_id=goal_id, goal_type=goal_type, reason=reason):
+            kind, payload = (
+                "goal_completed",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "reason": reason.value},
+            )
+        case GoalAbandoned(at=at, goal_id=goal_id, goal_type=goal_type, reason=reason):
+            kind, payload = (
+                "goal_abandoned",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "reason": reason.value},
+            )
         case _:
             raise TypeError(f"unknown life event {event!r}")
     return kind, _ts(at), json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -176,6 +211,37 @@ def decode_event(kind: str, at_text: str, payload_text: str) -> LifeEvent:
         )
     if kind == "downtime_gap":
         return DowntimeGap(since=_parse_ts(payload["since"]), until=at)
+    if kind == "goal_started":
+        return GoalStarted(
+            at=at,
+            goal=Goal(
+                id=int(payload["goal_id"]),
+                type=GoalType(payload["goal_type"]),
+                summary=str(payload["summary"]),
+                source=GoalSource(payload["source"]),
+                started_at=at,
+                horizon_until=_parse_ts(payload["horizon_until"]),
+            ),
+        )
+    if kind == "goal_suspended":
+        return GoalSuspended(
+            at=at,
+            goal_id=int(payload["goal_id"]),
+            goal_type=GoalType(payload["goal_type"]),
+            cause=str(payload["cause"]),
+        )
+    if kind == "goal_resumed":
+        return GoalResumed(
+            at=at, goal_id=int(payload["goal_id"]), goal_type=GoalType(payload["goal_type"])
+        )
+    if kind in ("goal_completed", "goal_abandoned"):
+        cls = GoalCompleted if kind == "goal_completed" else GoalAbandoned
+        return cls(
+            at=at,
+            goal_id=int(payload["goal_id"]),
+            goal_type=GoalType(payload["goal_type"]),
+            reason=GoalEndReason(payload["reason"]),
+        )
     raise CorruptStateError(f"unknown timeline event kind {kind!r}")
 
 
@@ -185,7 +251,9 @@ _STATE_COLUMNS = (
     "mood, energy, curiosity, social, activity, location, activity_started_at, "
     "activity_until, last_tick_at, last_updated_at, tick_counter, interaction_counter, "
     "reaction_kind, reaction_variant, reaction_started_at, reaction_until, "
-    "point_id, route_departed_at, route_from_activity, route_path"
+    "point_id, route_departed_at, route_from_activity, route_path, "
+    "needs_at, decision_counter, action_counter, goal_counter, action_priority, "
+    "active_goal_id, suspended_goal_id, suspended_action, decision_due_since, critical_since"
 )
 _STATE_PLACEHOLDERS = ", ".join("?" * len(_STATE_COLUMNS.split(",")))
 
@@ -235,6 +303,29 @@ def _state_values(state: MapleState) -> tuple[object, ...]:
         _ts(route.departed_at) if route else None,
         route.from_activity.value if route else None,
         encode_route_path(route) if route else None,
+        _ts(state.needs_at) if state.needs_at else None,
+        state.rng.decision_counter,
+        state.action_id,
+        state.goal_counter,
+        state.action_priority.value,
+        state.goal.id if state.goal else None,
+        state.suspended_goal.id if state.suspended_goal else None,
+        state.suspended_action.value if state.suspended_action else None,
+        _ts(state.reevaluate_since) if state.reevaluate_since else None,
+        _ts(state.critical_since) if state.critical_since else None,
+    )
+
+
+def _goal_row(goal: Goal, revision: int) -> tuple[object, ...]:
+    return (
+        goal.id,
+        MAPLE_ID,
+        revision,
+        goal.type.value,
+        goal.summary,
+        goal.source.value,
+        _ts(goal.started_at),
+        _ts(goal.horizon_until),
     )
 
 
@@ -304,7 +395,9 @@ class LifeRepository:
         (revision, mood, energy, curiosity, social, activity, location, started, until,
          last_tick, last_update, ticks, interactions,
          r_kind, r_variant, r_start, r_until,
-         point_id, route_departed, route_from, route_path) = state_row  # fmt: skip
+         point_id, route_departed, route_from, route_path,
+         needs_at, decisions, action_id, goal_counter, action_priority,
+         goal_id, suspended_id, suspended_action, reevaluate, critical) = state_row  # fmt: skip
         ledger = self._conn.execute(
             "SELECT position, kind, at FROM interaction_ledger WHERE maple_id = ?"
             " ORDER BY position",
@@ -330,7 +423,12 @@ class LifeRepository:
             activity_until=_parse_ts(until),
             last_tick_at=_parse_ts(last_tick),
             last_updated_at=_parse_ts(last_update),
-            rng=RngState(seed_hex=seed, tick_counter=ticks, interaction_counter=interactions),
+            rng=RngState(
+                seed_hex=seed,
+                tick_counter=ticks,
+                interaction_counter=interactions,
+                decision_counter=decisions,
+            ),
             recent_interactions=tuple(
                 InteractionRecord(kind=InteractionKind(kind), at=_parse_ts(at))
                 for _, kind, at in ledger
@@ -342,8 +440,47 @@ class LifeRepository:
                 if route_path is not None
                 else None
             ),
+            needs_at=_parse_ts(needs_at) if needs_at else None,
+            action_id=action_id,
+            action_priority=Priority(action_priority),
+            goal=self._goal(goal_id),
+            suspended_goal=self._goal(suspended_id),
+            suspended_action=Activity(suspended_action) if suspended_action else None,
+            goal_counter=goal_counter,
+            reevaluate_since=_parse_ts(reevaluate) if reevaluate else None,
+            critical_since=_parse_ts(critical) if critical else None,
         )
         return StoredLife(state=state, revision=revision)
+
+    def _goal(self, goal_id: int | None) -> Goal | None:
+        if goal_id is None:
+            return None
+        row = self._conn.execute(
+            "SELECT goal_type, summary, source, started_at, horizon_until FROM goal WHERE id = ?",
+            (goal_id,),
+        ).fetchone()
+        if row is None:
+            raise CorruptStateError(f"goal {goal_id} is missing")
+        goal_type, summary, source, started, horizon = row
+        return Goal(
+            id=goal_id,
+            type=GoalType(goal_type),
+            summary=summary,
+            source=GoalSource(source),
+            started_at=_parse_ts(started),
+            horizon_until=_parse_ts(horizon),
+        )
+
+    def goals(self, *, limit: int | None = None) -> list[Goal]:
+        """Goal definitions, oldest first (all, or only the most recent `limit`)."""
+        if limit is None:
+            rows = self._conn.execute("SELECT id FROM goal ORDER BY id DESC").fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT id FROM goal ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        found = [self._goal(int(r[0])) for r in reversed(rows)]
+        return [g for g in found if g is not None]
 
     def commit(
         self,
@@ -361,7 +498,14 @@ class LifeRepository:
         if observations and tick_id is None:
             raise ValueError("observations are recorded with the heartbeat that used them")
         new_revision = expected_revision + 1
+        started = [e.goal for e in events if isinstance(e, GoalStarted)]
         with transaction(self._conn):
+            # Goal rows first: life_state references the active/suspended goal.
+            self._conn.executemany(
+                "INSERT INTO goal (id, maple_id, revision, goal_type, summary, source,"
+                " started_at, horizon_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [_goal_row(goal, new_revision) for goal in started],
+            )
             identity_row = self._conn.execute(
                 "SELECT name, born_at, life_seed FROM maple WHERE id = ?", (MAPLE_ID,)
             ).fetchone()

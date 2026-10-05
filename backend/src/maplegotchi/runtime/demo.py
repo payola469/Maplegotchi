@@ -20,6 +20,10 @@ from maplegotchi.core.timeline import (
     ActivityChanged,
     Born,
     DowntimeGap,
+    GoalCompleted,
+    GoalResumed,
+    GoalStarted,
+    GoalSuspended,
     InteractionAccepted,
     LifeEvent,
 )
@@ -116,7 +120,17 @@ def _describe(event: LifeEvent) -> tuple[datetime, str]:
         return event.at, f"{event.kind.value} accepted ({event.reaction.value})"
     if isinstance(event, DowntimeGap):
         return event.until, f"downtime since {local_clock(event.since)}"
-    return event.at, f"{event.previous.value} -> {event.current.value}"
+    if isinstance(event, ActivityChanged):
+        return event.at, f"{event.previous.value} -> {event.current.value}"
+    if isinstance(event, GoalStarted):
+        return event.at, f"goal {event.goal.id} started: {event.goal.type.value}"
+    if isinstance(event, GoalSuspended):
+        return event.at, f"goal {event.goal_id} suspended ({event.cause})"
+    if isinstance(event, GoalResumed):
+        return event.at, f"goal {event.goal_id} resumed"
+    if isinstance(event, GoalCompleted):
+        return event.at, f"goal {event.goal_id} completed ({event.reason.value})"
+    return event.at, f"goal {event.goal_id} abandoned ({event.reason.value})"
 
 
 def format_report(report: DemoReport) -> str:

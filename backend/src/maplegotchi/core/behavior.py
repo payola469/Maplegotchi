@@ -9,6 +9,7 @@ vary but are reproducible.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -51,7 +52,10 @@ class ActivityChoice:
 
 
 def score_activities(
-    state: MapleState, hour: float, inputs: BehaviorInputs
+    state: MapleState,
+    hour: float,
+    inputs: BehaviorInputs,
+    bias: Mapping[Activity, float] | None = None,
 ) -> dict[Activity, float]:
     """Non-negative desirability score per activity, in Activity declaration order."""
     energy = state.needs.energy
@@ -92,6 +96,11 @@ def score_activities(
     if state.activity is not Activity.SLEEP:
         scores[state.activity] *= REPEAT_PENALTY
 
+    # A goal's soft preference (ADR-0026 §6): multiplies, so hard rules (zeros) stay.
+    if bias:
+        for activity, factor in bias.items():
+            scores[activity] *= factor
+
     return scores
 
 
@@ -110,10 +119,11 @@ def choose_next_activity(
     inputs: BehaviorInputs,
     params: CoreParameters,
     rng: RngStream,
+    bias: Mapping[Activity, float] | None = None,
 ) -> ActivityChoice:
     require_utc(now, "now")
     hour = local_hour(now, params.utc_offset)
-    pool = candidates(score_activities(state, hour, inputs))
+    pool = candidates(score_activities(state, hour, inputs, bias))
     activity = rng.weighted_choice(list(pool), list(pool.values()))
     spec = SPECS[activity]
 

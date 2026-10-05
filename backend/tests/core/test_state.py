@@ -256,6 +256,15 @@ def test_state_fields_are_all_plain_data() -> None:
         "reaction",
         "point_id",  # ADR-0027
         "route",  # ADR-0027
+        "needs_at",  # ADR-0026: decisions between heartbeats
+        "action_id",
+        "action_priority",
+        "goal",
+        "suspended_goal",
+        "suspended_action",
+        "goal_counter",
+        "reevaluate_since",
+        "critical_since",
     }
 
 

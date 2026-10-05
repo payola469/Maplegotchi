@@ -58,6 +58,9 @@ export function makeMaple(overrides: Partial<MapleOut> = {}): MapleOut {
       { kind: "greet", available: true, reason: null, retry_after_seconds: null },
       { kind: "pet", available: true, reason: null, retry_after_seconds: null },
     ],
+    goal: null,
+    suspended_goal: null,
+    action_priority: "normal",
     ...overrides,
   };
 }

@@ -137,6 +137,16 @@ function timelineText(e: TimelineEventOut, name: string): string {
       return e.details.kind === "pet" ? "Was petted." : "Was greeted.";
     case "downtime_gap":
       return "Was offline for a while.";
+    case "goal_started":
+      return `New goal: ${e.details.summary ?? (e.details.goal_type ?? "something").replace(/_/g, " ")}.`;
+    case "goal_suspended":
+      return "Paused a goal to deal with something urgent.";
+    case "goal_resumed":
+      return `Picked a goal back up (${e.details.goal_type ?? "goal"}).`;
+    case "goal_completed":
+      return `Finished a goal (${e.details.goal_type ?? "goal"}).`;
+    case "goal_abandoned":
+      return `Set a goal aside (${(e.details.reason ?? "no reason").replace(/_/g, " ")}).`;
     default:
       return e.kind.replace(/_/g, " ");
   }

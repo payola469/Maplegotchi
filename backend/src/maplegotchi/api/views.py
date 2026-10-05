@@ -12,6 +12,7 @@ from maplegotchi.api.models import (
     DayOut,
     FreshnessOut,
     FurnitureOut,
+    GoalOut,
     IdentityOut,
     InteractionAvailabilityOut,
     InteractionOut,
@@ -32,11 +33,22 @@ from maplegotchi.api.models import (
     TimelineEventOut,
 )
 from maplegotchi.core import room as room_model
+from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
 from maplegotchi.core.observations import Metric, ObservationSnapshot
 from maplegotchi.core.room import Pose, Route
 from maplegotchi.core.state import MapleState, Reaction
-from maplegotchi.core.timeline import ActivityChanged, Born, DowntimeGap, InteractionAccepted
+from maplegotchi.core.timeline import (
+    ActivityChanged,
+    Born,
+    DowntimeGap,
+    GoalAbandoned,
+    GoalCompleted,
+    GoalResumed,
+    GoalStarted,
+    GoalSuspended,
+    InteractionAccepted,
+)
 from maplegotchi.runtime.service import (
     SSE_KEEPALIVE_SECONDS,
     BrainLabel,
@@ -149,6 +161,22 @@ def maple(snap: LiveSnapshot) -> MapleOut:
             )
             for a in snap.interactions
         ],
+        goal=goal(state.goal),
+        suspended_goal=goal(state.suspended_goal),
+        action_priority=state.action_priority.value,
+    )
+
+
+def goal(value: Goal | None) -> GoalOut | None:
+    if value is None:
+        return None
+    return GoalOut(
+        id=value.id,
+        type=value.type.value,
+        summary=value.summary,
+        source=value.source.value,
+        started_at=value.started_at,
+        horizon_until=value.horizon_until,
     )
 
 
@@ -227,6 +255,34 @@ def timeline_event(stored: StoredEvent) -> TimelineEventOut:
         details = {"kind": event.kind.value, "reaction": event.reaction.value}
     elif isinstance(event, DowntimeGap):
         kind, at, details = "downtime_gap", event.until, {"since": event.since.isoformat()}
+    elif isinstance(event, GoalStarted):
+        goal = event.goal
+        kind, at = "goal_started", event.at
+        details = {
+            "goal_id": str(goal.id),
+            "goal_type": goal.type.value,
+            "summary": goal.summary,
+            "source": goal.source.value,
+            "horizon_until": goal.horizon_until.isoformat(),
+        }
+    elif isinstance(event, GoalSuspended):
+        kind, at = "goal_suspended", event.at
+        details = {
+            "goal_id": str(event.goal_id),
+            "goal_type": event.goal_type.value,
+            "cause": event.cause,
+        }
+    elif isinstance(event, GoalResumed):
+        kind, at = "goal_resumed", event.at
+        details = {"goal_id": str(event.goal_id), "goal_type": event.goal_type.value}
+    elif isinstance(event, GoalCompleted | GoalAbandoned):
+        kind = "goal_completed" if isinstance(event, GoalCompleted) else "goal_abandoned"
+        at = event.at
+        details = {
+            "goal_id": str(event.goal_id),
+            "goal_type": event.goal_type.value,
+            "reason": event.reason.value,
+        }
     else:  # pragma: no cover - the union is closed
         raise TypeError(f"unknown timeline event {event!r}")
     return TimelineEventOut(

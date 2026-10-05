@@ -89,8 +89,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4]
-    assert LATEST == 4
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5]
+    assert LATEST == 5
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])
@@ -214,8 +214,14 @@ def test_frozen_enum_lists_match_core() -> None:
     assert _check_values("reaction_kind") == {r.value for r in ReactionKind}
     assert _check_values("kind") >= {k.value for k in InteractionKind}
     event_kinds = {"born", "activity_changed", "interaction_accepted", "downtime_gap"}
-    assert len(LifeEvent.__args__) == len(event_kinds)
     assert event_kinds <= set(re.findall(r"'([a-z_]+)'", V1_SQL))
+    # Goal-level events arrived with the v4 timeline rebuild (ADR-0028 §2).
+    goal_kinds = {"goal_started", "goal_suspended", "goal_resumed", "goal_completed"}
+    goal_kinds |= {"goal_abandoned"}
+    assert len(LifeEvent.__args__) == len(event_kinds | goal_kinds)
+    timeline_v4 = V4_SQL[V4_SQL.index("CREATE TABLE timeline_event_v4") :]
+    timeline_v4 = timeline_v4[: timeline_v4.index(") STRICT;")]
+    assert set(re.findall(r"'([a-z_]+)'", timeline_v4)) == event_kinds | goal_kinds
 
 
 def _v2_values(column: str) -> set[str]:
