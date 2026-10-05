@@ -19,6 +19,7 @@ from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.audit import ActionEvent, DecisionRecord
+from maplegotchi.core.conversation import Channel
 from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.goals import Goal, GoalEndReason, GoalSource, GoalType
@@ -63,8 +64,9 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
-from maplegotchi.storage import audit_rows, daily_rows, memory_rows, tool_rows
+from maplegotchi.storage import audit_rows, conversation_rows, daily_rows, memory_rows, tool_rows
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.conversation_rows import MessageRecord, StoredMessage
 from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
 from maplegotchi.storage.memory_rows import StoredMemoryEvent
@@ -348,6 +350,7 @@ class LifeRepository:
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
+        self.last_message_id: int | None = None  # set by a commit that wrote a message
 
     def close(self) -> None:
         self._conn.close()
@@ -567,6 +570,27 @@ class LifeRepository:
             self._conn, revision=revision, since_revision=since_revision, limit=limit
         )
 
+    def messages(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredMessage]:
+        """Conversation messages with Paolo, oldest first (ADR-0032)."""
+        return conversation_rows.messages(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def message_by_external_id(self, channel: Channel, external_id: str) -> StoredMessage | None:
+        return conversation_rows.by_external_id(self._conn, channel, external_id)
+
+    def reply_to(self, message_id: int) -> StoredMessage | None:
+        return conversation_rows.reply_to(self._conn, message_id)
+
+    def recent_incoming(self, since: datetime) -> int:
+        return conversation_rows.recent_incoming(self._conn, since)
+
     def reflections(
         self,
         *,
@@ -618,6 +642,7 @@ class LifeRepository:
         tools: Sequence[ToolRecord] = (),
         memories: Sequence[MemoryChange] = (),
         daily: DailyReflection | None = None,
+        message: MessageRecord | None = None,
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
         observations it used), action lifecycle events, and decision audit rows.
@@ -672,6 +697,10 @@ class LifeRepository:
             memory_rows.apply_changes(self._conn, new_revision, memories)
             if daily is not None:
                 daily_rows.insert_reflection(self._conn, new_revision, daily)
+            if message is not None:
+                self.last_message_id = conversation_rows.insert_message(
+                    self._conn, new_revision, message
+                )
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

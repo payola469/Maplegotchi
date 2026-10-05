@@ -17,6 +17,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from maplegotchi.api import views
 from maplegotchi.api.models import (
+    ConversationIn,
+    ConversationMessageOut,
+    ConversationOut,
     DecisionOut,
     DocumentOut,
     DocumentSummaryOut,
@@ -37,12 +40,14 @@ from maplegotchi.api.models import (
 from maplegotchi.api.security import (
     BodyLimitMiddleware,
     SecurityHeadersMiddleware,
+    gateway_guard,
     origin_guard,
     require_empty_body,
 )
 from maplegotchi.api.static import install_frontend
 from maplegotchi.api.stream import event_stream
 from maplegotchi.config import Settings
+from maplegotchi.core.conversation import Channel, IncomingMessage, Speaker
 from maplegotchi.core.interactions import Rejected
 from maplegotchi.core.memory import Tier
 from maplegotchi.core.state import InteractionKind
@@ -68,6 +73,7 @@ def _complete_cutoff(records: LifeRecords, limit: int) -> int | None:
         records.tools,
         records.memory,
         records.reflections,
+        records.messages,
     )
     capped = [max(row.revision for row in rows) for rows in stores if len(rows) >= limit]
     return min(capped) if capped else None
@@ -179,6 +185,42 @@ def create_app(
     def reflections(limit: int = Query(7, ge=1, le=MAX_RECENT)) -> list[ReflectionOut]:
         """Daily Reflections, most recent `limit` days, oldest first (ADR-0031)."""
         return [views.reflection(r.reflection) for r in service.runtime.reflections(limit=limit)]
+
+    gateway = gateway_guard(settings.gateway_token)
+
+    @api.post(
+        "/conversation/messages",
+        response_model=ConversationOut,
+        responses={401: {"description": "gateway token required"},
+                   403: {"description": "browser Origin refused"}},
+        dependencies=[Depends(gateway)],
+    )  # fmt: skip
+    def conversation_message(body: ConversationIn) -> ConversationOut:
+        """A message from Paolo via the local gateway (ADR-0032); returns Maple's reply."""
+        result = service.converse(
+            IncomingMessage(
+                external_id=body.message_id,
+                channel=Channel(body.channel),
+                speaker=Speaker(body.speaker),
+                text=body.text,
+                at=service.clock.now(),
+            )
+        )
+        state = service.runtime.state
+        return ConversationOut(
+            reply=result.reply,
+            revision=result.revision,
+            duplicate=result.duplicate,
+            replier={"kind": result.replier_kind, "name": result.replier_name},
+            fallback_code=result.fallback_code,
+            activity=state.activity.value,
+            goal=state.goal.summary if state.goal else None,
+        )
+
+    @api.get("/conversation", response_model=list[ConversationMessageOut])
+    def conversation(limit: int = Query(20, ge=1, le=MAX_RECENT)) -> list[ConversationMessageOut]:
+        """Recent conversation with Paolo, oldest first (read-only)."""
+        return [views.conversation_message(m) for m in service.runtime.messages(limit=limit)]
 
     @api.get("/room", response_model=RoomOut)
     def room() -> RoomOut:

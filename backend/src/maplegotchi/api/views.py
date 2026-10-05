@@ -10,6 +10,7 @@ from maplegotchi.api.models import (
     ActivityOut,
     BrainOut,
     BubbleOut,
+    ConversationMessageOut,
     DayOut,
     DecisionOut,
     DirectorOut,
@@ -75,6 +76,7 @@ from maplegotchi.runtime.service import (
     LiveSnapshot,
 )
 from maplegotchi.storage.audit_rows import StoredDecision
+from maplegotchi.storage.conversation_rows import StoredMessage
 from maplegotchi.storage.repositories import StoredEvent, StoredJournalEntry, StoredObservation
 from maplegotchi.storage.tool_rows import StoredDocument
 
@@ -175,6 +177,19 @@ def reflection(r: DailyReflection) -> ReflectionOut:
         promoted=list(r.promoted),
         preference_candidates=[list(p) for p in r.preference_candidates],
         intent=GoalIntentOut(type=r.intent_type.value, summary=r.intent_summary),
+    )
+
+
+def conversation_message(m: StoredMessage) -> ConversationMessageOut:
+    return ConversationMessageOut(
+        id=m.id,
+        at=m.at,
+        channel=m.channel.value,
+        speaker=m.speaker.value,
+        text=m.text,
+        reply_to=m.reply_to,
+        replier=m.replier_name,
+        fallback_code=m.fallback_code,
     )
 
 
@@ -513,6 +528,32 @@ def life_events(records: LifeRecords) -> list[LifeEventOut]:
                         "detail": tr.detail,
                         "chars": tr.chars,
                         "document_id": t.document_id,
+                    },
+                ),
+            )
+        )
+    for msg in records.messages:
+        keyed.append(
+            (
+                (msg.revision, 6, msg.id),
+                LifeEventOut(
+                    id=f"conversation:{msg.id}",
+                    type=(
+                        "conversation_received"
+                        if msg.speaker.value == "paolo"
+                        else "conversation_replied"
+                    ),
+                    at=msg.at,
+                    revision=msg.revision,
+                    goal_id=None,
+                    action_id=None,
+                    priority=None,
+                    payload={
+                        "channel": msg.channel.value,
+                        "speaker": msg.speaker.value,
+                        "text": msg.text[:200],
+                        "replier": msg.replier_name,
+                        "fallback_code": msg.fallback_code,
                     },
                 ),
             )

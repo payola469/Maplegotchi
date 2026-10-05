@@ -78,5 +78,15 @@ Core's handling (`core/proposal.py`):
 | timeout, HTTP/transport error, wrong contract, oversized, `null` | `fallback` (`timeout`, `transport_error`, `no_proposal`) | rule direction |
 | answer arrives after the decision stopped being due | `stale` | recorded, nothing executed |
 
+## `POST /reply` — conversation replies (`maple.reply.v1`, ADR-0032)
+
+Used only when `MAPLE_REPLIER=antigravity`. Request: `{"contract": "maple.reply.v1",
+"context": {...}}` with `maple`, `local_hour`, `activity`, `walking`, `task`, `goal`,
+`priority`, `expression`, `needs`, `server`, `memories` (≤ 5), `conversation` (≤ 6 recent
+turns), and `message` (`text`, `language`: `en|th`). Response: exactly
+`{"contract": "maple.reply.v1", "reply": "<1-1500 printable chars>"}`. Anything else,
+a timeout, or an error → Maple's rule reply (recorded with a fallback code). The reply
+must use only facts from the context.
+
 Only the `reason` line is stored as text from the companion. The companion must
 not return or log hidden reasoning; Maplegotchi would not store it anyway.

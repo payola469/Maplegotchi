@@ -19,6 +19,12 @@ step "backend + deploy tools: mypy --strict"; "$UV" run mypy
 step "backend: import contracts";   "$UV" run lint-imports
 step "backend: pytest";             "$UV" run pytest
 
+cd "$ROOT/companion/discord"
+step "companion/discord: uv sync --locked"; "$UV" sync --locked
+step "companion/discord: ruff + format"; "$UV" run ruff check . && "$UV" run ruff format --check .
+step "companion/discord: mypy --strict"; "$UV" run mypy
+step "companion/discord: pytest"; "$UV" run pytest -q
+
 cd "$ROOT"
 step "deploy + scripts: shellcheck"; "$UV" tool run --from shellcheck-py shellcheck -s sh deploy/install/*.sh deploy/verify/*.sh deploy/backup/*.sh && "$UV" tool run --from shellcheck-py shellcheck -s bash -e SC2034 deploy/backup/maple-block.bash && "$UV" tool run --from shellcheck-py shellcheck scripts/*.sh
 

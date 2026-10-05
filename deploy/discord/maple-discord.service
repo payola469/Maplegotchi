@@ -1,0 +1,71 @@
+# /etc/systemd/system/maple-discord.service — root:root 0644. Installed by the owner.
+# Discord gateway to the same Maple (ADR-0032). Separate account, no access to
+# Maple's data; talks to Discord (outbound HTTPS/WSS) and to Maple's API on
+# 127.0.0.1:8470 only. The bot token never reaches maplegotchi.service.
+#   systemd-analyze verify /etc/systemd/system/maple-discord.service
+#   systemd-analyze security maple-discord.service
+
+[Unit]
+Description=maple-discord (Discord channel to Maple)
+Documentation=file:///opt/maple-discord/current/deploy/discord/README.md
+After=network-online.target maplegotchi.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=maple-discord-svc
+Group=maple-discord-svc
+SupplementaryGroups=
+EnvironmentFile=/etc/maple-discord/maple-discord.env
+# Secrets as systemd credentials: readable only by this service, never in the env file.
+LoadCredential=discord-bot-token:/etc/maple-discord/discord-bot-token
+LoadCredential=maple-gateway-token:/etc/maple-discord/maple-gateway-token
+ExecStart=/opt/maple-discord/current/venv/bin/python -I -m maple_discord
+WorkingDirectory=/
+UMask=0077
+Restart=on-failure
+RestartSec=15
+
+# ---- privileges: none
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+KeyringMode=private
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap @module @clock
+SystemCallErrorNumber=EPERM
+
+# ---- filesystem: read-only OS; no homes, no Maple data, no monitoring data
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+InaccessiblePaths=-/data -/etc/maplegotchi -/run/docker.sock -/var/run/docker.sock
+
+# ---- network: outbound to Discord and loopback to Maple; it listens on nothing
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# ---- resources
+MemoryHigh=192M
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

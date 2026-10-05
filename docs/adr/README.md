@@ -36,6 +36,7 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0029](0029-reader-writer-tools.md) | Real reading/writing: approved sources, workspace in maple.db, provenance (D28) |
 | [0030](0030-memory.md) | Memory tiers, relevant retrieval, preferences by evidence (D29) |
 | [0031](0031-daily-reflection.md) | Daily Reflection: day summary, memory candidates, tomorrow intent (D30) |
+| [0032](0032-discord-conversation.md) | Discord conversations with the same Maple (D31) |
 
 ## Template
 

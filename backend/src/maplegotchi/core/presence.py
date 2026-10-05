@@ -25,6 +25,7 @@ class BubbleKind(StrEnum):
     READING = "reading"
     WRITING = "writing"
     WAITING_FOR_PAOLO = "waiting_for_paolo"
+    LISTENING = "listening"  # Paolo wrote; Maple stopped to listen (ADR-0032)
     APPROVAL_REQUIRED = "approval_required"  # reserved: no approval flow exists yet
 
 
@@ -36,6 +37,8 @@ class Bubble:
 
 def bubble(state: MapleState, now: datetime) -> Bubble | None:
     """The bubble for `state` at `now`, or None. Pure and total."""
+    if state.action_priority is Priority.HIGH and state.activity is Activity.IDLE:
+        return Bubble(BubbleKind.LISTENING, "Listening to Paolo")
     if state.action_priority in (Priority.CRITICAL, Priority.HIGH):
         what = "the server" if state.activity is Activity.OBSERVE_SERVER else "myself"
         return Bubble(BubbleKind.NEEDS_ATTENTION, f"Something needs attention: {what}")

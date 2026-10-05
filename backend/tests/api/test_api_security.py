@@ -25,6 +25,8 @@ EXPECTED_ROUTES = {
     ("GET", "/api/memory"),  # read-only memory listing (ADR-0030)
     ("GET", "/api/memory/search"),  # read-only memory search (ADR-0030)
     ("GET", "/api/reflections"),  # read-only Daily Reflections (ADR-0031)
+    ("GET", "/api/conversation"),  # read-only conversation history (ADR-0032)
+    ("POST", "/api/conversation/messages"),  # gateway-only, token-guarded (ADR-0032)
     ("GET", "/api/journal"),
     ("GET", "/api/timeline"),
     ("GET", "/api/events"),
@@ -45,7 +47,11 @@ def test_route_table_is_exactly_the_approved_surface(tmp_path: Path) -> None:
     routes = api_routes(app)
     assert routes == EXPECTED_ROUTES
     mutating = {r for r in routes if r[0] != "GET"}
-    assert mutating == {("POST", "/api/interactions/greet"), ("POST", "/api/interactions/pet")}
+    assert mutating == {
+        ("POST", "/api/interactions/greet"),
+        ("POST", "/api/interactions/pet"),
+        ("POST", "/api/conversation/messages"),  # ADR-0032: the local gateway only
+    }
     banned = {
         "admin",
         "debug",

@@ -55,6 +55,14 @@ class DirectorMode(StrEnum):
     ANTIGRAVITY = "antigravity"  # the loopback companion's /decide (ADR-0026)
 
 
+class ReplierMode(StrEnum):
+    RULE = "rule"  # core's own truthful replies
+    ANTIGRAVITY = "antigravity"  # the loopback companion's /reply (ADR-0032)
+
+
+MIN_GATEWAY_TOKEN = 32
+
+
 class SettingsError(ValueError):
     pass
 
@@ -82,6 +90,8 @@ class Settings:
     brain_url: str = "http://127.0.0.1:8471"
     director: DirectorMode = DirectorMode.RULE
     director_timeout_seconds: float = 15.0
+    replier: ReplierMode = ReplierMode.RULE
+    gateway_token: str | None = field(default=None, repr=False)  # enables conversations
     heartbeat_seconds: int = 300
     loop_poll_seconds: float = 5.0
 
@@ -104,7 +114,12 @@ class Settings:
                 raise SettingsError("production refuses fake senses")
         if not 1.0 <= self.director_timeout_seconds <= 30.0:
             raise SettingsError("MAPLE_DIRECTOR_TIMEOUT_SECONDS must be within 1-30")
-        if self.brain is BrainMode.ANTIGRAVITY or self.director is DirectorMode.ANTIGRAVITY:
+        if self.gateway_token is not None and (
+            len(self.gateway_token) < MIN_GATEWAY_TOKEN or not self.gateway_token.isprintable()
+        ):
+            raise SettingsError("MAPLE_GATEWAY_TOKEN must be at least 32 printable characters")
+        remote = (self.brain, self.director, self.replier)
+        if any(mode.value == "antigravity" for mode in remote):
             parsed = urlsplit(self.brain_url)
             if (
                 parsed.scheme != "http"
@@ -146,5 +161,7 @@ def settings_from_env(environ: Mapping[str, str]) -> Settings:
         brain_url=environ.get("MAPLE_BRAIN_URL", "http://127.0.0.1:8471"),
         director=DirectorMode(environ.get("MAPLE_DIRECTOR", DirectorMode.RULE)),
         director_timeout_seconds=float(environ.get("MAPLE_DIRECTOR_TIMEOUT_SECONDS", 15.0)),
+        replier=ReplierMode(environ.get("MAPLE_REPLIER", ReplierMode.RULE)),
+        gateway_token=environ.get("MAPLE_GATEWAY_TOKEN") or None,
         heartbeat_seconds=int(environ.get("MAPLE_HEARTBEAT_SECONDS", 300)),
     )

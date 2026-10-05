@@ -17,14 +17,22 @@ from __future__ import annotations
 import secrets
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from types import TracebackType
 
 from maplegotchi.brain.interface import Brain
 from maplegotchi.brain.rule_brain import RuleBrain
 from maplegotchi.core.attention import ServerAttention, assess_server_attention, behavior_inputs
 from maplegotchi.core.behavior import BehaviorInputs
+from maplegotchi.core.conversation import (
+    Channel,
+    IncomingMessage,
+    ReplyContext,
+    Speaker,
+    build_reply_context,
+    receive_message,
+)
 from maplegotchi.core.direction import (
     DecisionOutcome,
     DecisionTrigger,
@@ -48,6 +56,8 @@ from maplegotchi.core.memory import (
     MemoryChange,
     MemoryEvent,
     MemoryEventKind,
+    MemoryKind,
+    MemoryStatus,
     Tier,
     memories_from,
 )
@@ -72,13 +82,15 @@ from maplegotchi.core.reflection import (
     mark_journaled,
     settle_triggers,
 )
+from maplegotchi.core.rng import RngStream
 from maplegotchi.core.state import InteractionKind, MapleState, birth
-from maplegotchi.core.tasks import ToolRecord
+from maplegotchi.core.tasks import ToolRecord, one_line
 from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
 from maplegotchi.runtime.daily import reflect_if_due, todays_intent
 from maplegotchi.runtime.tasks import TaskWorker, relevant_memories
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.conversation_rows import MessageRecord, StoredMessage
 from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
@@ -93,6 +105,7 @@ from maplegotchi.storage.repositories import (
 from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 DEFAULT_NAME = "Maple"
+MESSAGE_WINDOW = timedelta(minutes=10)  # repeated messages within this have less effect
 
 
 def new_life_seed() -> str:
@@ -156,6 +169,18 @@ class PendingDecision:
 
 
 @dataclass(frozen=True)
+class ReceivedMessage:
+    """A message from Paolo as committed, with the context for replying (ADR-0032)."""
+
+    message_id: int
+    revision: int
+    context: ReplyContext
+    existing_reply: str | None  # set when this message was already answered (a retry)
+    duplicate: bool
+    interrupted: bool
+
+
+@dataclass(frozen=True)
 class LifeRecords:
     """Life events from the three stores (ADR-0028 §2), each oldest first."""
 
@@ -165,6 +190,7 @@ class LifeRecords:
     tools: tuple[StoredToolUse, ...] = ()
     memory: tuple[StoredMemoryEvent, ...] = ()
     reflections: tuple[StoredReflection, ...] = ()
+    messages: tuple[StoredMessage, ...] = ()
 
     def __bool__(self) -> bool:
         return bool(
@@ -174,6 +200,7 @@ class LifeRecords:
             or self.tools
             or self.memory
             or self.reflections
+            or self.messages
         )
 
 
@@ -311,6 +338,7 @@ class LifeRuntime:
                 tuple(repo.tool_uses(revision=revision)),
                 tuple(repo.memory_events(revision=revision)),
                 tuple(repo.reflections(revision=revision)),
+                tuple(repo.messages(revision=revision)),
             )
 
     def life_since(self, revision: int, *, limit: int) -> LifeRecords:
@@ -324,6 +352,7 @@ class LifeRuntime:
                 tuple(repo.tool_uses(since_revision=revision, limit=limit)),
                 tuple(repo.memory_events(since_revision=revision, limit=limit)),
                 tuple(repo.reflections(since_revision=revision, limit=limit)),
+                tuple(repo.messages(since_revision=revision, limit=limit)),
             )
 
     def documents(self, *, limit: int) -> list[StoredDocument]:
@@ -481,6 +510,122 @@ class LifeRuntime:
     def memories(self, *, tiers: Sequence[Tier] | None = None, limit: int) -> list[Memory]:
         with self._lock:
             return self._repository().memories(tiers=tiers, limit=limit)
+
+    def receive_message_committed(self, message: IncomingMessage) -> ReceivedMessage:
+        """Record a message from Paolo and apply its effects; idempotent by message id."""
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            existing = repo.message_by_external_id(message.channel, message.external_id)
+            if existing is not None:
+                answered = repo.reply_to(existing.id)
+                context = self._reply_context(repo, self._state, now, message)
+                return ReceivedMessage(
+                    existing.id,
+                    self._revision,
+                    context,
+                    answered.text if answered else None,
+                    duplicate=True,
+                    interrupted=False,
+                )
+            audit = arrival_actions(self._state, now)
+            settled, arrival = settle_movement(self._state, now)
+            counter = settled.rng.interaction_counter + 1
+            rng = RngStream(settled.rng.seed_hex, "interaction", counter)
+            recent = repo.recent_incoming(now - MESSAGE_WINDOW)
+            outcome = receive_message(settled, now, recent, rng)
+            state = replace(
+                outcome.state, rng=replace(outcome.state.rng, interaction_counter=counter)
+            )
+            remembered = (
+                MemoryChange(
+                    Memory(
+                        kind=MemoryKind.CONVERSATION,
+                        tier=Tier.SHORT_TERM,
+                        status=MemoryStatus.ACTIVE,
+                        text=one_line(f"Paolo wrote to me: {message.text}", 240),
+                        created_at=now,
+                        last_seen_at=now,
+                        key=f"conversation:{message.channel.value}:{message.external_id}",
+                        source=f"{message.channel.value}:{message.external_id}",
+                        importance=0.6,
+                    ),
+                    MemoryEvent(MemoryEventKind.CREATED, now),
+                ),
+            )
+            revision = repo.commit(
+                state,
+                expected_revision=self._revision,
+                events=(*arrival, *outcome.events),
+                actions=(*audit, *outcome.actions),
+                memories=remembered,
+                message=MessageRecord(
+                    at=now,
+                    channel=message.channel,
+                    speaker=message.speaker,
+                    text=message.text,
+                    external_id=message.external_id,
+                ),
+            )
+            self._state, self._revision = state, revision
+            message_id = repo.last_message_id
+            if message_id is None:  # pragma: no cover - the commit wrote it
+                raise RuntimeError("message row id missing")
+            context = self._reply_context(repo, state, now, message)
+            return ReceivedMessage(
+                message_id, revision, context, None, duplicate=False,
+                interrupted=outcome.interrupted,
+            )  # fmt: skip
+
+    def record_reply_committed(
+        self,
+        message_id: int,
+        text: str,
+        *,
+        replier_kind: str,
+        replier_name: str,
+        fallback_code: str | None,
+    ) -> int:
+        """Store Maple's reply to a message; changes no state. Returns the revision."""
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            revision = repo.commit(
+                self._state,
+                expected_revision=self._revision,
+                events=(),
+                message=MessageRecord(
+                    at=now,
+                    channel=Channel.DISCORD,
+                    speaker=Speaker.MAPLE,
+                    text=text,
+                    reply_to=message_id,
+                    replier_kind=replier_kind,
+                    replier_name=replier_name,
+                    fallback_code=fallback_code,
+                ),
+            )
+            self._revision = revision
+            return revision
+
+    def _reply_context(
+        self, repo: LifeRepository, state: MapleState, now: datetime, message: IncomingMessage
+    ) -> ReplyContext:
+        server = self._server_line(repo) or "I have no observations of the server yet"
+        return build_reply_context(
+            state,
+            now,
+            message,
+            utc_offset=self._params.utc_offset,
+            expression=state.expression_at(max(now, state.last_updated_at)).value,
+            server_summary=server,
+            memories=[m.text for m in relevant_memories(repo, state, now)],
+            conversation=[(m.speaker.value, m.text) for m in repo.messages(limit=6)],
+        )
+
+    def messages(self, *, limit: int) -> list[StoredMessage]:
+        with self._lock:
+            return self._repository().messages(limit=limit)
 
     def reflections(self, *, limit: int) -> list[StoredReflection]:
         with self._lock:

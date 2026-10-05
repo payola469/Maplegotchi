@@ -666,6 +666,37 @@ CREATE TRIGGER daily_reflection_append_only_delete BEFORE DELETE ON daily_reflec
 BEGIN SELECT RAISE(ABORT, 'daily reflections are append-only'); END;
 """
 
+# Schema v9 (ADR-0032): conversations with Paolo, both directions, append-only.
+_V9_CONVERSATION = f"""
+CREATE TABLE conversation_message (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id      INTEGER NOT NULL REFERENCES maple (id),
+    revision      INTEGER NOT NULL CHECK (revision >= 1),
+    at            TEXT    NOT NULL CHECK (at {_UTC_TS}),
+    channel       TEXT    NOT NULL CHECK (channel IN ('discord')),
+    direction     TEXT    NOT NULL CHECK (direction IN ('in', 'out')),
+    speaker       TEXT    NOT NULL CHECK (speaker IN ('paolo', 'maple')),
+    external_id   TEXT    CHECK (length(external_id) BETWEEN 1 AND 64),
+    reply_to      INTEGER REFERENCES conversation_message (id),
+    text          TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),
+    replier_kind  TEXT    CHECK (replier_kind IN ('rule', 'external')),
+    replier_name  TEXT    CHECK (length(replier_name) BETWEEN 1 AND 32),
+    fallback_code TEXT    CHECK (length(fallback_code) BETWEEN 1 AND 40),
+    CHECK ((direction = 'in') = (speaker = 'paolo')),
+    CHECK ((direction = 'in') = (external_id IS NOT NULL)),
+    CHECK ((direction = 'out') = (replier_kind IS NOT NULL))
+) STRICT;
+
+CREATE UNIQUE INDEX conversation_message_external ON conversation_message (channel, external_id)
+    WHERE external_id IS NOT NULL;
+
+CREATE TRIGGER conversation_message_append_only_update BEFORE UPDATE ON conversation_message
+BEGIN SELECT RAISE(ABORT, 'conversations are append-only'); END;
+
+CREATE TRIGGER conversation_message_append_only_delete BEFORE DELETE ON conversation_message
+BEGIN SELECT RAISE(ABORT, 'conversations are append-only'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -682,6 +713,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(6, "reader/writer: task, workspace documents, provenance", _V6_TOOLS),
     Migration(7, "memory: short-term, long-term, archive", _V7_MEMORY),
     Migration(8, "daily reflection", _V8_DAILY),
+    Migration(9, "conversations with Paolo", _V9_CONVERSATION),
 )
 
 

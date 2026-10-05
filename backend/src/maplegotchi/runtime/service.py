@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Protocol
 
 import httpx2
 
@@ -24,6 +25,7 @@ from maplegotchi.brain.director import Director, DirectorKind
 from maplegotchi.config import SensesKind, Settings
 from maplegotchi.core.attention import ServerAttention, assess_server_attention
 from maplegotchi.core.audit import RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION
+from maplegotchi.core.conversation import IncomingMessage, ReplyContext, reply_problems, rule_reply
 from maplegotchi.core.daytime import DayPhase, day_phase, is_night, local_hour
 from maplegotchi.core.direction import RejectionCode
 from maplegotchi.core.heartbeat import TickResult
@@ -43,7 +45,7 @@ from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.proposal import DecisionContext, DirectorLabel
 from maplegotchi.core.reflection import ReflectionState, server_summary
 from maplegotchi.core.state import Expression, InteractionKind, MapleState, Reaction
-from maplegotchi.runtime.brain_factory import build_brain, build_director
+from maplegotchi.runtime.brain_factory import build_brain, build_director, build_replier
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
@@ -151,6 +153,23 @@ def require_supported_director(director: Director | None) -> Director | None:
     return director
 
 
+class Replier(Protocol):
+    kind: str
+    name: str
+
+    def reply(self, context: ReplyContext) -> str: ...
+
+
+@dataclass(frozen=True)
+class ConversationResult:
+    reply: str
+    revision: int
+    duplicate: bool  # a retried message: the earlier reply is returned
+    replier_kind: str
+    replier_name: str
+    fallback_code: str | None  # why the rule reply was used instead, if it was
+
+
 def fake_senses() -> Senses:
     """Deterministic senses for development: a calm host and healthy services."""
     readings = {
@@ -170,6 +189,7 @@ class MapleService:
         hub: EventHub | None = None,
         director: Director | None = None,
         director_timeout_seconds: float = 15.0,
+        replier: Replier | None = None,
     ) -> None:
         self.runtime = runtime
         self.senses = senses
@@ -182,6 +202,10 @@ class MapleService:
             max_workers=1, thread_name_prefix="maple-director"
         )
         self._director_call: concurrent.futures.Future[object | None] | None = None
+        self.replier = replier
+        self._replier_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="maple-replier"
+        )
         self._loop_task: asyncio.Task[None] | None = None
         self._loop_error: str | None = None
         self._stop = asyncio.Event()
@@ -216,6 +240,7 @@ class MapleService:
             params,
             director=build_director(settings),
             director_timeout_seconds=settings.director_timeout_seconds,
+            replier=build_replier(settings),
         )
 
     # ------------------------------------------------------------ reads
@@ -379,6 +404,45 @@ class MapleService:
         latency = int((time.perf_counter() - started) * 1000)
         return raw, failure, latency
 
+    def converse(self, message: IncomingMessage) -> ConversationResult:
+        """A message from Paolo: record it and its effects, reply truthfully, record the reply.
+
+        The reply is produced outside the writer lock; any replier failure falls back
+        to core's rule reply. Retried messages (same id) get the stored reply again.
+        """
+        received = self.runtime.receive_message_committed(message)
+        if not received.duplicate:
+            self._publish("movement", {"revision": received.revision, "state": self.runtime.state})
+            self._publish_written(received.revision, events=True, journal=False)
+        if received.existing_reply is not None:
+            return ConversationResult(
+                received.existing_reply, received.revision, True, "rule", "stored", None
+            )
+        text, kind, name, code = self._reply(received.context)
+        revision = self.runtime.record_reply_committed(
+            received.message_id, text, replier_kind=kind, replier_name=name, fallback_code=code
+        )
+        self._publish_written(revision, events=False, journal=False)
+        return ConversationResult(text, revision, received.duplicate, kind, name, code)
+
+    def _reply(self, context: ReplyContext) -> tuple[str, str, str, str | None]:
+        replier = self.replier
+        if replier is None:
+            return rule_reply(context), "rule", "rule_replier", None
+        code: str | None
+        try:
+            text = self._replier_pool.submit(replier.reply, context).result(
+                timeout=self.director_timeout_seconds
+            )
+            code = "invalid_reply" if reply_problems(text) else None
+        except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            text, code = "", "timeout"
+        except Exception:  # transport, status, contract: no usable reply
+            text, code = "", "transport_error"
+        if code is not None:
+            return rule_reply(context), "rule", "rule_replier", code
+        return text.strip(), replier.kind, replier.name, None
+
     def step(self) -> None:
         """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""
         self.settle()
@@ -468,4 +532,5 @@ class MapleService:
 
     def close(self) -> None:
         self._director_pool.shutdown(wait=False, cancel_futures=True)
+        self._replier_pool.shutdown(wait=False, cancel_futures=True)
         self.runtime.close()

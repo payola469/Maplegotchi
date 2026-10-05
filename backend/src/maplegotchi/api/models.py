@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Out(BaseModel):
@@ -304,7 +305,7 @@ class DecisionOut(_Out):
 class LifeEventOut(_Out):
     """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
 
-    id: str  # "<store>:<row id>": timeline | action | decision | tool | memory | reflection
+    id: str  # "<store>:<id>": timeline|action|decision|tool|memory|reflection|conversation
     type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
     at: datetime
     revision: int
@@ -372,6 +373,38 @@ class ReflectionOut(_Out):
 class GoalIntentOut(_Out):
     type: str
     summary: str
+
+
+class ConversationIn(BaseModel):
+    """A message from Paolo, relayed by the local gateway (ADR-0032)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    message_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    channel: Literal["discord"]
+    speaker: Literal["paolo"]
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class ConversationOut(_Out):
+    reply: str
+    revision: int
+    duplicate: bool
+    replier: dict[str, str]  # {"kind": "rule|external", "name": ...}
+    fallback_code: str | None
+    activity: str
+    goal: str | None
+
+
+class ConversationMessageOut(_Out):
+    id: int
+    at: datetime
+    channel: str
+    speaker: str  # paolo | maple
+    text: str
+    reply_to: int | None
+    replier: str | None
+    fallback_code: str | None
 
 
 class HealthOut(_Out):

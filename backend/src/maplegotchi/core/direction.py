@@ -616,6 +616,7 @@ def decide(
 RESPONSES = {
     SignalKind.SERVER_PROBLEM: Activity.OBSERVE_SERVER,
     SignalKind.EXHAUSTED: Activity.SLEEP,
+    SignalKind.OWNER_MESSAGE: Activity.IDLE,  # stop and listen (ADR-0032)
 }
 
 

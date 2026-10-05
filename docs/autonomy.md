@@ -170,3 +170,22 @@ The backend derives Maple's speech bubble from real state (`core/presence.py`,
 `maple.bubble`); the frontend adds furniture hotspots from `/api/room`, a live feed
 of the shared life events, and a separate owner Inspector (`docs/frontend.md`).
 
+## Conversations via Discord (A9, ADR-0032)
+
+- `companion/discord` (`maple-discord`, its own account and unit) holds the bot
+  token, accepts only Paolo's messages in `#maple-chat`, and relays them to
+  `POST /api/conversation/messages` with the shared gateway token. Slash commands
+  (`/status`, `/goal`, `/journal`, `/server`, `/memory`, `/help`) call GET endpoints only
+  and answer only Paolo.
+- `core/conversation.py`: a message raises social (+6) and mood (+2), halved per other
+  message in 10 minutes; it is a high-priority `owner_message` signal: Maple stops to
+  listen in the open area (bubble "Listening to Paolo"), suspending its goal for the
+  usual resume/abandon; it never wakes a sleeping Maple or overrides urgent work.
+- Replies: a frozen `maple.reply.v1` context (activity, task, goal, needs, server,
+  relevant memories, recent conversation, the message). The rule replier answers from
+  those facts only, in Thai for Thai messages; `MAPLE_REPLIER=antigravity` asks the
+  companion's `/reply` outside the lock with a timeout, validated, else rule fallback.
+- Both directions are stored (`conversation_message`), each incoming message becomes a
+  short-term `conversation` memory, and both join the life-event stream. A retried
+  Discord message id returns the stored reply.
+
