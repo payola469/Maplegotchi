@@ -29,6 +29,10 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0022](0022-systemd-dbus-transport.md) | systemd D-Bus transport with dbus-fast (D21) |
 | [0023](0023-release-and-runtime.md) | Release model, CPython 3.12 via uv, rollback (D22) |
 | [0024](0024-maple-database-backup.md) | Maple's database in the nightly backup (D23) |
+| [0025](0025-external-brain-runtime-boundary.md) | External Brain via localhost runtime boundary (D24) |
+| [0026](0026-ai-director.md) | AI Director, goals, priorities, decision transition (D25) |
+| [0027](0027-room-interaction-points-and-movement.md) | Room interaction points, backend-modeled movement (D26) |
+| [0028](0028-activity-set-v2-events-and-schema-v4.md) | Activity set v2, life events, schema v4 rollback/recovery (D27) |
 
 ## Template
 
