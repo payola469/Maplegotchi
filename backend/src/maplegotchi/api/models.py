@@ -31,11 +31,64 @@ class NeedsOut(_Out):
     social: float
 
 
+class PositionOut(_Out):
+    x: float
+    y: float
+
+
+class PathPointOut(_Out):
+    x: float
+    y: float
+    distance: float
+    node: str | None
+
+
+class RouteOut(_Out):
+    departed_at: datetime
+    arrives_at: datetime  # the activity begins here
+    from_activity: str  # what Maple was doing before setting off
+    path: list[PathPointOut]
+
+
 class ActivityOut(_Out):
     kind: str
     location: str
-    started_at: datetime
+    started_at: datetime  # while walking: the planned start, i.e. arrival
     until: datetime
+    # Additive (ADR-0027): movement is backend truth; the UI only renders it.
+    phase: str  # walking | performing
+    point: str  # interaction point id
+    furniture: str
+    pose: str  # the point's pose; "walk" while walking
+    facing: str
+    position: PositionOut  # at generated_at
+    route: RouteOut | None
+
+
+class InteractionPointOut(_Out):
+    id: str
+    location: str
+    furniture: str
+    x: float
+    y: float
+    facing: str
+    pose: str
+    allowed_actions: list[str]
+
+
+class FurnitureOut(_Out):
+    id: str
+    label: str
+    location: str
+
+
+class RoomOut(_Out):
+    width: int
+    height: int
+    floor_y: int
+    walk_speed: float  # logical units per second
+    furniture: list[FurnitureOut]
+    points: list[InteractionPointOut]
 
 
 class ReactionOut(_Out):

@@ -21,6 +21,7 @@ from maplegotchi.api.models import (
     JournalEntryOut,
     MapleOut,
     ObservationOut,
+    RoomOut,
     ServerOut,
     SnapshotOut,
     StatusOut,
@@ -95,6 +96,10 @@ def create_app(
     @api.get("/maple", response_model=MapleOut)
     def maple() -> MapleOut:
         return views.maple(service.snapshot(recent=0))
+
+    @api.get("/room", response_model=RoomOut)
+    def room() -> RoomOut:
+        return views.room()
 
     @api.get("/status", response_model=StatusOut)
     def status() -> StatusOut:

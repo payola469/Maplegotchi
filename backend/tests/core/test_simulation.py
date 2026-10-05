@@ -48,7 +48,7 @@ def test_thirty_days_is_reproducible() -> None:
 def test_thirty_day_digest_is_pinned() -> None:
     # Pinned so CI proves the same life on Linux (paolo-core) and Windows (dev).
     # Any intentional change to behavior rules or rates must update this value.
-    assert baseline().digest == "9c6a5316203ccff8397a489a2685a2bdbc53c4e8f9ce20adb696a1720bdd02c2"
+    assert baseline().digest == "e4479852ce9c4e4ec1411e28b762161f787e97311493ed6105af03efa1efbde2"
 
 
 def test_different_seed_gives_a_different_life() -> None:

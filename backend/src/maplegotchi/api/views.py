@@ -4,28 +4,37 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping
+from datetime import datetime
 
 from maplegotchi.api.models import (
     ActivityOut,
     BrainOut,
     DayOut,
     FreshnessOut,
+    FurnitureOut,
     IdentityOut,
     InteractionAvailabilityOut,
     InteractionOut,
+    InteractionPointOut,
     JournalEntryOut,
     MapleOut,
     NeedsOut,
     ObservationOut,
+    PathPointOut,
+    PositionOut,
     ReactionOut,
+    RoomOut,
+    RouteOut,
     ServerOut,
     ServiceHealthOut,
     SnapshotOut,
     StatusOut,
     TimelineEventOut,
 )
+from maplegotchi.core import room as room_model
 from maplegotchi.core.interactions import Accepted, Rejected
 from maplegotchi.core.observations import Metric, ObservationSnapshot
+from maplegotchi.core.room import Pose, Route
 from maplegotchi.core.state import MapleState, Reaction
 from maplegotchi.core.timeline import ActivityChanged, Born, DowntimeGap, InteractionAccepted
 from maplegotchi.runtime.service import (
@@ -56,6 +65,66 @@ def needs(state: MapleState) -> NeedsOut:
     return NeedsOut(mood=n.mood, energy=n.energy, curiosity=n.curiosity, social=n.social)
 
 
+def route(value: Route | None) -> RouteOut | None:
+    if value is None:
+        return None
+    return RouteOut(
+        departed_at=value.departed_at,
+        arrives_at=value.arrives_at,
+        from_activity=value.from_activity.value,
+        path=[PathPointOut(x=p.x, y=p.y, distance=p.distance, node=p.node) for p in value.path],
+    )
+
+
+def activity(state: MapleState, now: datetime) -> ActivityOut:
+    point = state.point
+    walking = state.walking_at(now)
+    x, y = state.position_at(now)
+    return ActivityOut(
+        kind=state.activity.value,
+        location=state.location.value,
+        started_at=state.activity_started_at,
+        until=state.activity_until,
+        phase="walking" if walking else "performing",
+        point=point.id,
+        furniture=point.furniture.value,
+        pose=Pose.WALK.value if walking else point.pose.value,
+        facing=point.facing.value,
+        position=PositionOut(x=x, y=y),
+        route=route(state.route),
+    )
+
+
+def room() -> RoomOut:
+    return RoomOut(
+        width=room_model.ROOM_WIDTH,
+        height=room_model.ROOM_HEIGHT,
+        floor_y=room_model.FLOOR_Y,
+        walk_speed=room_model.WALK_SPEED,
+        furniture=[
+            FurnitureOut(
+                id=furniture.value,
+                label=room_model.FURNITURE_LABEL[furniture],
+                location=location.value,
+            )
+            for location, furniture in room_model.FURNITURE_AT.items()
+        ],
+        points=[
+            InteractionPointOut(
+                id=p.id,
+                location=p.location.value,
+                furniture=p.furniture.value,
+                x=p.x,
+                y=p.y,
+                facing=p.facing.value,
+                pose=p.pose.value,
+                allowed_actions=[a.value for a in p.allowed_actions],
+            )
+            for p in room_model.POINTS
+        ],
+    )
+
+
 def maple(snap: LiveSnapshot) -> MapleOut:
     state = snap.state
     return MapleOut(
@@ -68,12 +137,7 @@ def maple(snap: LiveSnapshot) -> MapleOut:
             ticks_lived=state.ticks_lived,
         ),
         needs=needs(state),
-        activity=ActivityOut(
-            kind=state.activity.value,
-            location=state.location.value,
-            started_at=state.activity_started_at,
-            until=state.activity_until,
-        ),
+        activity=activity(state, snap.now),
         expression=snap.expression.value,
         reaction=reaction(snap.reaction),
         interactions=[
@@ -257,6 +321,14 @@ def live_event(kind: str, data: Mapping[str, object]) -> dict[str, object]:
             "location": state.location.value,
             "needs": needs(state).model_dump(),
             "last_heartbeat_at": state.last_tick_at.isoformat(),
+        }
+    if kind == "movement":
+        state = _get(data, "state", MapleState)
+        return {
+            "revision": revision,
+            "activity": state.activity.value,
+            "location": state.location.value,
+            "point": state.point.id,
         }
     if kind == "observations":
         snap = _get(data, "snapshot", ObservationSnapshot)

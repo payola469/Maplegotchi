@@ -58,6 +58,36 @@ export class Motion {
   }
 }
 
+/** Where Maple is along a backend route at server time `nowMs` (ADR-0027).
+ * The route's own timing decides everything; the room never picks a speed or path. */
+export function routeFrame(
+  route: { departedMs: number; arrivesMs: number; path: { x: number; y: number; distance: number }[] },
+  nowMs: number,
+): MotionFrame {
+  const path = route.path;
+  const last = path[path.length - 1] ?? { x: 0, y: 0, distance: 0 };
+  const total = last.distance;
+  const span = route.arrivesMs - route.departedMs;
+  const ratio = span > 0 ? Math.min(1, Math.max(0, (nowMs - route.departedMs) / span)) : 1;
+  const walked = total * ratio;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (a && b && walked <= b.distance) {
+      const len = b.distance - a.distance;
+      const f = len > 0 ? (walked - a.distance) / len : 1;
+      const moving = nowMs < route.arrivesMs;
+      return {
+        position: { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f },
+        moving,
+        pose: moving ? "walk" : "stand",
+        facing: b.x < a.x ? -1 : 1,
+      };
+    }
+  }
+  return { position: { x: last.x, y: last.y }, moving: false, pose: "stand", facing: 1 };
+}
+
 /** Ease a number toward a target (lighting transitions); reduced motion snaps. */
 export function approach(current: number, target: number, dtSeconds: number, snap: boolean): number {
   if (snap) return target;

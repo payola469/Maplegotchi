@@ -157,7 +157,30 @@ personal-ai-monitor.timer paolo-core-backup.timer` vs. the Server panel.
 |---|---|---|
 | Code to the previous release (same schema) | `sudo sh /opt/maplegotchi/current/deploy/install/activate_release.sh $(basename $(readlink /opt/maplegotchi/previous)) && sudo systemctl restart maplegotchi` | untouched; Maple continues |
 | Code across a schema migration | refused by `activate_release.sh`; restore the pre-migration copy taken before `--allow-migration` (owner decision; loses life since) | see `docs/deployment.md` |
+| Back to a pre-v4 release (ADR-0028 R6) | see "Restore a pre-v4 database" below | loses life lived since the v4 migration |
 | Stop exposure | `sudo tailscale serve --https=443 off` | untouched |
 | Stop Maple | `sudo systemctl disable --now maplegotchi` | untouched |
 | Backup patch | `deploy/backup/README.md` → Rollback | restic history kept |
 | Remove Maple entirely (owner decision) | stop/disable; remove unit + `daemon-reload`; remove polkit rule, `/etc/maplegotchi`, `/opt/maplegotchi`; `userdel maple-svc`. Keep `/data/maple` unless the owner explicitly deletes Maple's life. | owner's choice |
+
+### Restore a pre-v4 database (ADR-0028 R6; owner decision, never automatic)
+
+Prefer a forward-fix on schema v4. Use this only to run a release older than
+schema v4 again. Everything Maple lived after the migration is lost (it stays
+only in the quarantined file).
+
+```sh
+sudo systemctl stop maplegotchi
+Q=/root/maple-quarantine-$(date -u +%Y%m%dT%H%M%SZ); sudo mkdir -m 0700 "$Q"
+sudo mv /data/maple/maple.db /data/maple/maple.db-wal /data/maple/maple.db-shm "$Q"/ 2>/dev/null
+# choose the v3 copy: /root/maple-pre-<sha>.db (taken before --allow-migration)
+# or the automatic one in /data/maple/pre-migration/maple.v3.*.db
+sudo /usr/local/sbin/maple-db-snapshot verify <v3 copy>      # integrity ok, user_version 3
+sudo install -o maple-svc -g maple-svc -m 0600 <v3 copy> /data/maple/maple.db
+sudo sh /opt/maplegotchi/current/deploy/install/activate_release.sh <pre-v4 sha>
+sudo systemctl start maplegotchi
+python3 /opt/maplegotchi/current/deploy/verify/check_boundaries.py
+```
+
+Identity, `born_at`, seed, and all v3 history return exactly. A later upgrade
+migrates the restored file again and takes fresh pre-migration copies.

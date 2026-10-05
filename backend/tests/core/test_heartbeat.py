@@ -16,6 +16,7 @@ from maplegotchi.core.heartbeat import (
     heartbeat,
     mood_target,
 )
+from maplegotchi.core.movement import settle_movement
 from maplegotchi.core.state import (
     InteractionKind,
     InteractionRecord,
@@ -186,12 +187,16 @@ def test_activity_is_rechosen_at_planned_end() -> None:
     r = heartbeat(s, NOON + TICK, NO_INPUTS, PARAMS)
     assert r.state.activity_until > NOON + TICK
     changed = [e for e in r.events if isinstance(e, ActivityChanged)]
+    assert changed == []  # a new activity is recorded when it begins, at arrival (ADR-0028)
     if r.state.activity is Activity.READ:
-        assert changed == []
         assert r.state.activity_started_at == NOON
     else:
-        assert changed == [ActivityChanged(NOON + TICK, Activity.READ, r.state.activity)]
-        assert r.state.activity_started_at == NOON + TICK
+        route = r.state.route
+        assert route is not None and route.departed_at == NOON + TICK
+        assert r.state.activity_started_at == route.arrives_at > NOON + TICK
+        settled, events = settle_movement(r.state, route.arrives_at)
+        assert events == (ActivityChanged(route.arrives_at, Activity.READ, r.state.activity),)
+        assert settled.activity_started_at == route.arrives_at
 
 
 def test_exhaustion_interrupts_activity_with_sleep() -> None:
@@ -203,7 +208,11 @@ def test_exhaustion_interrupts_activity_with_sleep() -> None:
     )
     r = heartbeat(s, NOON + TICK, NO_INPUTS, PARAMS)  # walking drains 0.5 energy per tick
     assert r.state.activity is Activity.SLEEP
-    assert ActivityChanged(NOON + TICK, Activity.WALK, Activity.SLEEP) in r.events
+    # Maple first walks to the bed; sleep begins (and is recorded) on arrival.
+    route = r.state.route
+    assert route is not None and route.destination.id == "bed.side"
+    _, events = settle_movement(r.state, route.arrives_at)
+    assert events == (ActivityChanged(route.arrives_at, Activity.WALK, Activity.SLEEP),)
 
 
 def test_fully_rested_maple_wakes_early_in_the_day_but_not_at_night() -> None:

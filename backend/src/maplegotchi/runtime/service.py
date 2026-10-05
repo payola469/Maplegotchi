@@ -261,12 +261,25 @@ class MapleService:
 
     # ------------------------------------------------------------ transitions
 
+    def settle(self) -> None:
+        """Record a walk's arrival between heartbeats, so the activity begins on time."""
+        if not self.runtime.arrival_due():
+            return
+        committed = self.runtime.settle_committed()
+        if committed is None:
+            return
+        self._publish("movement", {"revision": committed.revision, "state": committed.state})
+        self._publish_written(
+            committed.revision, events=bool(committed.events), journal=bool(committed.journal)
+        )
+
     def tick(self) -> TickResult | None:
         """One life-loop step: observe (outside the lock) and heartbeat if due.
 
         Events are published only after the runtime has durably committed the
         transition and released its lock; if the commit fails, nothing is published.
         """
+        self.settle()
         if not self.runtime.heartbeat_due():
             return None
         observations = self.senses.observe(self.clock.now())

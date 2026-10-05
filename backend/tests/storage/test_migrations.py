@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from maplegotchi.core.activities import Activity, RoomLocation
-from maplegotchi.core.behavior import BehaviorInputs
-from maplegotchi.core.heartbeat import heartbeat
 from maplegotchi.core.observations import Metric, ServiceState, Unit
-from maplegotchi.core.state import InteractionKind, ReactionKind, birth
-from maplegotchi.core.timeline import Born, LifeEvent
+from maplegotchi.core.state import InteractionKind, ReactionKind
+from maplegotchi.core.timeline import LifeEvent
 from maplegotchi.runtime.clock import FakeClock
 from maplegotchi.storage.errors import MigrationError, SchemaTooNewError
 from maplegotchi.storage.migrations import (
@@ -28,9 +27,6 @@ from maplegotchi.storage.migrations import (
 )
 from maplegotchi.storage.repositories import LifeRepository
 from tests.persistence_support import (
-    BIRTH,
-    PARAMS,
-    SEED,
     TICK,
     make_data_dir,
     new_life,
@@ -38,10 +34,12 @@ from tests.persistence_support import (
     raw_db,
     run_ticks,
 )
+from tests.storage.legacy_support import LEGACY_BORN, LEGACY_SEED, write_legacy_life
 
 V1_SQL = MIGRATIONS[0].sql
 V2_SQL = MIGRATIONS[1].sql
 V3_SQL = MIGRATIONS[2].sql
+V4_SQL = MIGRATIONS[3].sql
 LATEST = latest_version()
 EXPECTED_TABLES = {
     "maple",
@@ -52,6 +50,9 @@ EXPECTED_TABLES = {
     "journal_entry",
     "journal_entry_observation",
     "journal_state",
+    "goal",  # v4 (ADR-0028)
+    "decision",
+    "action_event",
 }
 EXPECTED_TRIGGERS = {
     "maple_immutable_update",
@@ -68,6 +69,12 @@ EXPECTED_TRIGGERS = {
     "journal_entry_observation_append_only_update",
     "journal_entry_observation_append_only_delete",
     "journal_state_no_delete",
+    "goal_append_only_update",  # v4 (ADR-0028)
+    "goal_append_only_delete",
+    "decision_append_only_update",
+    "decision_append_only_delete",
+    "action_event_append_only_update",
+    "action_event_append_only_delete",
 }
 
 
@@ -82,8 +89,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3]
-    assert LATEST == 3
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4]
+    assert LATEST == 4
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])
@@ -119,25 +126,21 @@ def with_next(sql: str) -> tuple[Migration, ...]:
 
 
 def test_real_upgrade_from_v1_preserves_a_living_maple(tmp_path: Path) -> None:
-    # A Maple born and lived under schema v1, before observations existed.
+    # A Maple born and lived under schema v1, before observations existed. Its rows
+    # are written as v1 stored them (current code writes v4 rows).
     data_dir = make_data_dir(tmp_path)
     conn = sqlite3.connect(data_dir.path("maple.db"), isolation_level=None)
-    assert migrate(conn, MIGRATIONS[:1]) == 1
-    repo = LifeRepository(conn)
-    state = birth(name="Maple", born_at=BIRTH, seed_hex=SEED)
-    revision = repo.create(state, Born(at=BIRTH, name="Maple"))
-    for i in range(1, 30):
-        result = heartbeat(state, BIRTH + TICK * i, BehaviorInputs(), PARAMS)
-        revision = repo.commit(
-            result.state, expected_revision=revision, events=result.events, tick_id=result.tick_id
-        )
-        state = result.state
+    write_legacy_life(conn, version=1, activity="read", location="bookshelf", ticks=29)
     conn.close()
 
-    clock = FakeClock(BIRTH + TICK * 29)
+    clock = FakeClock(datetime.fromisoformat(LEGACY_BORN) + TICK * 29)
     with open_runtime(data_dir, clock) as runtime:  # opening migrates v1 -> latest
-        assert runtime.state == state
-        assert runtime.revision == revision
+        state = runtime.state
+        assert (state.identity.name, state.rng.seed_hex) == ("Maple", LEGACY_SEED)
+        assert state.identity.born_at == datetime.fromisoformat(LEGACY_BORN)
+        assert state.rng.tick_counter == 29
+        assert runtime.revision == 32
+        assert len(runtime.timeline()) == 30
         clock.advance(TICK)
         assert runtime.heartbeat_if_due() is not None  # life continues on the latest
     with raw_db(data_dir) as check:
@@ -198,10 +201,16 @@ def _check_values(column: str) -> set[str]:
     return set(re.findall(r"'([a-z_]+)'", match.group(1)))
 
 
+V1_ACTIVITIES = {"idle", "walk", "sleep", "read", "write", "observe_server", "rest"}
+V1_LOCATIONS = {"bed", "desk", "bookshelf", "window", "terminal", "rug"}
+
+
 def test_frozen_enum_lists_match_core() -> None:
-    # If an enum changes, this fails: add a new migration rather than editing v1.
-    assert _check_values("activity") == {a.value for a in Activity}
-    assert _check_values("location") == {loc.value for loc in RoomLocation}
+    # v1 is frozen at the v1 sets; activity set v2 (ADR-0028) arrived in migration 4.
+    assert _check_values("activity") == V1_ACTIVITIES
+    assert _check_values("location") == V1_LOCATIONS
+    assert _v4_values("life_state_v4", "activity") == {a.value for a in Activity}
+    assert _v4_values("life_state_v4", "location") == {loc.value for loc in RoomLocation}
     assert _check_values("reaction_kind") == {r.value for r in ReactionKind}
     assert _check_values("kind") >= {k.value for k in InteractionKind}
     event_kinds = {"born", "activity_changed", "interaction_accepted", "downtime_gap"}
@@ -238,5 +247,16 @@ def test_frozen_journal_lists_match_core() -> None:
     assert _v3_values("trigger_kind") == {t.value for t in TriggerKind}
     assert _v3_values("importance") == {i.value for i in Importance}
     assert _v3_values("brain_kind") == {b.value for b in BrainKind}
-    assert _v3_values("activity") == {a.value for a in Activity}
+    assert _v3_values("activity") == V1_ACTIVITIES  # frozen; v4 rebuilt the table
+    assert _v4_values("journal_entry_v4", "activity") == {a.value for a in Activity}
     assert _v3_values("expression") == {e.value for e in Expression}
+
+
+def _v4_values(table: str, column: str) -> set[str]:
+    """A CHECK list in the v4 rebuild of `table` (constants expanded as in the SQL)."""
+    body = V4_SQL[V4_SQL.index(f"CREATE TABLE {table} (") :]
+    body = body[: body.index(") STRICT;")]
+    pattern = rf"\b{column}\s+TEXT\s+NOT NULL CHECK \({column} IN\s*\(([^)]*)\)"
+    match = re.search(pattern, body)
+    assert match is not None, (table, column)
+    return set(re.findall(r"'([a-z_0-9]+)'", match.group(1)))

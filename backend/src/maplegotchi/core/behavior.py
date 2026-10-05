@@ -78,6 +78,9 @@ def score_activities(
         scores[Activity.WRITE] = 5.0 + mood * 0.15 + (8.0 if phase is DayPhase.EVENING else 0.0)
         scores[Activity.IDLE] = 20.0
         scores[Activity.WALK] = max(0.0, energy - 40.0) * 0.6
+        # Activity set v2 (ADR-0028): a short pause at the window, a little more
+        # likely when Maple is in a good mood. [PROPOSED tuning]
+        scores[Activity.THINK] = 6.0 + mood * 0.06
 
     if energy < LOW_ENERGY:
         for activity in Activity:

@@ -44,12 +44,20 @@ def test_snapshot_contract_and_values(tmp_path: Path) -> None:
     assert maple["identity"]["name"] == "Maple"
     assert maple["identity"]["ticks_lived"] == 1
     assert maple["needs"]["energy"] == state.needs.energy
-    assert maple["activity"] == {
+    activity = maple["activity"]
+    assert {k: activity[k] for k in ("kind", "location", "started_at", "until")} == {
         "kind": state.activity.value,
         "location": state.location.value,
         "started_at": state.activity_started_at.isoformat().replace("+00:00", "Z"),
         "until": state.activity_until.isoformat().replace("+00:00", "Z"),
     }
+    # Additive movement fields (ADR-0027): exactly these, all from backend state.
+    assert set(activity) == {
+        "kind", "location", "started_at", "until",
+        "phase", "point", "furniture", "pose", "facing", "position", "route",
+    }  # fmt: skip
+    assert activity["point"] == state.point.id
+    assert activity["furniture"] == state.point.furniture.value
     assert maple["expression"] == state.expression_at(service.clock.now()).value
     assert body["brain"] == {"kind": "rule", "name": "rule_brain", "version": "1"}
     assert body["day"]["timezone"] == "Asia/Bangkok" and body["day"]["utc_offset_minutes"] == 420

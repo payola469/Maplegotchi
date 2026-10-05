@@ -3,6 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4 implemented; later autonomy phases follow in order, one commit each. Not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -114,6 +115,7 @@ Maplegotchi/
 │   │   │   state.py activities.py behavior.py heartbeat.py interactions.py        (P1)
 │   │   │   timeline.py identity.py rng.py daytime.py parameters.py simulation.py (P1)
 │   │   │   observations.py attention.py                                      (P3)
+│   │   │   room.py movement.py   (v0.2 A1: interaction points, routes, walk-then-act)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
 │   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
@@ -249,6 +251,7 @@ Journal entries may cite observations; observations never depend on journal text
 - Corrupt, empty, foreign, or too-new databases fail loudly and are never repaired or replaced automatically.
 - Only `maplegotchi.storage` may write files or import `sqlite3` (AST-enforced); every write path goes through the `DataDir` guard. The external monitoring DB is read through `maplegotchi.storage.external` only (D18).
 - Schema v3 adds the append-only journal (`journal_entry`, `journal_entry_observation` citing observation rows) and `journal_state`, all written in the transition's transaction (`docs/journal.md`).
+- Schema v4 (v0.2, ADR-0028) rebuilds `life_state`/`timeline_event`/`journal_entry` for activity set v2 and adds `goal`, `decision`, `action_event`; forward-only, verified in-transaction, preceded by a verified automatic `pre-migration/` copy (`docs/persistence.md`).
 - Schema v2 adds an append-only `observation` table: each heartbeat's snapshot is stored in the same transaction as the heartbeat (~0.54 MB/day measured; retention is a later phase).
 
 ### 3.9 UI truthfulness

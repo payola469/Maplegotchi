@@ -15,10 +15,11 @@ from datetime import datetime, timedelta
 from maplegotchi.core.activities import SPECS, Activity
 from maplegotchi.core.behavior import FORCED_SLEEP_ENERGY, BehaviorInputs, choose_next_activity
 from maplegotchi.core.daytime import is_night, local_hour, require_utc
+from maplegotchi.core.movement import begin_activity, choose_point, settle_movement
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.rng import RngStream
 from maplegotchi.core.state import NEED_MAX, MapleState, Needs, prune_interactions
-from maplegotchi.core.timeline import ActivityChanged, DowntimeGap, LifeEvent
+from maplegotchi.core.timeline import DowntimeGap, LifeEvent
 
 # Social fulfilment relaxes toward this floor when nobody interacts with Maple.
 SOCIAL_FLOOR = 20.0
@@ -61,6 +62,31 @@ def evolve_needs(needs: Needs, activity: Activity, elapsed: timedelta) -> Needs:
     return Needs.clamped(mood=mood, energy=energy, curiosity=curiosity, social=social)
 
 
+def evolve_through(state: MapleState, now: datetime, elapsed: timedelta) -> Needs:
+    """Needs over the window [now - elapsed, now], honouring a walk in progress.
+
+    Before departure Maple was still doing the previous activity; while walking the
+    `walk` spec applies; the new activity's spec applies only from arrival
+    (ADR-0027). Without a route this is exactly `evolve_needs` over the window.
+    """
+    route = state.route
+    if route is None:
+        return evolve_needs(state.needs, state.activity, elapsed)
+    start = now - elapsed
+    walk_start = min(max(route.departed_at, start), now)
+    walk_end = min(max(route.arrives_at, walk_start), now)
+    segments = (
+        (route.from_activity, walk_start - start),
+        (Activity.WALK, walk_end - walk_start),
+        (state.activity, now - walk_end),
+    )
+    needs = state.needs
+    for activity, span in segments:
+        if span > timedelta(0):  # zero spans are skipped: relaxing by 0 h is not exact
+            needs = evolve_needs(needs, activity, span)
+    return needs
+
+
 def needs_new_activity(state: MapleState, now: datetime, params: CoreParameters) -> bool:
     if now >= state.activity_until:
         return True
@@ -99,7 +125,7 @@ def heartbeat(
 
     advanced = replace(
         state,
-        needs=evolve_needs(state.needs, state.activity, elapsed),
+        needs=evolve_through(state, now, elapsed),
         reaction=reaction,
         recent_interactions=prune_interactions(state.recent_interactions, now),
         last_tick_at=now,
@@ -107,19 +133,17 @@ def heartbeat(
         rng=replace(state.rng, tick_counter=tick_id),
     )
 
+    advanced, arrival = settle_movement(advanced, now)
+    events.extend(arrival)
+
     if needs_new_activity(advanced, now, params):
         choice = choose_next_activity(advanced, now, inputs, params, rng)
-        changed = choice.activity is not advanced.activity
-        if changed:
-            events.append(
-                ActivityChanged(at=now, previous=advanced.activity, current=choice.activity)
-            )
-        advanced = replace(
-            advanced,
-            activity=choice.activity,
-            location=choice.location,
-            activity_started_at=now if changed else advanced.activity_started_at,
-            activity_until=choice.until,
-        )
+        if choice.activity is advanced.activity and choice.location is advanced.location:
+            point = advanced.point  # continuing: stay put
+        else:
+            point = choose_point(choice.activity, choice.location, rng)
+        moved = begin_activity(advanced, now, choice.activity, point, choice.until)
+        events.extend(moved.events)
+        advanced = moved.state
 
     return TickResult(state=advanced, tick_id=tick_id, events=tuple(events))

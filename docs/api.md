@@ -31,6 +31,7 @@ no rows or domain objects are returned.
 | GET | `/api/maple` | `MapleOut` | identity, age, needs, activity, location, expression, reaction, interaction availability |
 | GET | `/api/status` | `StatusOut` | revision, freshness, brain label |
 | GET | `/api/server` | `ServerOut` | summary, attention, service health, host readings, counts by status |
+| GET | `/api/room` | `RoomOut` | room size, furniture labels, interaction points (ADR-0027); static per release |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
 | GET | `/api/journal?limit=1..100` | `JournalEntryOut[]` | most recent, oldest first (default 20) |
 | GET | `/api/timeline?limit=1..100` | `TimelineEventOut[]` | most recent, oldest first (default 20) |
@@ -53,7 +54,15 @@ against this list.
     "revision": 42, "generated_at": "…Z",
     "identity": {"name": "Maple", "born_at": "…Z", "age_seconds": 1234.5, "ticks_lived": 4},
     "needs": {"mood": 64.0, "energy": 79.1, "curiosity": 60.3, "social": 62.0},
-    "activity": {"kind": "idle", "location": "rug", "started_at": "…Z", "until": "…Z"},
+    "activity": {"kind": "write", "location": "desk", "started_at": "…Z", "until": "…Z",
+                 // additive (ADR-0027): movement is backend state
+                 "phase": "walking|performing", "point": "writing_desk.chair",
+                 "furniture": "writing_desk", "pose": "walk|sit_write|…", "facing": "back",
+                 "position": {"x": 412.5, "y": 520.0},          // at generated_at
+                 "route": {"departed_at": "…Z", "arrives_at": "…Z",  // == started_at
+                           "from_activity": "read",
+                           "path": [{"x": 330, "y": 500, "distance": 0, "node": "bookshelf.front"}, …]}
+                          | null},
     "expression": "happy",              // at generated_at
     "reaction": {"kind": "greet_happy", "variant": 1, "started_at": "…Z", "until": "…Z"} | null,
     "interactions": [
@@ -191,6 +200,7 @@ data: <one line of JSON>
 | `heartbeat` | after each heartbeat | `revision`, `tick_id`, `activity`, `location`, `needs`, `last_heartbeat_at` |
 | `observations` | after each observed heartbeat | `revision`, `observed_at`, `counts` |
 | `interaction` | after an accepted Greet/Pet | `revision`, `kind`, `reaction` |
+| `movement` | when an arrival is recorded between heartbeats (the activity began) | `revision`, `activity`, `location`, `point` |
 | `journal` | when entries were written | `revision`, `entries: JournalEntryOut[]` |
 | `timeline` | when lifecycle events were written | `revision`, `events: TimelineEventOut[]` |
 

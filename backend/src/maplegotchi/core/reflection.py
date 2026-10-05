@@ -46,7 +46,7 @@ from maplegotchi.core.observations import (
 )
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.state import MapleState
-from maplegotchi.core.timeline import ActivityChanged
+from maplegotchi.core.timeline import ActivityChanged, LifeEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +242,34 @@ def _daily_kind(event: ActivityChanged) -> str | None:
     }.get(event.current)
 
 
+def daily_activity_triggers(rs: ReflectionState, events: Sequence[LifeEvent]) -> list[Trigger]:
+    """The first notable activity of its kind today among `events` (at most one).
+
+    Activities begin on arrival (ADR-0027), so this runs for any transition that
+    records an `ActivityChanged`, not only heartbeats. `rs` must already be rolled
+    to the current journal day.
+    """
+    for event in events:
+        if isinstance(event, ActivityChanged):
+            kind = _daily_kind(event)
+            if kind is not None and kind not in rs.daily_seen:
+                return [Trigger(TriggerKind.ACTIVITY, f"daily:{kind}", kind)]
+    return []
+
+
+def settle_triggers(
+    rs: ReflectionState,
+    *,
+    events: Sequence[LifeEvent],
+    now: datetime,
+    params: CoreParameters,
+    journal: JournalParameters,
+) -> tuple[tuple[Trigger, ...], ReflectionState]:
+    """Triggers for a recorded arrival outside a heartbeat (activity began)."""
+    rs = roll_day(rs, journal_day(now, params, journal))
+    return tuple(daily_activity_triggers(rs, events)), rs
+
+
 def heartbeat_triggers(
     rs: ReflectionState,
     *,
@@ -281,12 +309,7 @@ def heartbeat_triggers(
     triggers += problems + recoveries
 
     # Daily life: first of each notable kind per journal day, at most one per heartbeat.
-    for event in result.events:
-        if isinstance(event, ActivityChanged):
-            kind = _daily_kind(event)
-            if kind is not None and kind not in rs.daily_seen:
-                triggers.append(Trigger(TriggerKind.ACTIVITY, f"daily:{kind}", kind))
-                break
+    triggers += daily_activity_triggers(rs, result.events)
 
     # Daily reflection: once per journal day, inside the window, and only for a day
     # Maple was alive for from its start (no reflection on a day it never lived).

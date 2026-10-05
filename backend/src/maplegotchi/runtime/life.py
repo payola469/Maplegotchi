@@ -34,6 +34,7 @@ from maplegotchi.core.journal import (
     TriggerKind,
     accept_drafts,
 )
+from maplegotchi.core.movement import settle_movement
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.reflection import (
@@ -43,9 +44,10 @@ from maplegotchi.core.reflection import (
     interaction_triggers,
     local_time,
     mark_journaled,
+    settle_triggers,
 )
 from maplegotchi.core.state import InteractionKind, MapleState, birth
-from maplegotchi.core.timeline import Born
+from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
@@ -88,6 +90,16 @@ class CommittedInteraction:
 
     outcome: InteractionOutcome
     revision: int
+    journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class CommittedArrival:
+    """A walk's arrival recorded between heartbeats: the activity has begun."""
+
+    state: MapleState
+    revision: int
+    events: tuple[LifeEvent, ...]
     journal: tuple[JournalEntry, ...]
 
 
@@ -156,7 +168,7 @@ class LifeRuntime:
             state = birth(name=name, born_at=born_at, seed_hex=new_seed())
             return state, Born(at=born_at, name=name)
 
-        repository = LifeRepository(open_life_database(data_dir, first_life))
+        repository = LifeRepository(open_life_database(data_dir, first_life, now=clock.now))
         try:
             return cls(repository, clock, params or CoreParameters(), brain=brain, journal=journal)
         except BaseException:
@@ -230,7 +242,43 @@ class LifeRuntime:
             now >= state.last_updated_at
         )
 
+    def arrival_due(self) -> bool:
+        """Whether a walk has reached its destination and is not yet recorded."""
+        route = self._state.route
+        return route is not None and self._clock.now() >= route.arrives_at
+
     # ------------------------------------------------------------ transitions
+
+    def settle_committed(self) -> CommittedArrival | None:
+        """Record an arrival that has happened (ADR-0027 §5): the activity begins.
+
+        Uses no randomness and no Brain decisions; only the journal wording of a
+        newly begun notable activity, exactly as a heartbeat would.
+        """
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            settled, events = settle_movement(self._state, now)
+            if settled is self._state:
+                return None
+            triggers, reflection = settle_triggers(
+                self._reflection,
+                events=events,
+                now=now,
+                params=self._params,
+                journal=self._journal_params,
+            )
+            entries = self._write_journal(triggers, settled, now, None, tick_id=None)
+            reflection = mark_journaled(reflection, triggers, _written(entries), now)
+            revision = repo.commit(
+                settled,
+                expected_revision=self._revision,
+                events=events,
+                journal=entries,
+                reflection=reflection,
+            )
+            self._state, self._revision, self._reflection = settled, revision, reflection
+            return CommittedArrival(settled, revision, events, entries)
 
     def heartbeat_if_due(
         self, observations: ObservationSnapshot | None = None
@@ -293,21 +341,31 @@ class LifeRuntime:
             # If the wall clock stepped backwards, act at the latest known time
             # rather than before it; core forbids going back in time.
             now = max(self._clock.now(), self._state.last_updated_at)
-            outcome = apply_interaction(self._state, kind, now, self._params)
+            # A finished walk is recorded first, so drowsiness reflects arrival in bed.
+            settled, arrival = settle_movement(self._state, now)
+            outcome = apply_interaction(settled, kind, now, self._params)
             if isinstance(outcome, Accepted):
-                triggers, reflection = interaction_triggers(
+                arrived, reflection = settle_triggers(
                     self._reflection,
+                    events=arrival,
+                    now=now,
+                    params=self._params,
+                    journal=self._journal_params,
+                )
+                interacted, reflection = interaction_triggers(
+                    reflection,
                     accepted=outcome,
                     now=now,
                     params=self._params,
                     journal=self._journal_params,
                 )
+                triggers = arrived + interacted
                 entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
                 reflection = mark_journaled(reflection, triggers, _written(entries), now)
                 revision = repo.commit(
                     outcome.state,
                     expected_revision=self._revision,
-                    events=(outcome.event,),
+                    events=(*arrival, outcome.event),
                     journal=entries,
                     reflection=reflection,
                 )

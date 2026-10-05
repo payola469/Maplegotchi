@@ -17,6 +17,7 @@ EXPECTED_ROUTES = {
     ("GET", "/api/status"),
     ("GET", "/api/observations/latest"),
     ("GET", "/api/server"),
+    ("GET", "/api/room"),  # read-only room layout (ADR-0027)
     ("GET", "/api/journal"),
     ("GET", "/api/timeline"),
     ("GET", "/api/events"),

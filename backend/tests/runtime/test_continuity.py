@@ -19,6 +19,7 @@ import pytest
 from maplegotchi.core.behavior import BehaviorInputs
 from maplegotchi.core.heartbeat import heartbeat
 from maplegotchi.core.interactions import Accepted, Rejected, apply_interaction
+from maplegotchi.core.movement import settle_movement
 from maplegotchi.core.simulation import daily_owner_routine
 from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.timeline import Born, LifeEvent
@@ -63,9 +64,13 @@ def live_pure() -> tuple[MapleState, list[LifeEvent], list[Outcome]]:
             events.extend(result.events)
             outcomes.append(("tick", result.tick_id))
         else:
-            outcome = apply_interaction(state, kind, at, PARAMS)
+            # A finished walk is recorded before the interaction (ADR-0027), as the
+            # runtime and the simulation do.
+            settled, arrival = settle_movement(state, at)
+            outcome = apply_interaction(settled, kind, at, PARAMS)
             if isinstance(outcome, Accepted):
                 state = outcome.state
+                events.extend(arrival)
                 events.append(outcome.event)
             outcomes.append((kind.value, outcome if isinstance(outcome, Rejected) else "ok"))
     return state, events, outcomes

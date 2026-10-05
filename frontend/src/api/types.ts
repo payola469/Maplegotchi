@@ -22,11 +22,63 @@ export interface NeedsOut {
   social: number;
 }
 
+export interface PositionOut {
+  x: number;
+  y: number;
+}
+
+export interface PathPointOut {
+  x: number;
+  y: number;
+  distance: number;
+  node: string | null;
+}
+
+export interface RouteOut {
+  departed_at: string;
+  arrives_at: string; // the activity begins here (ADR-0027)
+  from_activity: string;
+  path: PathPointOut[];
+}
+
 export interface ActivityOut {
   kind: string;
   location: string;
-  started_at: string;
+  started_at: string; // while walking: the planned start, i.e. arrival
   until: string;
+  phase: string; // walking | performing
+  point: string;
+  furniture: string;
+  pose: string;
+  facing: string;
+  position: PositionOut; // at generated_at
+  route: RouteOut | null;
+}
+
+export interface InteractionPointOut {
+  id: string;
+  location: string;
+  furniture: string;
+  x: number;
+  y: number;
+  facing: string;
+  pose: string;
+  allowed_actions: string[];
+}
+
+export interface FurnitureOut {
+  id: string;
+  label: string;
+  location: string;
+}
+
+export interface RoomOut {
+  width: number;
+  height: number;
+  floor_y: number;
+  walk_speed: number;
+  furniture: FurnitureOut[];
+  points: InteractionPointOut[];
 }
 
 export interface ReactionOut {

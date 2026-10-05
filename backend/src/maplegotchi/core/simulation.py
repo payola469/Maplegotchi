@@ -17,6 +17,7 @@ from maplegotchi.core.behavior import BehaviorInputs
 from maplegotchi.core.daytime import is_night, local_hour, require_utc
 from maplegotchi.core.heartbeat import heartbeat
 from maplegotchi.core.interactions import Accepted, apply_interaction
+from maplegotchi.core.movement import settle_movement
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.state import InteractionKind, MapleState, Needs
 from maplegotchi.core.timeline import ActivityChanged
@@ -88,6 +89,8 @@ def _fingerprint(state: MapleState) -> str:
             state.activity.value,
             state.location.value,
             state.activity_until.isoformat(),
+            state.point.id,
+            state.route.arrives_at.isoformat() if state.route else "-",
             repr(n.mood),
             repr(n.energy),
             repr(n.curiosity),
@@ -139,6 +142,7 @@ def simulate(
         while next_pending < len(pending) and pending[next_pending].at <= now:
             scheduled = pending[next_pending]
             next_pending += 1
+            state, _ = settle_movement(state, scheduled.at)  # the runtime settles arrivals too
             outcome = apply_interaction(state, scheduled.kind, scheduled.at, params)
             if isinstance(outcome, Accepted):
                 accepted += 1

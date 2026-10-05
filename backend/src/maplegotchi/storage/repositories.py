@@ -35,6 +35,7 @@ from maplegotchi.core.observations import (
 )
 from maplegotchi.core.reflection import INITIAL_REFLECTION, ReflectionState
 from maplegotchi.core.rng import RngState
+from maplegotchi.core.room import PathPoint, Route
 from maplegotchi.core.state import (
     Expression,
     InteractionKind,
@@ -183,12 +184,36 @@ def decode_event(kind: str, at_text: str, payload_text: str) -> LifeEvent:
 _STATE_COLUMNS = (
     "mood, energy, curiosity, social, activity, location, activity_started_at, "
     "activity_until, last_tick_at, last_updated_at, tick_counter, interaction_counter, "
-    "reaction_kind, reaction_variant, reaction_started_at, reaction_until"
+    "reaction_kind, reaction_variant, reaction_started_at, reaction_until, "
+    "point_id, route_departed_at, route_from_activity, route_path"
 )
+_STATE_PLACEHOLDERS = ", ".join("?" * len(_STATE_COLUMNS.split(",")))
+
+
+def encode_route_path(route: Route) -> str:
+    """Route corners as JSON. Python floats round-trip exactly through JSON."""
+    return json.dumps([[p.x, p.y, p.distance, p.node] for p in route.path], separators=(",", ":"))
+
+
+def decode_route(departed: str, arrives: str, from_activity: str, path_text: str) -> Route:
+    corners = json.loads(path_text)
+    if not isinstance(corners, list):
+        raise ValueError("route path must be a list")
+    path = tuple(
+        PathPoint(x=float(x), y=float(y), distance=float(d), node=None if n is None else str(n))
+        for x, y, d, n in corners
+    )
+    return Route(
+        departed_at=_parse_ts(departed),
+        arrives_at=_parse_ts(arrives),
+        path=path,
+        from_activity=Activity(from_activity),
+    )
 
 
 def _state_values(state: MapleState) -> tuple[object, ...]:
     r = state.reaction
+    route = state.route
     return (
         state.needs.mood,
         state.needs.energy,
@@ -206,6 +231,10 @@ def _state_values(state: MapleState) -> tuple[object, ...]:
         r.variant if r else None,
         _ts(r.started_at) if r else None,
         _ts(r.until) if r else None,
+        state.point_id,
+        _ts(route.departed_at) if route else None,
+        route.from_activity.value if route else None,
+        encode_route_path(route) if route else None,
     )
 
 
@@ -241,7 +270,7 @@ class LifeRepository:
             )
             self._conn.execute(
                 f"INSERT INTO life_state (maple_id, revision, {_STATE_COLUMNS})"  # noqa: S608
-                " VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                f" VALUES (?, 1, {_STATE_PLACEHOLDERS})",
                 (MAPLE_ID, *_state_values(state)),
             )
             self._insert_events(1, (born,), None)
@@ -274,7 +303,8 @@ class LifeRepository:
         name, born_at, seed = identity_row
         (revision, mood, energy, curiosity, social, activity, location, started, until,
          last_tick, last_update, ticks, interactions,
-         r_kind, r_variant, r_start, r_until) = state_row  # fmt: skip
+         r_kind, r_variant, r_start, r_until,
+         point_id, route_departed, route_from, route_path) = state_row  # fmt: skip
         ledger = self._conn.execute(
             "SELECT position, kind, at FROM interaction_ledger WHERE maple_id = ?"
             " ORDER BY position",
@@ -306,6 +336,12 @@ class LifeRepository:
                 for _, kind, at in ledger
             ),
             reaction=reaction,
+            point_id=point_id,
+            route=(
+                decode_route(route_departed, started, route_from, route_path)
+                if route_path is not None
+                else None
+            ),
         )
         return StoredLife(state=state, revision=revision)
 
@@ -337,7 +373,7 @@ class LifeRepository:
                 raise StorageError("identity and life seed can never change")
             updated = self._conn.execute(
                 f"UPDATE life_state SET revision = ?, ({_STATE_COLUMNS})"  # noqa: S608
-                " = (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                f" = ({_STATE_PLACEHOLDERS})"
                 " WHERE maple_id = ? AND revision = ?",
                 (new_revision, *_state_values(state), MAPLE_ID, expected_revision),
             ).rowcount

@@ -15,7 +15,10 @@ interface Props {
 export function RoomView({ snapshot, serverNowMs, reducedMotion, stale, createScene, onReactionEnded }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<RoomSceneHandle | null>(null);
-  const visual = useMemo(() => toVisual(snapshot, serverNowMs), [snapshot, serverNowMs]);
+  const visual = useMemo(
+    () => toVisual(snapshot, serverNowMs, serverNowMs - Date.now()),
+    [snapshot, serverNowMs],
+  );
   const latest = useRef(visual);
   latest.current = visual;
 

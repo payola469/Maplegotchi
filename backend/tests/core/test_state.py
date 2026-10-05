@@ -254,6 +254,8 @@ def test_state_fields_are_all_plain_data() -> None:
         "rng",
         "recent_interactions",
         "reaction",
+        "point_id",  # ADR-0027
+        "route",  # ADR-0027
     }
 
 
@@ -270,6 +272,7 @@ def test_activity_and_expression_sets_are_fixed() -> None:
         "write",
         "observe_server",
         "rest",
+        "think",  # activity set v2, ADR-0028
     }
     assert {e.value for e in Expression} == {"calm", "happy", "curious", "sleepy", "focused"}
 

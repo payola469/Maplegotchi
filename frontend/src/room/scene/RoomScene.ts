@@ -5,7 +5,7 @@ import "pixi.js/unsafe-eval"; // CSP: the backend forbids eval (script-src 'self
 import { Application, Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { FURNITURE_ASSETS, type FurnitureKey } from "../assets/manifest";
 import { ANCHORS, FURNITURE, NEUTRAL_ANCHOR, ROOM_HEIGHT, ROOM_WIDTH } from "../layout/anchors";
-import { Motion, approach } from "../animation/motion";
+import { Motion, approach, routeFrame } from "../animation/motion";
 import { MapleFigure } from "../maple/figure";
 import { PALETTE, drawFurniture, drawWallsAndFloor, drawWindowFrame } from "../objects/furniture";
 import { NEUTRAL_VISUAL, type VisualState } from "../visual";
@@ -22,7 +22,7 @@ export type CreateRoomScene = (
 ) => Promise<RoomSceneHandle>;
 
 const FURNITURE_ORDER: Exclude<FurnitureKey, "window">[] = [
-  "rug", "bookshelf", "lamp", "bed", "desk", "chair", "computerDesk", "monitor", "plant",
+  "rug", "bookshelf", "lamp", "bed", "sofa", "desk", "chair", "computerDesk", "monitor", "plant",
 ];
 
 function mixColor(a: number, b: number, t: number): number {
@@ -115,7 +115,6 @@ export const createRoomScene: CreateRoomScene = async (host, options) => {
 
   let target: VisualState = NEUTRAL_VISUAL;
   const motion = new Motion(ANCHORS[NEUTRAL_ANCHOR], "stand");
-  let placed = false;
   let shownDarkness = 0;
   let shownLamp = 0;
   let shownSky = NEUTRAL_VISUAL.lighting.sky;
@@ -183,7 +182,10 @@ export const createRoomScene: CreateRoomScene = async (host, options) => {
   const tick = (ticker: { deltaMS: number }) => {
     const dt = Math.min(ticker.deltaMS / 1000, 0.1);
     time += dt;
-    const frame = motion.step(dt);
+    // Walking follows the backend's route and timing exactly (ADR-0027); otherwise
+    // Maple is where the backend says (motion snaps there).
+    const walk = target.route ? routeFrame(target.route, Date.now() + target.clockOffsetMs) : null;
+    const frame = walk && walk.moving && !reducedMotion ? walk : motion.step(dt);
     maple.root.position.set(frame.position.x, frame.position.y);
     maple.apply(frame.pose, target.face, target.reaction?.symbol ?? null);
     maple.animate(frame.pose, frame.facing, time, reducedMotion ? 0 : 1);
@@ -205,13 +207,12 @@ export const createRoomScene: CreateRoomScene = async (host, options) => {
   return {
     update(visual) {
       target = visual;
-      // First placement snaps; later location changes walk (presentation only).
-      motion.setTarget(ANCHORS[visual.anchor], visual.pose, reducedMotion || !placed);
-      placed = true;
+      // Backend position is authoritative: snap to it; walks come only from backend routes.
+      motion.setTarget(visual.restPosition, visual.restPose, true);
     },
     setReducedMotion(reduced) {
       reducedMotion = reduced;
-      if (reduced) motion.setTarget(ANCHORS[target.anchor], target.pose, true);
+      if (reduced) motion.setTarget(target.restPosition, target.restPose, true);
     },
     destroy() {
       resizeObserver.disconnect();

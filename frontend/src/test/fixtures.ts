@@ -1,6 +1,6 @@
 // Test-only snapshot builders shaped exactly like the backend DTOs.
 
-import type { InteractionOut, MapleOut, ObservationOut, SnapshotOut } from "../api/types";
+import type { ActivityOut, InteractionOut, MapleOut, ObservationOut, SnapshotOut } from "../api/types";
 
 export const T0 = "2026-09-30T10:00:00.000Z";
 export const T0_MS = Date.parse(T0);
@@ -9,13 +9,49 @@ export function iso(offsetSeconds: number): string {
   return new Date(T0_MS + offsetSeconds * 1000).toISOString();
 }
 
+// Backend points (core/room.py) per location, for building realistic activities.
+const POINTS: Readonly<Record<string, { point: string; furniture: string; x: number; y: number; pose: string; facing: string }>> = {
+  bed: { point: "bed.side", furniture: "bed", x: 150, y: 455, pose: "sleep", facing: "right" },
+  sofa: { point: "sofa.seat", furniture: "sofa", x: 150, y: 560, pose: "rest", facing: "front" },
+  bookshelf: { point: "bookshelf.front", furniture: "bookshelf", x: 330, y: 500, pose: "read", facing: "back" },
+  window: { point: "window.view", furniture: "window_plant_corner", x: 500, y: 470, pose: "think", facing: "back" },
+  desk: { point: "writing_desk.chair", furniture: "writing_desk", x: 640, y: 470, pose: "sit_write", facing: "back" },
+  terminal: { point: "computer_desk.chair", furniture: "computer_desk", x: 840, y: 470, pose: "sit_monitor", facing: "back" },
+  rug: { point: "open_area.center", furniture: "open_area", x: 480, y: 545, pose: "stand", facing: "front" },
+};
+
+/** A performing (arrived) activity at its location's point, shaped like the backend's. */
+export function activityAt(
+  kind: string,
+  location: string,
+  startedAt: string = iso(-60),
+  until: string = iso(600),
+  overrides: Partial<ActivityOut> = {},
+): ActivityOut {
+  const p = POINTS[location] ?? { point: "unknown", furniture: "unknown", x: 480, y: 545, pose: "stand", facing: "front" };
+  return {
+    kind,
+    location,
+    started_at: startedAt,
+    until,
+    phase: "performing",
+    point: p.point,
+    furniture: p.furniture,
+    pose: p.pose,
+    facing: p.facing,
+    position: { x: p.x, y: p.y },
+    route: null,
+    ...overrides,
+  };
+}
+
 export function makeMaple(overrides: Partial<MapleOut> = {}): MapleOut {
   return {
     revision: 10,
     generated_at: T0,
     identity: { name: "Maple", born_at: iso(-3 * 86400), age_seconds: 3 * 86400 + 3600, ticks_lived: 860 },
     needs: { mood: 62, energy: 71, curiosity: 55, social: 48 },
-    activity: { kind: "idle", location: "rug", started_at: iso(-60), until: iso(600) },
+    activity: activityAt("idle", "rug"),
     expression: "calm",
     reaction: null,
     interactions: [

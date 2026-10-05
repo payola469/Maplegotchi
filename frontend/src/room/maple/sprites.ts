@@ -120,6 +120,7 @@ export const POSE_FRAMES: Readonly<Record<Pose, readonly FrameId[]>> = {
   sit_write: ["sit_write"],
   sit_monitor: ["sit_monitor"],
   rest: ["rest"],
+  think: ["stand"], // standing at the window; shares the standing art
 };
 
 /**

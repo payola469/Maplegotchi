@@ -216,6 +216,23 @@ const DRAWERS: Record<Exclude<FurnitureKey, "window">, (g: Graphics) => void> = 
     }
     g.rect(b.x + 90, b.y - 2, b.width - 82, 6).fill(P.cream);
   },
+  sofa(g) {
+    // Where Maple rests (rest belongs to the sofa, sleep to the bed: ADR-0027).
+    const s = FURNITURE.sofa;
+    g.rect(s.x + 4, s.y + s.height - 6, s.width, 10).fill({ color: P.outline, alpha: 0.22 });
+    block(g, s.x + 8, s.y, s.width - 16, 34, P.plum); // back
+    g.rect(s.x + 8, s.y, s.width - 16, 4).fill({ color: 0xffffff, alpha: 0.12 });
+    block(g, s.x + 8, s.y + 34, s.width - 16, 26, P.plum); // seat base
+    for (let i = 0; i < 2; i++) {
+      const cx = s.x + 22 + i * ((s.width - 44) / 2);
+      block(g, cx, s.y + 28, (s.width - 52) / 2, 16, P.cream); // cushions
+      g.rect(cx, s.y + 40, (s.width - 52) / 2, 4).fill(P.creamShade);
+    }
+    block(g, s.x, s.y + 18, 16, 46, P.woodDark); // arms
+    block(g, s.x + s.width - 16, s.y + 18, 16, 46, P.woodDark);
+    g.rect(s.x + 12, s.y + 64, 8, 12).fill(P.woodDark); // feet
+    g.rect(s.x + s.width - 20, s.y + 64, 8, 12).fill(P.woodDark);
+  },
   lamp(g) {
     const l = FURNITURE.lamp;
     const cx = l.x + l.width / 2;
