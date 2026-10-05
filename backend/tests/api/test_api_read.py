@@ -65,6 +65,7 @@ def test_snapshot_contract_and_values(tmp_path: Path) -> None:
     assert set(activity) == {
         "kind", "location", "started_at", "until",
         "phase", "point", "furniture", "pose", "facing", "position", "route",
+        "task",  # ADR-0029: what is being read/written
     }  # fmt: skip
     assert activity["point"] == state.point.id
     assert activity["furniture"] == state.point.furniture.value

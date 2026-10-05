@@ -53,6 +53,29 @@ export interface ActivityOut {
   facing: string;
   position: PositionOut; // at generated_at
   route: RouteOut | null;
+  task: TaskOut | null; // what is being read/written (ADR-0029)
+}
+
+export interface TaskOut {
+  tool: string; // reader | writer
+  target: string;
+  title: string;
+  category: string;
+}
+
+export interface DocumentSummaryOut {
+  id: number;
+  kind: string; // note | summary | reflection | research
+  title: string;
+  created_at: string;
+  chars: number;
+  action_id: number;
+  goal_id: number | null;
+}
+
+export interface DocumentOut extends DocumentSummaryOut {
+  body: string;
+  sources: string[];
 }
 
 export interface InteractionPointOut {

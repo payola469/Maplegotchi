@@ -20,6 +20,8 @@ EXPECTED_ROUTES = {
     ("GET", "/api/room"),  # read-only room layout (ADR-0027)
     ("GET", "/api/decisions"),  # read-only decision audit (ADR-0026 §8)
     ("GET", "/api/life-events"),  # read-only unified life events (ADR-0028 §2)
+    ("GET", "/api/documents"),  # read-only workspace listing (ADR-0029)
+    ("GET", "/api/documents/{document_id}"),  # one workspace document (ADR-0029)
     ("GET", "/api/journal"),
     ("GET", "/api/timeline"),
     ("GET", "/api/events"),

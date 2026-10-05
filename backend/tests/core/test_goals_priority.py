@@ -234,6 +234,7 @@ def writing_with_goal() -> MapleState:
         activity=Activity.WRITE,
         location=RoomLocation.DESK,
         point_id=None,
+        task=None,  # whatever the first decision chose to read no longer applies
         activity_started_at=first.last_updated_at,
         activity_until=first.last_updated_at + timedelta(minutes=40),
     )

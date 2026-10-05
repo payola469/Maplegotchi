@@ -10,13 +10,16 @@ from __future__ import annotations
 import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, Path, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from maplegotchi.api import views
 from maplegotchi.api.models import (
     DecisionOut,
+    DocumentOut,
+    DocumentSummaryOut,
     HealthOut,
     InteractionOut,
     JournalEntryOut,
@@ -54,11 +57,13 @@ def _complete_cutoff(records: LifeRecords, limit: int) -> int | None:
     Each store is read with its own `limit`; a store that hit it may stop part-way
     through a revision, and the other stores may already include later revisions.
     """
-    capped = [
-        max(row.revision for row in rows)
-        for rows in (records.timeline, records.actions, records.decisions)
-        if len(rows) >= limit
-    ]
+    stores: tuple[tuple[Any, ...], ...] = (
+        records.timeline,
+        records.actions,
+        records.decisions,
+        records.tools,
+    )
+    capped = [max(row.revision for row in rows) for rows in stores if len(rows) >= limit]
     return min(capped) if capped else None
 
 
@@ -135,6 +140,18 @@ def create_app(
                 events = views.life_events(service.runtime.life_written_at(cutoff))
         last = events[-1].revision if events else after_revision
         return LifeEventsOut(events=events, last_revision=last)
+
+    @api.get("/documents", response_model=list[DocumentSummaryOut])
+    def documents(limit: int = Query(20, ge=1, le=MAX_RECENT)) -> list[DocumentSummaryOut]:
+        """Maple's workspace documents, most recent `limit`, oldest first (ADR-0029)."""
+        return [views.document_summary(d) for d in service.runtime.documents(limit=limit)]
+
+    @api.get("/documents/{document_id}", response_model=DocumentOut)
+    def document(document_id: int = Path(ge=1)) -> JSONResponse:
+        found = service.runtime.document(document_id)
+        if found is None:
+            return JSONResponse({"detail": "no such document"}, status_code=404)
+        return JSONResponse(views.document(found).model_dump(mode="json"))
 
     @api.get("/room", response_model=RoomOut)
     def room() -> RoomOut:

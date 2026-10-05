@@ -203,3 +203,18 @@ describe("movement is backend truth (ADR-0027)", () => {
     expect(v.walking).toBe(false);
   });
 });
+
+describe("tasks: what Maple reads and writes (ADR-0029)", () => {
+  it("names what is being read, from the backend's task", () => {
+    const reading = activityAt("read", "bookshelf", iso(0), iso(1800), {
+      task: { tool: "reader", target: "library:the_room", title: "Maple's room", category: "home" },
+    });
+    const v = toVisual(makeSnapshot({}, { activity: reading }), T0_MS + 1000);
+    expect(v.activityLabel).toBe("reading “Maple's room”");
+  });
+
+  it("falls back to the plain activity when there is no task", () => {
+    const v = toVisual(makeSnapshot({}, { activity: activityAt("read", "bookshelf") }), T0_MS);
+    expect(v.activityLabel).toBe("reading");
+  });
+});

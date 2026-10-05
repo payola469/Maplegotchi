@@ -20,6 +20,7 @@ from maplegotchi.core.parameters import GLOBAL_INTERACTION_LIMIT, GLOBAL_INTERAC
 from maplegotchi.core.priority import Priority
 from maplegotchi.core.rng import RngState
 from maplegotchi.core.room import POINT_BY_ID, InteractionPoint, Route, canonical_point
+from maplegotchi.core.tasks import Task
 
 NEED_MIN = 0.0
 NEED_MAX = 100.0
@@ -152,6 +153,7 @@ class MapleState:
     goal_counter: int = 0  # ids handed out so far
     reevaluate_since: datetime | None = None  # a high-priority input asked for a decision
     critical_since: datetime | None = None  # a serious problem is being handled
+    task: Task | None = None  # what a read/write action is actually about (ADR-0029)
 
     def __post_init__(self) -> None:
         for name in ("activity_started_at", "activity_until", "last_tick_at", "last_updated_at"):
@@ -225,6 +227,11 @@ class MapleState:
             raise ValueError("a suspended goal and its interrupted action go together")
         if self.suspended_action is not None and not isinstance(self.suspended_action, Activity):
             raise TypeError("suspended_action must be an Activity")
+        if self.task is not None:
+            if not isinstance(self.task, Task):
+                raise TypeError("task must be a Task")
+            if not self.task.fits(self.activity):
+                raise ValueError(f"a {self.task.tool} task cannot go with {self.activity}")
         for name in ("reevaluate_since", "critical_since"):
             value = getattr(self, name)
             if value is not None:

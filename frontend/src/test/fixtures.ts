@@ -41,6 +41,7 @@ export function activityAt(
     facing: p.facing,
     position: { x: p.x, y: p.y },
     route: null,
+    task: null,
     ...overrides,
   };
 }

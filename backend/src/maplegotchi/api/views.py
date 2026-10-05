@@ -12,6 +12,8 @@ from maplegotchi.api.models import (
     DayOut,
     DecisionOut,
     DirectorOut,
+    DocumentOut,
+    DocumentSummaryOut,
     ExecutedOut,
     FreshnessOut,
     FurnitureOut,
@@ -35,6 +37,7 @@ from maplegotchi.api.models import (
     ServiceHealthOut,
     SnapshotOut,
     StatusOut,
+    TaskOut,
     TimelineEventOut,
 )
 from maplegotchi.core import room as room_model
@@ -65,6 +68,7 @@ from maplegotchi.runtime.service import (
 )
 from maplegotchi.storage.audit_rows import StoredDecision
 from maplegotchi.storage.repositories import StoredEvent, StoredJournalEntry, StoredObservation
+from maplegotchi.storage.tool_rows import StoredDocument
 
 TIMEZONE = "Asia/Bangkok"  # D16
 
@@ -117,6 +121,34 @@ def activity(state: MapleState, now: datetime) -> ActivityOut:
         facing=point.facing.value,
         position=PositionOut(x=x, y=y),
         route=route(state.route),
+        task=(
+            TaskOut(
+                tool=state.task.tool.value,
+                target=state.task.target,
+                title=state.task.title,
+                category=state.task.category,
+            )
+            if state.task
+            else None
+        ),
+    )
+
+
+def document_summary(doc: StoredDocument) -> DocumentSummaryOut:
+    return DocumentSummaryOut(
+        id=doc.id,
+        kind=doc.kind.value,
+        title=doc.title,
+        created_at=doc.created_at,
+        chars=len(doc.body),
+        action_id=doc.action_id,
+        goal_id=doc.goal_id,
+    )
+
+
+def document(doc: StoredDocument) -> DocumentOut:
+    return DocumentOut(
+        **document_summary(doc).model_dump(), body=doc.body, sources=list(doc.sources)
     )
 
 
@@ -406,6 +438,32 @@ def life_events(records: LifeRecords) -> list[LifeEventOut]:
                     action_id=None,
                     priority=None,
                     payload=dict(out.details),
+                ),
+            )
+        )
+    for t in records.tools:
+        tr = t.record
+        keyed.append(
+            (
+                (t.revision, 3, t.id),
+                LifeEventOut(
+                    id=f"tool:{t.id}",
+                    type=tr.op.value,
+                    at=tr.at,
+                    revision=t.revision,
+                    goal_id=tr.goal_id,
+                    action_id=tr.action_id,
+                    priority=None,
+                    payload={
+                        "tool": tr.task.tool.value,
+                        "target": tr.task.target,
+                        "title": tr.task.title,
+                        "category": tr.task.category,
+                        "status": "success" if tr.success else "failure",
+                        "detail": tr.detail,
+                        "chars": tr.chars,
+                        "document_id": t.document_id,
+                    },
                 ),
             )
         )

@@ -20,7 +20,7 @@ Everything here is pure: time and randomness are supplied by the caller.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -73,6 +73,7 @@ from maplegotchi.core.rng import RngStream
 from maplegotchi.core.room import POINT_BY_ID
 from maplegotchi.core.signals import CRITICAL_ATTENTION, NOTABLE_ATTENTION, Signal, SignalKind
 from maplegotchi.core.state import MapleState
+from maplegotchi.core.tasks import LIBRARY_CATALOG, SourceRef, Task, rule_task
 from maplegotchi.core.timeline import (
     GoalAbandoned,
     GoalCompleted,
@@ -114,6 +115,7 @@ class RejectionCode(StrEnum):
     ACTION_NOT_ALLOWED = "action_not_allowed"
     NO_DESTINATION = "no_destination"
     DURATION_OUT_OF_RANGE = "duration_out_of_range"  # far outside; slightly outside is clamped
+    UNKNOWN_TARGET = "unknown_target"  # a read/write target not in the approved catalog
     STALE = "stale"
     TIMEOUT = "timeout"
     TRANSPORT_ERROR = "transport_error"
@@ -133,10 +135,13 @@ class Plan:
     goal_summary: str | None = None  # NEW only
     horizon: timedelta | None = None  # NEW only
     end_reason: GoalEndReason | None = None  # ABANDON, or how to end a suspended goal
+    task: Task | None = None  # what to read or write (ADR-0029); None for other actions
 
     def __post_init__(self) -> None:
         if not isinstance(self.goal_op, GoalOp) or not isinstance(self.action, Activity):
             raise TypeError("plan goal_op and action must be enums")
+        if self.task is not None and not self.task.fits(self.action):
+            raise ValueError("plan task does not fit its action")
         if self.duration <= timedelta(0):
             raise ValueError("plan duration must be positive")
         if text_problems(self.reason):
@@ -308,6 +313,7 @@ def rule_plan(
     inputs: BehaviorInputs,
     params: CoreParameters,
     rng: RngStream,
+    catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
 ) -> Plan:
     """Core's own direction: the fallback that is always available (ADR-0026 §1)."""
     state = prepared.state
@@ -330,6 +336,7 @@ def rule_plan(
             )
         )
     verb = {GoalOp.RESUME: "resume", GoalOp.KEEP: "keep", GoalOp.NEW: "start"}[op]
+    task = rule_task(choice.activity, goal_type, catalog, rng)
     return Plan(
         goal_op=op,
         action=choice.activity,
@@ -339,6 +346,7 @@ def rule_plan(
         goal_type=goal_type if op is GoalOp.NEW else None,
         goal_summary=RULE_SUMMARIES[goal_type] if op is GoalOp.NEW else None,
         horizon=horizon,
+        task=task,
     )
 
 
@@ -435,6 +443,7 @@ def execute(
         action_id=action_id,
         action_priority=Priority.NORMAL,
         reevaluate_since=None,
+        task=plan.task,
         rng=replace(state.rng, decision_counter=state.rng.decision_counter + 1),
     )
     return DecisionOutcome(
@@ -565,6 +574,7 @@ def decide(
     params: CoreParameters,
     *,
     fallback_code: RejectionCode | None = None,
+    catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
 ) -> DecisionOutcome:
     """A rule-direction decision at `now` (deterministic for a given state and time).
 
@@ -573,7 +583,7 @@ def decide(
     """
     prepared = prepare(state, now, trigger, params)
     rng = decision_rng(state)
-    plan = rule_plan(prepared, now, inputs, params, rng)
+    plan = rule_plan(prepared, now, inputs, params, rng, catalog)
     outcome = execute(prepared, now, trigger, plan, rng)
     record = decision_record(
         prepared,
@@ -655,5 +665,6 @@ def interrupt(state: MapleState, now: datetime, signal: Signal, rng: RngStream) 
         action_id=state.action_id + 1,
         action_priority=signal.priority,
         critical_since=now if signal.priority is Priority.CRITICAL else state.critical_since,
+        task=None,  # response actions are not reading or writing
     )
     return InterruptOutcome(new_state, tuple(events), signal, interrupted, moved, tuple(actions))

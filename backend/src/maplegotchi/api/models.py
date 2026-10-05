@@ -50,6 +50,13 @@ class RouteOut(_Out):
     path: list[PathPointOut]
 
 
+class TaskOut(_Out):
+    tool: str  # reader | writer
+    target: str  # catalog id (reader) or workspace:<kind> (writer)
+    title: str
+    category: str
+
+
 class ActivityOut(_Out):
     kind: str
     location: str
@@ -63,6 +70,7 @@ class ActivityOut(_Out):
     facing: str
     position: PositionOut  # at generated_at
     route: RouteOut | None
+    task: TaskOut | None  # what is being read/written (ADR-0029); null for other actions
 
 
 class InteractionPointOut(_Out):
@@ -289,7 +297,7 @@ class DecisionOut(_Out):
 class LifeEventOut(_Out):
     """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
 
-    id: str  # "<store>:<row id>", store = timeline | action | decision
+    id: str  # "<store>:<row id>", store = timeline | action | decision | tool
     type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
     at: datetime
     revision: int
@@ -300,8 +308,23 @@ class LifeEventOut(_Out):
 
 
 class LifeEventsOut(_Out):
-    events: list[LifeEventOut]  # ordered by revision, then decision -> timeline -> action
+    events: list[LifeEventOut]  # by revision, then decision -> timeline -> action -> tool
     last_revision: int  # pass back as `after_revision` to continue
+
+
+class DocumentSummaryOut(_Out):
+    id: int
+    kind: str  # note | summary | reflection | research
+    title: str
+    created_at: datetime
+    chars: int
+    action_id: int
+    goal_id: int | None
+
+
+class DocumentOut(DocumentSummaryOut):
+    body: str
+    sources: list[str]  # catalog ids it drew on
 
 
 class HealthOut(_Out):

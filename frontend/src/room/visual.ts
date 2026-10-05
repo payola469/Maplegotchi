@@ -194,7 +194,12 @@ export function toVisual(snapshot: SnapshotOut, serverNowMs: number, clockOffset
   const { lighting, known } = lightingFor(snapshot.day.phase, snapshot.day.is_night);
   if (!known) recognised = false;
 
-  const doing = ACTIVITY_LABEL[activity.kind] ?? activity.kind;
+  // Say WHAT is read or written when the backend says so (ADR-0029).
+  const task = activity.task;
+  const doing =
+    task && (activity.kind === "read" || activity.kind === "write")
+      ? `${ACTIVITY_LABEL[activity.kind] ?? activity.kind} “${task.title}”`
+      : (ACTIVITY_LABEL[activity.kind] ?? activity.kind);
   return {
     pose: pose ?? "stand",
     anchor,

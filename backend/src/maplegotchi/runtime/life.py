@@ -65,6 +65,7 @@ from maplegotchi.core.reflection import (
 from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
+from maplegotchi.runtime.tasks import TaskWorker
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
@@ -75,6 +76,7 @@ from maplegotchi.storage.repositories import (
     StoredJournalEntry,
     StoredObservation,
 )
+from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 DEFAULT_NAME = "Maple"
 
@@ -146,9 +148,10 @@ class LifeRecords:
     timeline: tuple[StoredEvent, ...]
     actions: tuple[StoredActionEvent, ...]
     decisions: tuple[StoredDecision, ...]
+    tools: tuple[StoredToolUse, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.timeline or self.actions or self.decisions)
+        return bool(self.timeline or self.actions or self.decisions or self.tools)
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -185,6 +188,7 @@ class LifeRuntime:
         self._params = params
         self._journal_params = journal or JournalParameters()
         self._lock = threading.Lock()
+        self._tasks = TaskWorker()
         stored = repository.load()
         self._state = stored.state
         self._revision = stored.revision
@@ -274,13 +278,14 @@ class LifeRuntime:
             return repo.events(revision=revision), repo.journal(revision=revision)
 
     def life_written_at(self, revision: int) -> LifeRecords:
-        """Every life event (timeline, action lifecycle, decisions) of exactly this revision."""
+        """Every life event (timeline, actions, decisions, tools) of exactly this revision."""
         with self._lock:
             repo = self._repository()
             return LifeRecords(
                 tuple(repo.events(revision=revision)),
                 tuple(repo.action_events(revision=revision)),
                 tuple(repo.decisions(revision=revision)),
+                tuple(repo.tool_uses(revision=revision)),
             )
 
     def life_since(self, revision: int, *, limit: int) -> LifeRecords:
@@ -291,7 +296,20 @@ class LifeRuntime:
                 tuple(repo.events_since(revision, limit=limit)),
                 tuple(repo.action_events(since_revision=revision, limit=limit)),
                 tuple(repo.decisions(since_revision=revision, limit=limit)),
+                tuple(repo.tool_uses(since_revision=revision, limit=limit)),
             )
+
+    def documents(self, *, limit: int) -> list[StoredDocument]:
+        with self._lock:
+            return self._repository().documents(limit=limit)
+
+    def document(self, document_id: int) -> StoredDocument | None:
+        with self._lock:
+            return self._repository().document(document_id)
+
+    def tool_uses(self, *, limit: int) -> list[StoredToolUse]:
+        with self._lock:
+            return self._repository().tool_uses(limit=limit)
 
     def decisions(self, *, limit: int) -> list[StoredDecision]:
         with self._lock:
@@ -345,6 +363,7 @@ class LifeRuntime:
                 self._params,
                 server_reasons=attention.reasons,
                 recent=recent,
+                catalog=self._tasks.catalog(repo),
             )
             return PendingDecision(self._revision, trigger, inputs, context)
 
@@ -395,6 +414,7 @@ class LifeRuntime:
                 raw=raw,
                 failure=failure,
                 latency_ms=latency_ms,
+                catalog=self._tasks.catalog(repo),  # as it is now, not when asked
             )
             return self._commit_decision(repo, outcome, now)
 
@@ -405,6 +425,21 @@ class LifeRuntime:
         observed_at = max(s.observation.observed_at for s in latest)
         snapshot = ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
         return assess_server_attention(snapshot)
+
+    @staticmethod
+    def _server_line(repo: LifeRepository) -> str | None:
+        """One factual line about the server for documents (lock held by the caller)."""
+        tick = repo.latest_observation_tick()
+        if tick is None:
+            return None
+        stored = repo.observations(tick_id=tick)
+        snapshot = ObservationSnapshot(
+            max(s.observation.observed_at for s in stored), tuple(s.observation for s in stored)
+        )
+        attention = assess_server_attention(snapshot)
+        if not attention.reasons:
+            return "nothing notable in the latest observations"
+        return "noticed " + ", ".join(attention.reasons[:3])
 
     def latest_inputs(self) -> BehaviorInputs:
         """Behavior inputs from the most recent stored observations (facts only)."""
@@ -427,7 +462,9 @@ class LifeRuntime:
             trigger = decision_due(self._state, now)
             if trigger is None:
                 return None
-            outcome = decide(self._state, now, trigger, inputs, self._params)
+            outcome = decide(
+                self._state, now, trigger, inputs, self._params, catalog=self._tasks.catalog(repo)
+            )
             return self._commit_decision(repo, outcome, now)
 
     def _commit_decision(
@@ -445,6 +482,9 @@ class LifeRuntime:
         )
         entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
         reflection = mark_journaled(reflection, triggers, _written(entries), now)
+        tools = self._tasks.effects(
+            repo, self._state, outcome.state, now, server_line=self._server_line(repo)
+        )
         revision = repo.commit(
             outcome.state,
             expected_revision=self._revision,
@@ -453,6 +493,7 @@ class LifeRuntime:
             reflection=reflection,
             actions=outcome.actions,
             decisions=(outcome.record,),
+            tools=tools,
         )
         self._state, self._revision, self._reflection = outcome.state, revision, reflection
         return CommittedDecision(outcome, revision, entries)
@@ -529,6 +570,9 @@ class LifeRuntime:
                 triggers, result.state, now, observations, tick_id=result.tick_id
             )
             reflection = mark_journaled(reflection, triggers, _written(entries), now)
+            tools = self._tasks.effects(
+                repo, state, result.state, now, server_line=self._server_line(repo)
+            )
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
@@ -539,6 +583,7 @@ class LifeRuntime:
                 reflection=reflection,
                 actions=result.actions,
                 decisions=(result.decision,) if result.decision else (),
+                tools=tools,
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
             return CommittedTick(result, revision, entries)

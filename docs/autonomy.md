@@ -117,3 +117,19 @@ with `expired` / `no_longer_relevant`.
   `decision_grace` (120 s in production) — a hung companion cannot stall Maple.
 - `GET /api/snapshot` and `/api/status` carry `director` (`kind`, `name`, `version`).
 
+## Real reading and writing (A5, ADR-0029)
+
+- A `read`/`write` action carries a **task** (`core/tasks.py`): tool, target, title,
+  category. Rule direction chooses by goal (e.g. `monitor` → `server:status`,
+  `reflect` → `journal:recent`, `create` → a note); a Director may name a target.
+- **Catalog** (`runtime/tasks.py:TaskWorker.catalog`): the release library
+  (`maplegotchi/library`, read via `importlib.resources`), Maple's 5 most recent
+  documents, `journal:recent`, `server:status`. Ids only — no paths, listing, or network.
+- **When**: a task's text is fetched when its action is chosen (`read_started`, with
+  an extract and size, or `read_failed`/`unavailable`); at completion the reading is
+  confirmed (`read_completed`) or, if interrupted, `read_failed`/`interrupted`.
+  A write produces its document at completion (`write_completed` → `document` row)
+  from recent readings, journal lines, the goal and a server line; an interrupted
+  write produces nothing (`write_failed`/`interrupted`).
+- The workspace is the `document` table in maple.db: backed up nightly, no new files.
+

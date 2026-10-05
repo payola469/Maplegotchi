@@ -33,6 +33,8 @@ no rows or domain objects are returned.
 | GET | `/api/server` | `ServerOut` | summary, attention, service health, host readings, counts by status |
 | GET | `/api/room` | `RoomOut` | room size, furniture labels, interaction points (ADR-0027); static per release |
 | GET | `/api/decisions?limit=1..100` | `DecisionOut[]` | decision audit, most recent, oldest first (ADR-0026 §8) |
+| GET | `/api/documents?limit=1..100` | `DocumentSummaryOut[]` | Maple's workspace documents (ADR-0029) |
+| GET | `/api/documents/{id}` | `DocumentOut` | one document with its body and cited sources; 404 if none |
 | GET | `/api/life-events?after_revision=N&limit=1..500` | `LifeEventsOut` | every life event after revision N, whole revisions only; continue from `last_revision` |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
 | GET | `/api/journal?limit=1..100` | `JournalEntryOut[]` | most recent, oldest first (default 20) |
@@ -258,6 +260,7 @@ Three append-only stores, one envelope:
 | `timeline` (significant life events) | `born`, `activity_changed`, `interaction_accepted`, `downtime_gap`, `goal_started`, `goal_suspended`, `goal_resumed`, `goal_completed`, `goal_abandoned` |
 | `action` (action lifecycle) | `destination_selected`, `walking_started`, `walking_cancelled`, `arrived`, `activity_started`, `activity_completed`, `activity_interrupted`, `activity_resumed`, `needs_attention` |
 | `decision` (audit) | `goal_proposed` (a new goal was proposed), `decision_made`, `decision_rejected` (rejected or stale proposal) |
+| `tool` (reader/writer provenance, ADR-0029) | `read_started`, `read_completed`, `read_failed`, `write_started`, `write_completed`, `write_failed` (payload: tool, target, title, category, status, detail, chars, document_id) |
 
 ```jsonc
 {"id": "action:42", "type": "walking_started", "at": "…Z", "revision": 310,
@@ -266,7 +269,9 @@ Three append-only stores, one envelope:
              "arrives_at": "…Z", "distance": 400.0}}
 ```
 
-- Ordering: by revision, then decision → timeline → action, then row id.
+- Ordering: by revision, then decision → timeline → action → tool, then row id.
+- The snapshot's `maple.activity.task` (`tool`, `target`, `title`, `category`) says what
+  Maple is reading or writing; null for other activities.
 - Live: the SSE `life` event carries the envelopes of one commit. Catch-up or
   polling (iOS, Discord gateway): `GET /api/life-events?after_revision=<last seen>`;
   a page never ends part-way through a revision.

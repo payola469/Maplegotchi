@@ -265,6 +265,7 @@ def test_state_fields_are_all_plain_data() -> None:
         "goal_counter",
         "reevaluate_since",
         "critical_since",
+        "task",  # ADR-0029: what a read/write action is about
     }
 
 

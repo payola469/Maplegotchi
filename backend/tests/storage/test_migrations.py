@@ -53,6 +53,8 @@ EXPECTED_TABLES = {
     "goal",  # v4 (ADR-0028)
     "decision",
     "action_event",
+    "document",  # v6 (ADR-0029)
+    "tool_use",
 }
 EXPECTED_TRIGGERS = {
     "maple_immutable_update",
@@ -75,6 +77,10 @@ EXPECTED_TRIGGERS = {
     "decision_append_only_delete",
     "action_event_append_only_update",
     "action_event_append_only_delete",
+    "document_append_only_update",  # v6 (ADR-0029)
+    "document_append_only_delete",
+    "tool_use_append_only_update",
+    "tool_use_append_only_delete",
 }
 
 
@@ -89,8 +95,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5]
-    assert LATEST == 5
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6]
+    assert LATEST == 6
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])

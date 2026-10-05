@@ -58,6 +58,14 @@ from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.room import FURNITURE_AT
 from maplegotchi.core.signals import classify_signals
 from maplegotchi.core.state import MapleState
+from maplegotchi.core.tasks import (
+    LIBRARY_CATALOG,
+    SourceRef,
+    Task,
+    WriteKind,
+    proposed_task,
+    rule_task,
+)
 
 CONTRACT = "maple.decision.v1"
 # "Slightly" out of range: within this factor of the bound is clamped; beyond is refused.
@@ -66,7 +74,7 @@ MAX_RECENT_DECISIONS = 3
 
 _TOP_KEYS = frozenset({"goal", "action", "reason"})
 _GOAL_KEYS = frozenset({"op", "type", "summary", "horizon_minutes", "end_reason"})
-_ACTION_KEYS = frozenset({"kind", "duration_minutes"})
+_ACTION_KEYS = frozenset({"kind", "duration_minutes", "target"})
 _ABANDON_REASONS = (
     GoalEndReason.DIRECTOR_ABANDONED,
     GoalEndReason.NO_LONGER_RELEVANT,
@@ -122,6 +130,7 @@ def build_context(
     *,
     server_reasons: Sequence[str] = (),
     recent: Sequence[DecisionRecord] = (),
+    catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
 ) -> DecisionContext:
     """The `maple.decision.v1` context core shows a Director (ADR-0026 §4)."""
     require_utc(now, "now")
@@ -203,6 +212,11 @@ def build_context(
                 for a in actions
             ],
             "end_reasons": [r.value for r in _ABANDON_REASONS],
+            # Optional `action.target` (ADR-0029): what to read / which kind to write.
+            "read_sources": [
+                {"id": s.id, "title": s.title, "category": s.category} for s in catalog
+            ],
+            "write_kinds": [k.value for k in WriteKind],
         },
         "recent_decisions": [
             {
@@ -232,6 +246,7 @@ class Parsed:
     goal_summary: str | None = None
     horizon_minutes: float | None = None
     end_reason: GoalEndReason | None = None
+    target: str | None = None  # what to read (catalog id) or write (document kind)
 
     def as_proposal(self) -> Proposal:
         return Proposal(
@@ -260,7 +275,12 @@ def parse_proposal(raw: object) -> Parsed | RejectionCode:
     goal, action, reason = raw.get("goal"), raw.get("action"), raw.get("reason")
     if not isinstance(goal, dict) or not isinstance(action, dict):
         return RejectionCode.MALFORMED
-    if not set(goal) <= _GOAL_KEYS or "op" not in goal or set(action) != _ACTION_KEYS:
+    if not set(goal) <= _GOAL_KEYS or "op" not in goal:
+        return RejectionCode.MALFORMED
+    if not {"kind", "duration_minutes"} <= set(action) <= _ACTION_KEYS:
+        return RejectionCode.MALFORMED
+    target = action.get("target")
+    if target is not None and (not isinstance(target, str) or not 1 <= len(target) <= 60):
         return RejectionCode.MALFORMED
     if text_problems(reason) or not isinstance(reason, str):
         return RejectionCode.TEXT_INVALID
@@ -311,6 +331,7 @@ def parse_proposal(raw: object) -> Parsed | RejectionCode:
         goal_summary=summary,
         horizon_minutes=horizon,
         end_reason=end_reason,
+        target=target,
     )
 
 
@@ -331,9 +352,19 @@ class Validated:
 
 
 def validate_proposal(
-    prepared: Prepared, now: datetime, parsed: Parsed
+    prepared: Prepared,
+    now: datetime,
+    parsed: Parsed,
+    catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
 ) -> Validated | RejectionCode:
     """Range checks, clamping, then core's legality rules against the current state."""
+    task = proposed_task(parsed.action, parsed.target, catalog)
+    if task == "unknown_target":
+        return RejectionCode.UNKNOWN_TARGET
+    if task == "malformed":
+        if parsed.target is not None:
+            return RejectionCode.MALFORMED
+        task = None  # read/write without a target: no task named; core picks one below
     clamped: dict[str, float] = {}
     spec = SPECS[parsed.action]
     fitted = _clamp(parsed.duration_minutes, spec.min_minutes, spec.max_minutes)
@@ -364,6 +395,7 @@ def validate_proposal(
         goal_summary=parsed.goal_summary,
         horizon=timedelta(seconds=round(horizon.total_seconds())) if horizon else None,
         end_reason=parsed.end_reason,
+        task=task if isinstance(task, Task) else None,
     )
     problem = check_plan(prepared, now, plan)
     if problem is not None:
@@ -386,6 +418,7 @@ def decide_with_proposal(
     raw: object = None,
     failure: RejectionCode | None = None,
     latency_ms: int | None = None,
+    catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
 ) -> DecisionOutcome:
     """Execute a Director's proposal if core accepts it, else rule direction.
 
@@ -397,9 +430,16 @@ def decide_with_proposal(
     label = (director.kind, director.name, director.version)
     parsed: Parsed | RejectionCode = failure if failure is not None else parse_proposal(raw)
     proposal = parsed.as_proposal() if isinstance(parsed, Parsed) else None
-    checked = validate_proposal(prepared, now, parsed) if isinstance(parsed, Parsed) else parsed
+    checked = (
+        validate_proposal(prepared, now, parsed, catalog) if isinstance(parsed, Parsed) else parsed
+    )
     if isinstance(checked, Validated):
-        outcome = execute(prepared, now, trigger, checked.plan, rng)
+        plan = checked.plan
+        if plan.task is None and plan.action in (Activity.READ, Activity.WRITE):
+            goal = prepared.state.goal
+            goal_type = plan.goal_type or (goal.type if goal else None)
+            plan = replace(plan, task=rule_task(plan.action, goal_type, catalog, rng))
+        outcome = execute(prepared, now, trigger, plan, rng)
         record = decision_record(
             prepared,
             outcome,
@@ -414,7 +454,7 @@ def decide_with_proposal(
         )
         return replace(outcome, record=record)
     # Refused or missing: rule direction decides, and the audit says why.
-    plan = rule_plan(prepared, now, inputs, params, rng)
+    plan = rule_plan(prepared, now, inputs, params, rng, catalog)
     outcome = execute(prepared, now, trigger, plan, rng)
     transport = checked in (
         RejectionCode.TIMEOUT,

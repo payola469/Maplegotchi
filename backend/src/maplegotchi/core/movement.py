@@ -165,6 +165,8 @@ def begin_activity(
     walking = state.walking_at(now)
     if state.route is not None and not walking:
         raise ValueError("settle a completed walk before beginning another activity")
+    if state.task is not None and not state.task.fits(activity):
+        state = replace(state, task=None)  # the caller sets the new action's task
     cancelled = state.route if walking else None
     performed = performed_activity(state, now)
 

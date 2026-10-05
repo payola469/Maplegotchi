@@ -95,6 +95,7 @@ def _fingerprint(state: MapleState) -> str:
             f"{state.goal.id}:{state.goal.type.value}" if state.goal else "-",
             str(state.suspended_goal.id) if state.suspended_goal else "-",
             state.action_priority.value,
+            state.task.target if state.task else "-",
             repr(n.mood),
             repr(n.energy),
             repr(n.curiosity),

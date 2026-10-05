@@ -58,7 +58,8 @@ Response (exactly these keys; anything else is refused):
               "horizon_minutes": 30..120}
            | {"op": "complete"} | {"op": "resume"}
            | {"op": "abandon", "end_reason": "<optional end reason>"},
-   "action": {"kind": "<activity>", "duration_minutes": <number>},
+   "action": {"kind": "<activity>", "duration_minutes": <number>,
+              "target": "<optional: a read_sources id for read, a write_kinds value for write>"},
    "reason": "<one concise line, 1-240 chars>"} | null}
 ```
 
@@ -71,6 +72,7 @@ Core's handling (`core/proposal.py`):
 | further out of range | `rejected` (`duration_out_of_range`) | rule direction |
 | unknown keys/enums, wrong types, multi-line text | `rejected` (`malformed`, `unknown_action`, `unknown_goal_type`, `text_invalid`) | rule direction |
 | illegal now (e.g. `keep` without a goal, action forbidden by low energy) | `rejected` (`goal_operation_invalid`, `action_not_allowed`) | rule direction |
+| `target` not in the approved catalog / not a document kind | `rejected` (`unknown_target`) | rule direction |
 | timeout, HTTP/transport error, wrong contract, oversized, `null` | `fallback` (`timeout`, `transport_error`, `no_proposal`) | rule direction |
 | answer arrives after the decision stopped being due | `stale` | recorded, nothing executed |
 

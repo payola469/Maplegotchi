@@ -48,6 +48,7 @@ from maplegotchi.core.state import (
     Reaction,
     ReactionKind,
 )
+from maplegotchi.core.tasks import Task, Tool, ToolOp, ToolRecord
 from maplegotchi.core.timeline import (
     ActivityChanged,
     Born,
@@ -60,9 +61,10 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
-from maplegotchi.storage import audit_rows
+from maplegotchi.storage import audit_rows, tool_rows
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
+from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 MAPLE_ID = 1
 
@@ -256,7 +258,8 @@ _STATE_COLUMNS = (
     "reaction_kind, reaction_variant, reaction_started_at, reaction_until, "
     "point_id, route_departed_at, route_from_activity, route_path, "
     "needs_at, decision_counter, action_counter, goal_counter, action_priority, "
-    "active_goal_id, suspended_goal_id, suspended_action, decision_due_since, critical_since"
+    "active_goal_id, suspended_goal_id, suspended_action, decision_due_since, critical_since, "
+    "task_tool, task_target, task_title, task_category"
 )
 _STATE_PLACEHOLDERS = ", ".join("?" * len(_STATE_COLUMNS.split(",")))
 
@@ -316,6 +319,10 @@ def _state_values(state: MapleState) -> tuple[object, ...]:
         state.suspended_action.value if state.suspended_action else None,
         _ts(state.reevaluate_since) if state.reevaluate_since else None,
         _ts(state.critical_since) if state.critical_since else None,
+        state.task.tool.value if state.task else None,
+        state.task.target if state.task else None,
+        state.task.title if state.task else None,
+        state.task.category if state.task else None,
     )
 
 
@@ -400,7 +407,8 @@ class LifeRepository:
          r_kind, r_variant, r_start, r_until,
          point_id, route_departed, route_from, route_path,
          needs_at, decisions, action_id, goal_counter, action_priority,
-         goal_id, suspended_id, suspended_action, reevaluate, critical) = state_row  # fmt: skip
+         goal_id, suspended_id, suspended_action, reevaluate, critical,
+         task_tool, task_target, task_title, task_category) = state_row  # fmt: skip
         ledger = self._conn.execute(
             "SELECT position, kind, at FROM interaction_ledger WHERE maple_id = ?"
             " ORDER BY position",
@@ -452,6 +460,11 @@ class LifeRepository:
             goal_counter=goal_counter,
             reevaluate_since=_parse_ts(reevaluate) if reevaluate else None,
             critical_since=_parse_ts(critical) if critical else None,
+            task=(
+                Task(Tool(task_tool), task_target, task_title, task_category)
+                if task_tool is not None
+                else None
+            ),
         )
         return StoredLife(state=state, revision=revision)
 
@@ -513,6 +526,30 @@ class LifeRepository:
         except (ValueError, TypeError, KeyError) as exc:
             raise CorruptStateError(f"timeline event is invalid: {exc}") from exc
 
+    def tool_uses(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+        operation: ToolOp | None = None,
+    ) -> list[StoredToolUse]:
+        """Reader/writer provenance, oldest first (ADR-0029 §5)."""
+        return tool_rows.tool_uses(
+            self._conn,
+            limit=limit,
+            revision=revision,
+            since_revision=since_revision,
+            operation=operation,
+        )
+
+    def documents(self, *, limit: int | None = None) -> list[StoredDocument]:
+        """Maple's workspace documents, oldest first."""
+        return tool_rows.documents(self._conn, limit=limit)
+
+    def document(self, document_id: int) -> StoredDocument | None:
+        return tool_rows.document(self._conn, document_id)
+
     def goals(self, *, limit: int | None = None) -> list[Goal]:
         """Goal definitions, oldest first (all, or only the most recent `limit`)."""
         if limit is None:
@@ -536,6 +573,7 @@ class LifeRepository:
         reflection: ReflectionState | None = None,
         actions: Sequence[ActionEvent] = (),
         decisions: Sequence[DecisionRecord] = (),
+        tools: Sequence[ToolRecord] = (),
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
         observations it used), action lifecycle events, and decision audit rows.
@@ -586,6 +624,7 @@ class LifeRepository:
             )
             self._insert_events(new_revision, events, tick_id)
             audit_rows.insert_actions(self._conn, new_revision, actions)
+            tool_rows.insert_tools(self._conn, new_revision, tools)
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

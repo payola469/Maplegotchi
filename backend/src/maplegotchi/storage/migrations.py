@@ -521,6 +521,68 @@ _V5_CRITICAL = f"""
 ALTER TABLE life_state ADD COLUMN critical_since TEXT CHECK (critical_since {_UTC_TS});
 """
 
+# Schema v6 (ADR-0029): what a read/write action is about, Maple's document
+# workspace, and reader/writer provenance. Both new tables are append-only.
+_V6_TOOLS = f"""
+ALTER TABLE life_state ADD COLUMN task_tool TEXT CHECK (task_tool IN ('reader', 'writer'));
+
+ALTER TABLE life_state ADD COLUMN task_target TEXT CHECK (length(task_target) BETWEEN 1 AND 60);
+
+ALTER TABLE life_state ADD COLUMN task_title TEXT CHECK (length(task_title) BETWEEN 1 AND 80);
+
+ALTER TABLE life_state ADD COLUMN task_category TEXT
+    CHECK (length(task_category) BETWEEN 1 AND 40);
+
+CREATE TABLE document (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id   INTEGER NOT NULL REFERENCES maple (id),
+    revision   INTEGER NOT NULL CHECK (revision >= 1),
+    kind       TEXT    NOT NULL CHECK (kind IN ('note', 'summary', 'reflection', 'research')),
+    title      TEXT    NOT NULL CHECK (length(title) BETWEEN 1 AND 80
+                                   AND instr(title, char(10)) = 0),
+    body       TEXT    NOT NULL CHECK (length(body) BETWEEN 1 AND 4000),
+    created_at TEXT    NOT NULL CHECK (created_at {_UTC_TS}),
+    action_id  INTEGER NOT NULL CHECK (action_id >= 0),
+    goal_id    INTEGER CHECK (goal_id >= 1),
+    sources    TEXT    NOT NULL CHECK (json_valid(sources))
+) STRICT;
+
+CREATE TABLE tool_use (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    maple_id    INTEGER NOT NULL REFERENCES maple (id),
+    revision    INTEGER NOT NULL CHECK (revision >= 1),
+    at          TEXT    NOT NULL CHECK (at {_UTC_TS}),
+    action_id   INTEGER NOT NULL CHECK (action_id >= 0),
+    goal_id     INTEGER CHECK (goal_id >= 1),
+    tool        TEXT    NOT NULL CHECK (tool IN ('reader', 'writer')),
+    operation   TEXT    NOT NULL CHECK (operation IN
+                    ('read_started', 'read_completed', 'read_failed',
+                     'write_started', 'write_completed', 'write_failed')),
+    target      TEXT    NOT NULL CHECK (length(target) BETWEEN 1 AND 60),
+    title       TEXT    NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+    category    TEXT    NOT NULL CHECK (length(category) BETWEEN 1 AND 40),
+    status      TEXT    NOT NULL CHECK (status IN ('success', 'failure')),
+    detail      TEXT    CHECK (length(detail) BETWEEN 1 AND 200
+                               AND instr(detail, char(10)) = 0),
+    chars       INTEGER CHECK (chars >= 0),
+    document_id INTEGER REFERENCES document (id)
+) STRICT;
+
+CREATE INDEX tool_use_by_action ON tool_use (action_id);
+
+CREATE TRIGGER document_append_only_update BEFORE UPDATE ON document
+BEGIN SELECT RAISE(ABORT, 'documents are append-only'); END;
+
+CREATE TRIGGER document_append_only_delete BEFORE DELETE ON document
+BEGIN SELECT RAISE(ABORT, 'documents are append-only'); END;
+
+CREATE TRIGGER tool_use_append_only_update BEFORE UPDATE ON tool_use
+BEGIN SELECT RAISE(ABORT, 'tool provenance is append-only'); END;
+
+CREATE TRIGGER tool_use_append_only_delete BEFORE DELETE ON tool_use
+BEGIN SELECT RAISE(ABORT, 'tool provenance is append-only'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -534,6 +596,7 @@ MIGRATIONS: tuple[Migration, ...] = (
         verify=_v4_verify,
     ),
     Migration(5, "goals: critical interruption tracking", _V5_CRITICAL),
+    Migration(6, "reader/writer: task, workspace documents, provenance", _V6_TOOLS),
 )
 
 

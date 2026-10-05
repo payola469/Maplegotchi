@@ -82,8 +82,15 @@ def test_critical_interruption_is_persisted(tmp_path: Path) -> None:
 def test_v4_database_upgrades_to_v5_with_a_snapshot(tmp_path: Path) -> None:
     data_dir, clock, runtime = new_life(tmp_path)
     runtime.close()
-    with raw_db(data_dir) as conn:  # pretend this database was left at v4
-        conn.execute("ALTER TABLE life_state DROP COLUMN critical_since")
+    with raw_db(data_dir) as conn:  # take this database back to exactly v4
+        for trigger in ("document_append_only_update", "document_append_only_delete",
+                        "tool_use_append_only_update", "tool_use_append_only_delete"):  # fmt: skip
+            conn.execute(f"DROP TRIGGER {trigger}")
+        conn.execute("DROP TABLE tool_use")
+        conn.execute("DROP TABLE document")
+        for column in ("task_tool", "task_target", "task_title", "task_category",
+                       "critical_since"):  # fmt: skip
+            conn.execute(f"ALTER TABLE life_state DROP COLUMN {column}")
         conn.execute("PRAGMA user_version = 4")
     with open_runtime(data_dir, clock) as reopened:
         assert reopened.state.critical_since is None

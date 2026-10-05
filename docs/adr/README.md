@@ -33,6 +33,7 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0026](0026-ai-director.md) | AI Director, goals, priorities, decision transition (D25) |
 | [0027](0027-room-interaction-points-and-movement.md) | Room interaction points, backend-modeled movement (D26) |
 | [0028](0028-activity-set-v2-events-and-schema-v4.md) | Activity set v2, life events, schema v4 rollback/recovery (D27) |
+| [0029](0029-reader-writer-tools.md) | Real reading/writing: approved sources, workspace in maple.db, provenance (D28) |
 
 ## Template
 
