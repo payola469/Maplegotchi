@@ -239,6 +239,69 @@ class InteractionOut(_Out):
     maple: MapleOut  # state read after the commit; maple.revision >= revision
 
 
+class DirectorOut(_Out):
+    kind: str  # rule | external
+    name: str
+    version: str
+
+
+class ProposalOut(_Out):
+    goal_op: str | None
+    goal_type: str | None
+    goal_summary: str | None
+    horizon_minutes: float | None
+    abandon_reason: str | None
+    action: str | None
+    duration_minutes: float | None
+    reason: str | None  # the proposer's concise, validated reason (never model reasoning)
+
+
+class ExecutedOut(_Out):
+    by: str  # rule | external
+    reason: str
+    goal_id: int | None
+    action_id: int
+    action: str
+    point: str
+    duration_minutes: int
+
+
+class DecisionOut(_Out):
+    """One decision transition's audit (ADR-0026 §8)."""
+
+    id: int
+    revision: int
+    at: datetime
+    trigger: str
+    priority: str | None
+    director: DirectorOut
+    context_summary: str  # written by core, not by a Director
+    proposal: ProposalOut | None
+    verdict: str  # accepted | clamped | rejected | fallback | stale
+    reason_code: str | None
+    clamped: dict[str, float]  # field -> the original, out-of-range value
+    executed: ExecutedOut | None
+    latency_ms: int | None
+
+
+class LifeEventOut(_Out):
+    """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
+
+    id: str  # "<store>:<row id>", store = timeline | action | decision
+    type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
+    at: datetime
+    revision: int
+    goal_id: int | None
+    action_id: int | None
+    priority: str | None
+    payload: dict[str, str | int | float | None]
+
+
+class LifeEventsOut(_Out):
+    events: list[LifeEventOut]  # ordered by revision, then decision -> timeline -> action
+    last_revision: int  # pass back as `after_revision` to continue
+
+
 class HealthOut(_Out):
     status: str
 

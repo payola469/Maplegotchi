@@ -32,6 +32,8 @@ no rows or domain objects are returned.
 | GET | `/api/status` | `StatusOut` | revision, freshness, brain label |
 | GET | `/api/server` | `ServerOut` | summary, attention, service health, host readings, counts by status |
 | GET | `/api/room` | `RoomOut` | room size, furniture labels, interaction points (ADR-0027); static per release |
+| GET | `/api/decisions?limit=1..100` | `DecisionOut[]` | decision audit, most recent, oldest first (ADR-0026 §8) |
+| GET | `/api/life-events?after_revision=N&limit=1..500` | `LifeEventsOut` | every life event after revision N, whole revisions only; continue from `last_revision` |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
 | GET | `/api/journal?limit=1..100` | `JournalEntryOut[]` | most recent, oldest first (default 20) |
 | GET | `/api/timeline?limit=1..100` | `TimelineEventOut[]` | most recent, oldest first (default 20) |
@@ -205,7 +207,8 @@ data: <one line of JSON>
 | `heartbeat` | after each heartbeat | `revision`, `tick_id`, `activity`, `location`, `needs`, `last_heartbeat_at` |
 | `observations` | after each observed heartbeat | `revision`, `observed_at`, `counts` |
 | `interaction` | after an accepted Greet/Pet | `revision`, `kind`, `reaction` |
-| `movement` | when an arrival is recorded between heartbeats (the activity began) | `revision`, `activity`, `location`, `point` |
+| `movement` | when an arrival or a decision changed where Maple is going | `revision`, `activity`, `location`, `point` |
+| `life` | after every commit that wrote life events | `revision`, `events: LifeEventOut[]` (below) |
 | `journal` | when entries were written | `revision`, `entries: JournalEntryOut[]` |
 | `timeline` | when lifecycle events were written | `revision`, `events: TimelineEventOut[]` |
 
@@ -215,7 +218,7 @@ data: <one line of JSON>
   buffer → the missed events are replayed. Absent, malformed, from an earlier
   process, from the future, or older than the buffer → a `snapshot` event, then
   live events. The client never silently misses a change.
-- **Bounded:** the hub keeps the last 256 events. Publishing only appends and
+- **Bounded:** the hub keeps the last 512 events. Publishing only appends and
   wakes waiters; it never waits for a client. A slow client that falls behind
   is resynced with a snapshot.
 - **Read-only:** the stream accepts no input; other methods on `/api/events`
@@ -244,3 +247,30 @@ uv run maplegotchi run --data-dir ../var/maple-data --senses fake \
 
 Settings come from the environment (`MAPLE_*`, see `maplegotchi/config.py`);
 the flags above override them.
+
+## Life events: one model for Web, iOS and Discord (ADR-0028 §2)
+
+Three append-only stores, one envelope:
+
+| Store | Types |
+|---|---|
+| `timeline` (significant life events) | `born`, `activity_changed`, `interaction_accepted`, `downtime_gap`, `goal_started`, `goal_suspended`, `goal_resumed`, `goal_completed`, `goal_abandoned` |
+| `action` (action lifecycle) | `destination_selected`, `walking_started`, `walking_cancelled`, `arrived`, `activity_started`, `activity_completed`, `activity_interrupted`, `activity_resumed`, `needs_attention` |
+| `decision` (audit) | `goal_proposed` (a new goal was proposed), `decision_made`, `decision_rejected` (rejected or stale proposal) |
+
+```jsonc
+{"id": "action:42", "type": "walking_started", "at": "…Z", "revision": 310,
+ "goal_id": 7, "action_id": 55, "priority": null,
+ "payload": {"point": "writing_desk.chair", "furniture": "writing_desk",
+             "arrives_at": "…Z", "distance": 400.0}}
+```
+
+- Ordering: by revision, then decision → timeline → action, then row id.
+- Live: the SSE `life` event carries the envelopes of one commit. Catch-up or
+  polling (iOS, Discord gateway): `GET /api/life-events?after_revision=<last seen>`;
+  a page never ends part-way through a revision.
+- `DecisionOut` holds core's `context_summary`, the proposal (with the
+  proposer's single concise `reason`), the verdict and reason code, clamped
+  originals, and what was executed. No prompt, raw model output, or model
+  reasoning is stored or served.
+

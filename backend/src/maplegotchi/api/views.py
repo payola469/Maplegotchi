@@ -10,6 +10,9 @@ from maplegotchi.api.models import (
     ActivityOut,
     BrainOut,
     DayOut,
+    DecisionOut,
+    DirectorOut,
+    ExecutedOut,
     FreshnessOut,
     FurnitureOut,
     GoalOut,
@@ -18,11 +21,13 @@ from maplegotchi.api.models import (
     InteractionOut,
     InteractionPointOut,
     JournalEntryOut,
+    LifeEventOut,
     MapleOut,
     NeedsOut,
     ObservationOut,
     PathPointOut,
     PositionOut,
+    ProposalOut,
     ReactionOut,
     RoomOut,
     RouteOut,
@@ -33,6 +38,7 @@ from maplegotchi.api.models import (
     TimelineEventOut,
 )
 from maplegotchi.core import room as room_model
+from maplegotchi.core.audit import DecisionRecord, Verdict
 from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
 from maplegotchi.core.observations import Metric, ObservationSnapshot
@@ -49,12 +55,14 @@ from maplegotchi.core.timeline import (
     GoalSuspended,
     InteractionAccepted,
 )
+from maplegotchi.runtime.life import LifeRecords
 from maplegotchi.runtime.service import (
     SSE_KEEPALIVE_SECONDS,
     BrainLabel,
     InteractionResult,
     LiveSnapshot,
 )
+from maplegotchi.storage.audit_rows import StoredDecision
 from maplegotchi.storage.repositories import StoredEvent, StoredJournalEntry, StoredObservation
 
 TIMEZONE = "Asia/Bangkok"  # D16
@@ -295,6 +303,127 @@ def timeline_event(stored: StoredEvent) -> TimelineEventOut:
     )
 
 
+def decision(stored: StoredDecision) -> DecisionOut:
+    r = stored.record
+    p = r.proposal
+    x = r.executed
+    return DecisionOut(
+        id=stored.id,
+        revision=stored.revision,
+        at=r.at,
+        trigger=r.trigger,
+        priority=r.priority.value if r.priority else None,
+        director=DirectorOut(
+            kind=r.director_kind, name=r.director_name, version=r.director_version
+        ),
+        context_summary=r.context_summary,
+        proposal=ProposalOut(
+            goal_op=p.goal_op,
+            goal_type=p.goal_type.value if p.goal_type else None,
+            goal_summary=p.goal_summary,
+            horizon_minutes=p.horizon_minutes,
+            abandon_reason=p.abandon_reason.value if p.abandon_reason else None,
+            action=p.action.value if p.action else None,
+            duration_minutes=p.duration_minutes,
+            reason=p.reason,
+        )
+        if p
+        else None,
+        verdict=r.verdict.value,
+        reason_code=r.reason_code,
+        clamped=dict(r.clamped),
+        executed=ExecutedOut(
+            by=x.by,
+            reason=x.reason,
+            goal_id=x.goal_id,
+            action_id=x.action_id,
+            action=x.action.value,
+            point=x.point,
+            duration_minutes=x.duration_minutes,
+        )
+        if x
+        else None,
+        latency_ms=r.latency_ms,
+    )
+
+
+def _decision_type(record: DecisionRecord) -> str:
+    if record.verdict in (Verdict.REJECTED, Verdict.STALE):
+        return "decision_rejected"
+    if record.proposal is not None and record.proposal.goal_op == "new":
+        return "goal_proposed"
+    return "decision_made"
+
+
+def life_events(records: LifeRecords) -> list[LifeEventOut]:
+    """The three stores as one ordered envelope stream (ADR-0028 §2)."""
+    keyed: list[tuple[tuple[int, int, int], LifeEventOut]] = []
+    for d in records.decisions:
+        r = d.record
+        x = r.executed
+        payload: dict[str, str | int | float | None] = {
+            "verdict": r.verdict.value,
+            "reason_code": r.reason_code,
+            "trigger": r.trigger,
+            "director": r.director_kind,
+            "proposed_reason": r.proposal.reason if r.proposal else None,
+            "executed_reason": x.reason if x else None,
+            "action": x.action.value if x else None,
+            "point": x.point if x else None,
+        }
+        keyed.append(
+            (
+                (d.revision, 0, d.id),
+                LifeEventOut(
+                    id=f"decision:{d.id}",
+                    type=_decision_type(r),
+                    at=r.at,
+                    revision=d.revision,
+                    goal_id=x.goal_id if x else None,
+                    action_id=x.action_id if x else None,
+                    priority=r.priority.value if r.priority else None,
+                    payload=payload,
+                ),
+            )
+        )
+    for e in records.timeline:
+        out = timeline_event(e)
+        goal_id = out.details.get("goal_id")
+        keyed.append(
+            (
+                (e.revision, 1, e.id),
+                LifeEventOut(
+                    id=f"timeline:{e.id}",
+                    type=out.kind,
+                    at=out.at,
+                    revision=e.revision,
+                    goal_id=int(goal_id) if goal_id is not None else None,
+                    action_id=None,
+                    priority=None,
+                    payload=dict(out.details),
+                ),
+            )
+        )
+    for a in records.actions:
+        ev = a.event
+        keyed.append(
+            (
+                (a.revision, 2, a.id),
+                LifeEventOut(
+                    id=f"action:{a.id}",
+                    type=ev.kind.value,
+                    at=ev.at,
+                    revision=a.revision,
+                    goal_id=ev.goal_id,
+                    action_id=ev.action_id,
+                    priority=ev.priority.value if ev.priority else None,
+                    payload=dict(ev.payload),
+                ),
+            )
+        )
+    return [out for _, out in sorted(keyed, key=lambda item: item[0])]
+
+
 def freshness(snap: LiveSnapshot) -> FreshnessOut:
     f = snap.freshness
     return FreshnessOut(
@@ -377,6 +506,12 @@ def live_event(kind: str, data: Mapping[str, object]) -> dict[str, object]:
             "location": state.location.value,
             "needs": needs(state).model_dump(),
             "last_heartbeat_at": state.last_tick_at.isoformat(),
+        }
+    if kind == "life":
+        records = _get(data, "records", LifeRecords)
+        return {
+            "revision": revision,
+            "events": [e.model_dump(mode="json") for e in life_events(records)],
         }
     if kind == "movement":
         state = _get(data, "state", MapleState)

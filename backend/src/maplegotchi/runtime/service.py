@@ -333,14 +333,16 @@ class MapleService:
         return InteractionResult(outcome, committed.revision, self.snapshot())
 
     def _publish_written(self, revision: int, *, events: bool, journal: bool) -> None:
-        """Publish the timeline events and journal entries committed by exactly `revision`."""
-        if not (events or journal):
-            return
-        timeline, entries = self.runtime.written_at(revision)
+        """Publish what exactly `revision` committed: timeline, journal, and life events."""
+        timeline, entries = self.runtime.written_at(revision) if (events or journal) else ([], [])
         if timeline:
             self._publish("timeline", {"revision": revision, "events": tuple(timeline)})
         if entries:
             self._publish("journal", {"revision": revision, "entries": tuple(entries)})
+        records = self.runtime.life_written_at(revision)
+        if records:
+            # One coherent event model for Web, iOS and Discord (ADR-0028 §2).
+            self._publish("life", {"revision": revision, "records": records})
 
     def _publish(self, kind: str, data: dict[str, object]) -> None:
         """Best-effort notice of an already-committed fact; it can never undo or block it."""

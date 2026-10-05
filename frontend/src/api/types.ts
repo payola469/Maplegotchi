@@ -223,3 +223,54 @@ export interface InteractionOut {
 }
 
 export type InteractionKind = "greet" | "pet";
+
+// Decision audit and the one life-event model (ADR-0026 §8, ADR-0028 §2).
+
+export interface DecisionOut {
+  id: number;
+  revision: number;
+  at: string;
+  trigger: string;
+  priority: string | null;
+  director: { kind: string; name: string; version: string };
+  context_summary: string; // written by core, not by a Director
+  proposal: {
+    goal_op: string | null;
+    goal_type: string | null;
+    goal_summary: string | null;
+    horizon_minutes: number | null;
+    abandon_reason: string | null;
+    action: string | null;
+    duration_minutes: number | null;
+    reason: string | null; // concise and validated; never model reasoning
+  } | null;
+  verdict: string; // accepted | clamped | rejected | fallback | stale
+  reason_code: string | null;
+  clamped: Record<string, number>;
+  executed: {
+    by: string;
+    reason: string;
+    goal_id: number | null;
+    action_id: number;
+    action: string;
+    point: string;
+    duration_minutes: number;
+  } | null;
+  latency_ms: number | null;
+}
+
+export interface LifeEventOut {
+  id: string; // "<timeline|action|decision>:<row id>"
+  type: string;
+  at: string;
+  revision: number;
+  goal_id: number | null;
+  action_id: number | null;
+  priority: string | null;
+  payload: Record<string, string | number | null>;
+}
+
+export interface LifeEventsOut {
+  events: LifeEventOut[];
+  last_revision: number;
+}

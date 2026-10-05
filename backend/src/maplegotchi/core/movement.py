@@ -16,6 +16,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 
 from maplegotchi.core.activities import Activity, RoomLocation
+from maplegotchi.core.audit import ActionEvent, ActionEventKind
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.rng import RngStream
 from maplegotchi.core.room import InteractionPoint, Route, plan_route, points_for, whereabouts
@@ -55,6 +56,77 @@ def settle_movement(state: MapleState, now: datetime) -> tuple[MapleState, tuple
         state, route=None, last_updated_at=max(state.last_updated_at, route.arrives_at)
     )
     return settled, events
+
+
+def arrival_actions(state: MapleState, now: datetime) -> tuple[ActionEvent, ...]:
+    """Audit events for an arrival that `settle_movement` would record at `now`."""
+    route = state.route
+    if route is None or now < route.arrives_at:
+        return ()
+    point = route.destination
+    goal_id = state.goal.id if state.goal else None
+    where = {"point": point.id, "furniture": point.furniture.value}
+    return (
+        ActionEvent(
+            ActionEventKind.ARRIVED, route.arrives_at, state.action_id, goal_id, payload=where
+        ),
+        ActionEvent(
+            ActionEventKind.ACTIVITY_STARTED,
+            route.arrives_at,
+            state.action_id,
+            goal_id,
+            payload={"activity": state.activity.value, **where},
+        ),
+    )
+
+
+def start_actions(
+    moved: MovementResult, action_id: int, goal_id: int | None, now: datetime
+) -> list[ActionEvent]:
+    """Audit events for beginning an action: destination, then walk or immediate start."""
+    state = moved.state
+    point = state.point
+    where = {"point": point.id, "furniture": point.furniture.value}
+    events = [
+        ActionEvent(
+            ActionEventKind.DESTINATION_SELECTED,
+            now,
+            action_id,
+            goal_id,
+            payload={
+                "activity": state.activity.value,
+                "duration_minutes": round(
+                    (state.activity_until - state.activity_started_at).total_seconds() / 60, 3
+                ),
+                **where,
+            },
+        )
+    ]
+    if moved.route is not None:
+        events.append(
+            ActionEvent(
+                ActionEventKind.WALKING_STARTED,
+                now,
+                action_id,
+                goal_id,
+                payload={
+                    "arrives_at": moved.route.arrives_at.isoformat(),
+                    "distance": moved.route.length,
+                    **where,
+                },
+            )
+        )
+    else:
+        events.append(
+            ActionEvent(
+                ActionEventKind.ACTIVITY_STARTED,
+                now,
+                action_id,
+                goal_id,
+                payload={"activity": state.activity.value, **where},
+            )
+        )
+    return events
 
 
 def choose_point(

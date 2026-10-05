@@ -19,10 +19,17 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from maplegotchi.core.activities import Activity
+from maplegotchi.core.audit import ActionEvent, DecisionRecord
 from maplegotchi.core.behavior import BehaviorInputs
 from maplegotchi.core.daytime import is_night, local_hour, require_utc
-from maplegotchi.core.direction import DecisionTrigger, decide, decision_due, interrupt
-from maplegotchi.core.movement import settle_movement
+from maplegotchi.core.direction import (
+    DecisionTrigger,
+    RejectionCode,
+    decide,
+    decision_due,
+    interrupt,
+)
+from maplegotchi.core.movement import arrival_actions, settle_movement
 from maplegotchi.core.needs import (
     MOOD_RELAX_PER_HOUR,
     SOCIAL_FLOOR,
@@ -60,6 +67,8 @@ class TickResult:
     state: MapleState
     tick_id: int
     events: tuple[LifeEvent, ...]
+    actions: tuple[ActionEvent, ...] = ()  # action lifecycle audit (ADR-0028 §2)
+    decision: DecisionRecord | None = None  # an overdue rule decision, if one was made
 
 
 def wakes_rested(state: MapleState, now: datetime, params: CoreParameters) -> bool:
@@ -106,6 +115,7 @@ def heartbeat(
         rng=replace(state.rng, tick_counter=tick_id),
     )
 
+    actions = list(arrival_actions(advanced, now))
     advanced, arrival = settle_movement(advanced, now)
     events.extend(arrival)
 
@@ -122,19 +132,36 @@ def heartbeat(
         if interrupts(signal, advanced.action_priority):
             interrupted = interrupt(advanced, now, signal, rng)
             return TickResult(
-                state=interrupted.state, tick_id=tick_id, events=(*events, *interrupted.events)
+                state=interrupted.state,
+                tick_id=tick_id,
+                events=(*events, *interrupted.events),
+                actions=(*actions, *interrupted.actions),
             )
 
     if wakes_rested(advanced, now, params):
         advanced = replace(advanced, activity_until=now)  # sleep is complete
 
     trigger = decision_due(advanced, now)
+    record = None
     if trigger is not None and now >= advanced.activity_until + params.decision_grace:
         overdue = params.decision_grace > timedelta(0)  # a Director had its chance
         outcome = decide(
-            advanced, now, DecisionTrigger.OVERDUE if overdue else trigger, inputs, params
+            advanced,
+            now,
+            DecisionTrigger.OVERDUE if overdue else trigger,
+            inputs,
+            params,
+            fallback_code=RejectionCode.TIMEOUT if overdue else None,
         )
         advanced = outcome.state
         events.extend(outcome.events)
+        actions.extend(outcome.actions)
+        record = outcome.record
 
-    return TickResult(state=advanced, tick_id=tick_id, events=tuple(events))
+    return TickResult(
+        state=advanced,
+        tick_id=tick_id,
+        events=tuple(events),
+        actions=tuple(actions),
+        decision=record,
+    )

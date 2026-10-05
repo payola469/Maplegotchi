@@ -83,3 +83,16 @@ with `expired` / `no_longer_relevant`.
 - Schema v4: goals, the plan columns and counters (`docs/persistence.md`).
 - Schema v5: `life_state.critical_since` (ALTER TABLE ADD COLUMN; a verified
   pre-migration copy is taken first, as for every migration from v4 on).
+
+## Audit and events (A3, ADR-0026 §8, ADR-0028 §2)
+
+- `core/audit.py`: `DecisionRecord` (core's context summary, proposal, verdict
+  `accepted|clamped|rejected|fallback|stale`, closed reason code, clamped
+  originals, execution) and `ActionEvent` (the nine lifecycle kinds). Built by
+  pure core in the transition that causes them and committed in the same
+  transaction (`storage/audit_rows.py`).
+- Every executed decision has exactly one record; a stale proposal has a record
+  and no execution. Goals name the decision that started them (`goal.decision_id`).
+- The heartbeat's overdue rule decision is recorded as `fallback` / `timeout`.
+- The API serves the stores as one envelope stream (`docs/api.md` → Life events).
+

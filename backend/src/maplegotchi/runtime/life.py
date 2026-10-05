@@ -36,7 +36,7 @@ from maplegotchi.core.journal import (
     TriggerKind,
     accept_drafts,
 )
-from maplegotchi.core.movement import settle_movement
+from maplegotchi.core.movement import arrival_actions, settle_movement
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.reflection import (
@@ -51,6 +51,7 @@ from maplegotchi.core.reflection import (
 from maplegotchi.core.state import InteractionKind, MapleState, birth
 from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
+from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
 from maplegotchi.storage.repositories import (
@@ -112,6 +113,18 @@ class CommittedDecision:
     outcome: DecisionOutcome
     revision: int
     journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class LifeRecords:
+    """Life events from the three stores (ADR-0028 §2), each oldest first."""
+
+    timeline: tuple[StoredEvent, ...]
+    actions: tuple[StoredActionEvent, ...]
+    decisions: tuple[StoredDecision, ...]
+
+    def __bool__(self) -> bool:
+        return bool(self.timeline or self.actions or self.decisions)
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -236,6 +249,30 @@ class LifeRuntime:
             repo = self._repository()
             return repo.events(revision=revision), repo.journal(revision=revision)
 
+    def life_written_at(self, revision: int) -> LifeRecords:
+        """Every life event (timeline, action lifecycle, decisions) of exactly this revision."""
+        with self._lock:
+            repo = self._repository()
+            return LifeRecords(
+                tuple(repo.events(revision=revision)),
+                tuple(repo.action_events(revision=revision)),
+                tuple(repo.decisions(revision=revision)),
+            )
+
+    def life_since(self, revision: int, *, limit: int) -> LifeRecords:
+        """Life events committed after `revision`, each store capped at `limit` rows."""
+        with self._lock:
+            repo = self._repository()
+            return LifeRecords(
+                tuple(repo.events_since(revision, limit=limit)),
+                tuple(repo.action_events(since_revision=revision, limit=limit)),
+                tuple(repo.decisions(since_revision=revision, limit=limit)),
+            )
+
+    def decisions(self, *, limit: int) -> list[StoredDecision]:
+        with self._lock:
+            return self._repository().decisions(limit=limit)
+
     @property
     def reflection_state(self) -> ReflectionState:
         return self._reflection
@@ -286,6 +323,8 @@ class LifeRuntime:
             if trigger is None:
                 return None
             outcome = decide(self._state, now, trigger, inputs, self._params)
+            if outcome.record is None:  # pragma: no cover - decide() always records
+                raise RuntimeError("decision without an audit record")
             triggers, reflection = settle_triggers(
                 self._reflection,
                 events=outcome.events,
@@ -301,6 +340,8 @@ class LifeRuntime:
                 events=outcome.events,
                 journal=entries,
                 reflection=reflection,
+                actions=outcome.actions,
+                decisions=(outcome.record,),
             )
             self._state, self._revision, self._reflection = outcome.state, revision, reflection
             return CommittedDecision(outcome, revision, entries)
@@ -314,6 +355,7 @@ class LifeRuntime:
         with self._lock:
             repo = self._repository()
             now = max(self._clock.now(), self._state.last_updated_at)
+            arrived = arrival_actions(self._state, now)
             settled, events = settle_movement(self._state, now)
             if settled is self._state:
                 return None
@@ -332,6 +374,7 @@ class LifeRuntime:
                 events=events,
                 journal=entries,
                 reflection=reflection,
+                actions=arrived,
             )
             self._state, self._revision, self._reflection = settled, revision, reflection
             return CommittedArrival(settled, revision, events, entries)
@@ -383,6 +426,8 @@ class LifeRuntime:
                 observations=observations.observations if observations else (),
                 journal=entries,
                 reflection=reflection,
+                actions=result.actions,
+                decisions=(result.decision,) if result.decision else (),
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
             return CommittedTick(result, revision, entries)
@@ -398,6 +443,7 @@ class LifeRuntime:
             # rather than before it; core forbids going back in time.
             now = max(self._clock.now(), self._state.last_updated_at)
             # A finished walk is recorded first, so drowsiness reflects arrival in bed.
+            audit = arrival_actions(self._state, now)
             settled, arrival = settle_movement(self._state, now)
             outcome = apply_interaction(settled, kind, now, self._params)
             if isinstance(outcome, Accepted):
@@ -424,6 +470,7 @@ class LifeRuntime:
                     events=(*arrival, outcome.event),
                     journal=entries,
                     reflection=reflection,
+                    actions=audit,
                 )
                 self._state, self._revision, self._reflection = outcome.state, revision, reflection
                 return CommittedInteraction(outcome, revision, entries)

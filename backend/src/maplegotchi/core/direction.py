@@ -26,6 +26,17 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 
 from maplegotchi.core.activities import SPECS, Activity
+from maplegotchi.core.audit import (
+    RULE_DIRECTOR_NAME,
+    RULE_DIRECTOR_VERSION,
+    ActionEvent,
+    ActionEventKind,
+    DecisionRecord,
+    Executed,
+    Proposal,
+    Verdict,
+    context_summary,
+)
 from maplegotchi.core.behavior import (
     FORCED_SLEEP_ENERGY,
     LOW_ENERGY,
@@ -48,10 +59,12 @@ from maplegotchi.core.goals import (
 from maplegotchi.core.journal import text_problems
 from maplegotchi.core.movement import (
     MovementResult,
+    arrival_actions,
     begin_activity,
     choose_point,
     performed_activity,
     settle_movement,
+    start_actions,
 )
 from maplegotchi.core.needs import evolve_through, needs_since
 from maplegotchi.core.parameters import CoreParameters
@@ -136,6 +149,7 @@ class Prepared:
     state: MapleState
     events: tuple[LifeEvent, ...]
     resolving_suspension: bool  # this decision must resume or abandon the suspended goal
+    actions: tuple[ActionEvent, ...] = ()  # e.g. an arrival recorded by preparing
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +161,8 @@ class DecisionOutcome:
     movement: MovementResult
     started_goal: Goal | None
     resumed_action: bool  # the resumed goal continues the interrupted action kind
+    actions: tuple[ActionEvent, ...] = ()
+    record: DecisionRecord | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +172,7 @@ class InterruptOutcome:
     signal: Signal
     interrupted: Activity  # what Maple was doing
     movement: MovementResult
+    actions: tuple[ActionEvent, ...] = ()
 
 
 # ---------------------------------------------------------------- helpers
@@ -204,6 +221,7 @@ def prepare(
     if now < state.last_updated_at:
         raise ValueError("a decision cannot precede the latest state update")
     state = advance_needs(state, now, params)
+    arrived = arrival_actions(state, now)
     state, arrival = settle_movement(state, now)
     events: list[LifeEvent] = list(arrival)
     goal = state.goal
@@ -220,7 +238,7 @@ def prepare(
         and state.action_priority in (Priority.CRITICAL, Priority.HIGH)
         and interruption_over
     )
-    return Prepared(state, tuple(events), resolving)
+    return Prepared(state, tuple(events), resolving, arrived)
 
 
 def check_plan(prepared: Prepared, now: datetime, plan: Plan) -> RejectionCode | None:
@@ -393,13 +411,27 @@ def execute(
         point = choose_point(plan.action, location, rng)
     moved = begin_activity(state, now, plan.action, point, now + plan.duration)
     events.extend(moved.events)
+    action_id = state.action_id + 1
+    goal_id = goal.id if goal else None
+    actions = list(prepared.actions) + _ending_actions(state, now, trigger, moved)
+    if resumed_action:
+        actions.append(
+            ActionEvent(
+                ActionEventKind.ACTIVITY_RESUMED,
+                now,
+                action_id,
+                goal_id,
+                payload={"activity": plan.action.value},
+            )
+        )
+    actions += start_actions(moved, action_id, goal_id, now)
     new_state = replace(
         moved.state,
         goal=goal,
         suspended_goal=suspended,
         suspended_action=suspended_action,
         goal_counter=counter,
-        action_id=state.action_id + 1,
+        action_id=action_id,
         action_priority=Priority.NORMAL,
         reevaluate_since=None,
         rng=replace(state.rng, decision_counter=state.rng.decision_counter + 1),
@@ -412,6 +444,99 @@ def execute(
         movement=moved,
         started_goal=started,
         resumed_action=resumed_action,
+        actions=tuple(actions),
+    )
+
+
+def _ending_actions(
+    previous: MapleState, now: datetime, trigger: DecisionTrigger, moved: MovementResult
+) -> list[ActionEvent]:
+    """How the previous action ended, as seen by this decision."""
+    goal_id = previous.goal.id if previous.goal else None
+    if moved.cancelled is not None:
+        old = moved.cancelled.destination
+        return [
+            ActionEvent(
+                ActionEventKind.WALKING_CANCELLED,
+                now,
+                previous.action_id,
+                goal_id,
+                payload={"activity": previous.activity.value, "point": old.id},
+            )
+        ]
+    if previous.walking_at(now):
+        return []
+    if now >= previous.activity_until:
+        return [
+            ActionEvent(
+                ActionEventKind.ACTIVITY_COMPLETED,
+                previous.activity_until,
+                previous.action_id,
+                goal_id,
+                payload={"activity": previous.activity.value},
+            )
+        ]
+    return [
+        ActionEvent(
+            ActionEventKind.ACTIVITY_INTERRUPTED,
+            now,
+            previous.action_id,
+            goal_id,
+            payload={"activity": previous.activity.value, "cause": trigger.value},
+        )
+    ]
+
+
+def decision_record(
+    prepared: Prepared,
+    outcome: DecisionOutcome,
+    now: datetime,
+    inputs: BehaviorInputs,
+    params: CoreParameters,
+    *,
+    director: tuple[str, str, str] = ("rule", RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION),
+    verdict: Verdict = Verdict.ACCEPTED,
+    proposal: Proposal | None = None,
+    reason_code: str | None = None,
+    clamped: dict[str, float] | None = None,
+    latency_ms: int | None = None,
+) -> DecisionRecord:
+    """The audit record of an executed decision (ADR-0026 §8)."""
+    plan = outcome.plan
+    state = outcome.state
+    if proposal is None and plan.source is GoalSource.RULE and verdict is Verdict.ACCEPTED:
+        proposal = Proposal(
+            goal_op=plan.goal_op.value,
+            goal_type=plan.goal_type,
+            goal_summary=plan.goal_summary,
+            horizon_minutes=plan.horizon.total_seconds() / 60 if plan.horizon else None,
+            action=plan.action,
+            duration_minutes=plan.duration.total_seconds() / 60,
+            reason=plan.reason,
+        )
+    return DecisionRecord(
+        at=now,
+        trigger=outcome.trigger.value,
+        director_kind=director[0],
+        director_name=director[1],
+        director_version=director[2],
+        context_summary=context_summary(
+            prepared.state, now, inputs, outcome.trigger.value, params.utc_offset
+        ),
+        verdict=verdict,
+        proposal=proposal,
+        reason_code=reason_code,
+        clamped=clamped or {},
+        executed=Executed(
+            by=plan.source.value,
+            reason=plan.reason,
+            goal_id=state.goal.id if state.goal else None,
+            action_id=state.action_id,
+            action=plan.action,
+            point=state.point.id,
+            duration_minutes=max(1, round(plan.duration.total_seconds() / 60)),
+        ),
+        latency_ms=latency_ms,
     )
 
 
@@ -437,12 +562,28 @@ def decide(
     trigger: DecisionTrigger,
     inputs: BehaviorInputs,
     params: CoreParameters,
+    *,
+    fallback_code: RejectionCode | None = None,
 ) -> DecisionOutcome:
-    """A rule-direction decision at `now` (deterministic for a given state and time)."""
+    """A rule-direction decision at `now` (deterministic for a given state and time).
+
+    `fallback_code` marks it as a fallback for a Director that gave no usable
+    answer (e.g. the heartbeat stepping in after `decision_grace`).
+    """
     prepared = prepare(state, now, trigger, params)
     rng = decision_rng(state)
     plan = rule_plan(prepared, now, inputs, params, rng)
-    return execute(prepared, now, trigger, plan, rng)
+    outcome = execute(prepared, now, trigger, plan, rng)
+    record = decision_record(
+        prepared,
+        outcome,
+        now,
+        inputs,
+        params,
+        verdict=Verdict.FALLBACK if fallback_code else Verdict.ACCEPTED,
+        reason_code=fallback_code.value if fallback_code else None,
+    )
+    return replace(outcome, record=record)
 
 
 # ---------------------------------------------------------------- interruption
@@ -476,6 +617,35 @@ def interrupt(state: MapleState, now: datetime, signal: Signal, rng: RngStream) 
     point = choose_point(response, spec.locations[0], rng)
     moved = begin_activity(state, now, response, point, now + timedelta(minutes=minutes))
     events.extend(moved.events)
+    old_goal = state.goal.id if state.goal else None
+    attention = ActionEvent(
+        ActionEventKind.NEEDS_ATTENTION,
+        now,
+        state.action_id,
+        old_goal,
+        signal.priority,
+        payload={"signal": signal.kind.value},
+    )
+    ended = (
+        ActionEvent(
+            ActionEventKind.WALKING_CANCELLED,
+            now,
+            state.action_id,
+            old_goal,
+            signal.priority,
+            payload={"activity": state.activity.value, "cause": signal.kind.value},
+        )
+        if moved.cancelled is not None
+        else ActionEvent(
+            ActionEventKind.ACTIVITY_INTERRUPTED,
+            now,
+            state.action_id,
+            old_goal,
+            signal.priority,
+            payload={"activity": interrupted.value, "cause": signal.kind.value},
+        )
+    )
+    actions = [attention, ended, *start_actions(moved, state.action_id + 1, None, now)]
     new_state = replace(
         moved.state,
         goal=goal,
@@ -485,4 +655,4 @@ def interrupt(state: MapleState, now: datetime, signal: Signal, rng: RngStream) 
         action_priority=signal.priority,
         critical_since=now if signal.priority is Priority.CRITICAL else state.critical_since,
     )
-    return InterruptOutcome(new_state, tuple(events), signal, interrupted, moved)
+    return InterruptOutcome(new_state, tuple(events), signal, interrupted, moved, tuple(actions))

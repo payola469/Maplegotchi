@@ -18,6 +18,7 @@ from datetime import date, datetime
 from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
+from maplegotchi.core.audit import ActionEvent, DecisionRecord
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.goals import Goal, GoalEndReason, GoalSource, GoalType
 from maplegotchi.core.identity import Identity
@@ -59,6 +60,8 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
+from maplegotchi.storage import audit_rows
+from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
 
 MAPLE_ID = 1
@@ -471,6 +474,45 @@ class LifeRepository:
             horizon_until=_parse_ts(horizon),
         )
 
+    def decisions(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredDecision]:
+        """Decision audit rows, oldest first (ADR-0026 §8)."""
+        return audit_rows.decisions(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def action_events(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredActionEvent]:
+        """Action lifecycle rows, oldest first (ADR-0028 §2)."""
+        return audit_rows.action_events(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def events_since(self, revision: int, *, limit: int) -> list[StoredEvent]:
+        """Timeline rows committed after `revision`, oldest first (at most `limit`)."""
+        rows = self._conn.execute(
+            "SELECT id, revision, tick_id, kind, at, payload FROM timeline_event"
+            " WHERE revision > ? ORDER BY id LIMIT ?",
+            (revision, limit),
+        ).fetchall()
+        try:
+            return [
+                StoredEvent(id=i, revision=rev, tick_id=tick, event=decode_event(kind, at, p))
+                for i, rev, tick, kind, at, p in rows
+            ]
+        except (ValueError, TypeError, KeyError) as exc:
+            raise CorruptStateError(f"timeline event is invalid: {exc}") from exc
+
     def goals(self, *, limit: int | None = None) -> list[Goal]:
         """Goal definitions, oldest first (all, or only the most recent `limit`)."""
         if limit is None:
@@ -492,19 +534,28 @@ class LifeRepository:
         observations: Sequence[Observation] = (),
         journal: Sequence[JournalEntry] = (),
         reflection: ReflectionState | None = None,
+        actions: Sequence[ActionEvent] = (),
+        decisions: Sequence[DecisionRecord] = (),
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
-        observations it used). Returns the new revision."""
+        observations it used), action lifecycle events, and decision audit rows.
+        Returns the new revision."""
         if observations and tick_id is None:
             raise ValueError("observations are recorded with the heartbeat that used them")
         new_revision = expected_revision + 1
         started = [e.goal for e in events if isinstance(e, GoalStarted)]
         with transaction(self._conn):
-            # Goal rows first: life_state references the active/suspended goal.
+            # Decisions, then goals (which name the decision that started them), then
+            # life_state (which references the active/suspended goal).
+            decided_goal: dict[int, int] = {}
+            for record in decisions:
+                row_id = audit_rows.insert_decision(self._conn, new_revision, record)
+                if record.executed is not None and record.executed.goal_id is not None:
+                    decided_goal.setdefault(record.executed.goal_id, row_id)
             self._conn.executemany(
                 "INSERT INTO goal (id, maple_id, revision, goal_type, summary, source,"
-                " started_at, horizon_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                [_goal_row(goal, new_revision) for goal in started],
+                " started_at, horizon_until, decision_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(*_goal_row(goal, new_revision), decided_goal.get(goal.id)) for goal in started],
             )
             identity_row = self._conn.execute(
                 "SELECT name, born_at, life_seed FROM maple WHERE id = ?", (MAPLE_ID,)
@@ -534,6 +585,7 @@ class LifeRepository:
                 ],
             )
             self._insert_events(new_revision, events, tick_id)
+            audit_rows.insert_actions(self._conn, new_revision, actions)
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

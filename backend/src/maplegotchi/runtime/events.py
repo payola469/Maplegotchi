@@ -19,7 +19,7 @@ from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-DEFAULT_CAPACITY = 256
+DEFAULT_CAPACITY = 512  # ~100 commits: each publishes a few kinds incl. `life` (ADR-0028)
 _EVENT_ID = re.compile(r"([0-9a-f]{16})-([0-9]{1,18})")
 
 
