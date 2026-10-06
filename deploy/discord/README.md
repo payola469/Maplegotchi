@@ -21,13 +21,19 @@ local API and posts Maple's replies; slash commands are read-only.
 useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin maple-discord-svc
 
 # code: a release per commit, root-owned, like Maplegotchi (ADR-0023)
+# The gateway ships inside the verified Maplegotchi release bundle (SHA256SUMS checked
+# by install_release.sh); install that release first, then copy from it.
 SHA=<commit>
-install -d -o root -g root -m 0755 /opt/maple-discord/releases/$SHA
-# copy companion/discord and deploy/discord from the verified release bundle, then:
-cd /opt/maple-discord/releases/$SHA/companion/discord
-UV_PYTHON=/opt/maplegotchi/python/bin/python3.12 uv sync --locked --no-dev --no-editable \
-    --python /opt/maplegotchi/python/bin/python3.12
-ln -sfn /opt/maple-discord/releases/$SHA/companion/discord/.venv /opt/maple-discord/releases/$SHA/venv
+SRC=/opt/maplegotchi/releases/$SHA
+UV=<path to the pinned install-time uv from deploy/install.md step 2>
+PY=$(ls -d /opt/maplegotchi/python/cpython-3.12.*-linux-x86_64-gnu/bin/python3.12)
+install -d -o root -g root -m 0755 /opt/maple-discord/releases/$SHA/companion /opt/maple-discord/releases/$SHA/deploy
+cp -a "$SRC/companion/discord" /opt/maple-discord/releases/$SHA/companion/
+cp -a "$SRC/deploy/discord" /opt/maple-discord/releases/$SHA/deploy/
+cd /opt/maple-discord/releases/$SHA
+UV_PROJECT_ENVIRONMENT=$PWD/venv UV_NO_CONFIG=1 "$UV" sync --project companion/discord \
+    --locked --no-dev --no-editable --compile-bytecode --no-python-downloads --python "$PY"
+chown -R root:root . && chmod -R u+rwX,go+rX,go-w .
 ln -sfn releases/$SHA /opt/maple-discord/current.new && mv -Tf /opt/maple-discord/current.new /opt/maple-discord/current
 
 # secrets: root-only files, handed to the service as systemd credentials

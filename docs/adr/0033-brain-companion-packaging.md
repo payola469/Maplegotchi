@@ -50,3 +50,21 @@ this repository, and `/decide`/`/reply` did not exist there.
 - Provider credentials remain outside the repository and outside Maple's process.
 - `MemoryDenyWriteExecute` is not set for the companion because JIT-based provider CLIs
   (e.g. Node) need writable-executable memory; everything else mirrors Maple's sandbox.
+
+## Owner review (2026-10-06): accepted
+
+1. **`MemoryDenyWriteExecute` exception — `maple-brain.service` only.** Left unset as a
+   deliberate compatibility exception for provider CLIs that need JIT / runtime
+   executable memory. It is not weakened for any other Maple service:
+   `maplegotchi.service` and `maple-discord.service` keep `MemoryDenyWriteExecute=yes`
+   (contract-tested in `backend/tests/deploy/`).
+2. **Outbound network — approved for `maple-brain.service`**, because the configured
+   provider needs the Internet. The companion still listens only on 127.0.0.1:8471
+   (non-loopback binds refused), exposes no public, LAN or Tailscale listener, and has
+   no access to `/data` (incl. `/data/maple`), Maple's or the gateway's configuration
+   and secrets, or other services' private data.
+3. **Provider configuration.** The template keeps `MAPLE_BRAIN_PROVIDER=none` as the
+   safe default; production configures the real provider and model explicitly in
+   `/etc/maple-brain/maple-brain.env`. No provider or model is hard-coded in the
+   application (tested). Initial production target: Antigravity,
+   `MAPLE_BRAIN_MODEL=gemini-3.8-flash-medium`.
