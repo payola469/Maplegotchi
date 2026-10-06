@@ -254,6 +254,18 @@ def test_state_fields_are_all_plain_data() -> None:
         "rng",
         "recent_interactions",
         "reaction",
+        "point_id",  # ADR-0027
+        "route",  # ADR-0027
+        "needs_at",  # ADR-0026: decisions between heartbeats
+        "action_id",
+        "action_priority",
+        "goal",
+        "suspended_goal",
+        "suspended_action",
+        "goal_counter",
+        "reevaluate_since",
+        "critical_since",
+        "task",  # ADR-0029: what a read/write action is about
     }
 
 
@@ -270,6 +282,7 @@ def test_activity_and_expression_sets_are_fixed() -> None:
         "write",
         "observe_server",
         "rest",
+        "think",  # activity set v2, ADR-0028
     }
     assert {e.value for e in Expression} == {"calm", "happy", "curious", "sleepy", "focused"}
 

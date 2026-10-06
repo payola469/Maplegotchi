@@ -406,6 +406,31 @@ All v0.1 art is **original** and drawn in code, with no image files:
   stream.
 - The room component destroys the scene on unmount.
 
+## v0.2 room UX (Phase A8)
+
+Concepts taken from Pixel Agents, adapted to one persistent Maple (no "one
+session = one character", no terminals):
+
+- **Live activity**: the room follows backend routes and poses (ADR-0027); the
+  activity label and the speech bubble say *what* Maple reads or writes when the
+  backend's `activity.task` says so.
+- **Interactive furniture** (`ui/room/RoomOverlay.tsx`): an SVG layer over the canvas
+  (positions as SVG attributes in room units, so no inline styles under the CSP)
+  with one focusable hotspot per furniture from `GET /api/room`, describing what
+  the furniture is for and marking the piece in use. Hotspots explain; there are no
+  furniture actions.
+- **Speech bubble**: `maple.bubble` from the backend (`core/presence.py`):
+  needs attention, thinking, reading, writing, waiting for Paolo
+  (`approval_required` is reserved and never sent in v0.2). Hidden while walking.
+- **Backend-driven events** (`ui/feed.tsx`, "What Maple is doing"): the shared life
+  events (SSE `life`, initial `GET /api/life-events`), kept in the store (last 60,
+  deduplicated) and worded for people. Nothing is inferred from animations.
+- **Maple Inspector** (`ui/inspector/Inspector.tsx`): a separate owner view opened
+  from the header — current goal, action/phase/task, destination, the latest
+  decision's reason, recent decisions with verdicts and codes, action history,
+  interruptions and rejections, memory candidates and the last reflection's
+  intent, and the Brain/Director identity. GET endpoints only (`api/read.ts`).
+
 ## Tests (`pnpm test`)
 
 | File | Covers |

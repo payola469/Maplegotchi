@@ -4,7 +4,10 @@
 // Revision rule: the displayed revision never moves backwards. A snapshot or
 // interaction result older than what is shown is ignored.
 
-import type { InteractionKind, MapleOut, SnapshotOut } from "../api/types";
+import type { InteractionKind, LifeEventOut, MapleOut, RoomOut, SnapshotOut } from "../api/types";
+
+/** How many recent life events the UI keeps (the backend keeps them all). */
+export const LIFE_EVENTS_KEPT = 60;
 
 export type ConnectionStatus =
   | "loading" // no snapshot yet
@@ -30,6 +33,8 @@ export interface UiState {
   pending: Record<InteractionKind, boolean>;
   feedback: InteractionFeedback | null;
   error: string | null;
+  room: RoomOut | null; // furniture and interaction points, from /api/room
+  lifeEvents: LifeEventOut[]; // recent shared life events, oldest first
 }
 
 export type Listener = (state: UiState) => void;
@@ -44,6 +49,8 @@ export class Store {
     pending: { greet: false, pet: false },
     feedback: null,
     error: null,
+    room: null,
+    lifeEvents: [],
   };
   private listeners = new Set<Listener>();
 
@@ -93,6 +100,20 @@ export class Store {
 
   setStatus(status: ConnectionStatus, error: string | null = this.state.error): void {
     if (status !== this.state.status || error !== this.state.error) this.set({ status, error });
+  }
+
+  setRoom(room: RoomOut): void {
+    this.set({ room });
+  }
+
+  /** Merge life events (from REST or SSE): no duplicates, backend order, newest kept. */
+  addLifeEvents(events: readonly LifeEventOut[]): void {
+    if (events.length === 0) return;
+    const seen = new Set(this.state.lifeEvents.map((e) => e.id));
+    const fresh = events.filter((e) => !seen.has(e.id));
+    if (fresh.length === 0) return;
+    const merged = [...this.state.lifeEvents, ...fresh].sort((a, b) => a.revision - b.revision);
+    this.set({ lifeEvents: merged.slice(-LIFE_EVENTS_KEPT) });
   }
 
   setPending(kind: InteractionKind, pending: boolean): void {

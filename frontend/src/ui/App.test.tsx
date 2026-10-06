@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateRoomScene, RoomSceneHandle } from "../room/scene/RoomScene";
 import type { VisualState } from "../room/visual";
 import { Store } from "../state/store";
-import { T0_MS, iso, makeSnapshot, observation } from "../test/fixtures";
+import { T0_MS, activityAt, iso, makeSnapshot, observation } from "../test/fixtures";
 import { App } from "./App";
 
 // The Pixi scene is replaced by a recording fake: DOM tests never load Pixi and
@@ -114,7 +114,7 @@ describe("room", () => {
     await run(() =>
       load(
         store,
-        makeSnapshot({}, { revision: 11, activity: { kind: "sleep", location: "bed", started_at: iso(0), until: iso(900) } }),
+        makeSnapshot({}, { revision: 11, activity: activityAt("sleep", "bed", iso(0), iso(900)) }),
       ),
     );
     expect(scene.create).toHaveBeenCalledOnce();

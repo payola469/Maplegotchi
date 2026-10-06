@@ -5,14 +5,15 @@ export const ROOM_WIDTH = 1000;
 export const ROOM_HEIGHT = 600;
 export const FLOOR_Y = 380; // where the back wall meets the floor
 
-export type AnchorName = "bed" | "bookshelf" | "window" | "desk" | "terminal" | "rug";
+export type AnchorName = "bed" | "bookshelf" | "window" | "desk" | "terminal" | "rug" | "sofa";
 
 export interface Point {
   x: number;
   y: number;
 }
 
-/** Where Maple stands/sits/lies for each backend location (feet position). */
+/** Fallback feet position per backend location. The backend sends Maple's exact position and
+ * route (ADR-0027); these are used only if a snapshot lacks them. */
 export const ANCHORS: Readonly<Record<AnchorName, Point>> = {
   bed: { x: 150, y: 455 },
   bookshelf: { x: 330, y: 500 },
@@ -20,6 +21,7 @@ export const ANCHORS: Readonly<Record<AnchorName, Point>> = {
   desk: { x: 640, y: 470 },
   terminal: { x: 840, y: 470 },
   rug: { x: 480, y: 545 },
+  sofa: { x: 150, y: 560 },
 };
 
 /** Where Maple starts before the first snapshot (never shown as state). */
@@ -35,6 +37,7 @@ export const FURNITURE = {
   chair: { x: 620, y: 420, width: 60, height: 80 },
   computerDesk: { x: 780, y: 360, width: 160, height: 100 },
   monitor: { x: 815, y: 290, width: 90, height: 70 },
-  plant: { x: 950, y: 390, width: 40, height: 90 },
+  plant: { x: 548, y: 388, width: 40, height: 90 }, // the Window / Plant Corner
+  sofa: { x: 60, y: 505, width: 180, height: 80 },
   rug: { x: 330, y: 510, width: 300, height: 70 },
 } as const;

@@ -14,9 +14,13 @@ from enum import StrEnum
 
 from maplegotchi.core.activities import SPECS, Activity, RoomLocation
 from maplegotchi.core.daytime import require_utc
+from maplegotchi.core.goals import Goal
 from maplegotchi.core.identity import Identity
 from maplegotchi.core.parameters import GLOBAL_INTERACTION_LIMIT, GLOBAL_INTERACTION_WINDOW
+from maplegotchi.core.priority import Priority
 from maplegotchi.core.rng import RngState
+from maplegotchi.core.room import POINT_BY_ID, InteractionPoint, Route, canonical_point
+from maplegotchi.core.tasks import Task
 
 NEED_MIN = 0.0
 NEED_MAX = 100.0
@@ -132,6 +136,24 @@ class MapleState:
     # This is the persisted cooldown/rate-limit state (D14).
     recent_interactions: tuple[InteractionRecord, ...] = ()
     reaction: Reaction | None = None
+    # Where the activity happens (ADR-0027). None = the canonical point for
+    # (activity, location), which is how every pre-v4 state is read.
+    point_id: str | None = None
+    # Set while Maple walks to `point`: the activity begins at route.arrives_at,
+    # which then equals activity_started_at. None = Maple is at its point.
+    route: Route | None = None
+    # ADR-0026: when needs were last evolved (None = at last_tick_at). Decisions
+    # between heartbeats evolve needs up to their own time.
+    needs_at: datetime | None = None
+    action_id: int = 0  # increases with every action started (0 = before v4)
+    action_priority: Priority = Priority.NORMAL  # how the current action began
+    goal: Goal | None = None  # the active short-term goal
+    suspended_goal: Goal | None = None  # paused by an interruption
+    suspended_action: Activity | None = None  # what Maple was doing when interrupted
+    goal_counter: int = 0  # ids handed out so far
+    reevaluate_since: datetime | None = None  # a high-priority input asked for a decision
+    critical_since: datetime | None = None  # a serious problem is being handled
+    task: Task | None = None  # what a read/write action is actually about (ADR-0029)
 
     def __post_init__(self) -> None:
         for name in ("activity_started_at", "activity_until", "last_tick_at", "last_updated_at"):
@@ -146,10 +168,24 @@ class MapleState:
             raise ValueError("require born_at <= activity_started_at <= activity_until")
         if not born <= self.last_tick_at <= self.last_updated_at:
             raise ValueError("require born_at <= last_tick_at <= last_updated_at")
-        if self.activity_started_at > self.last_updated_at:
-            raise ValueError("activity cannot start after last_updated_at")
         if self.location not in SPECS[self.activity].locations:
             raise ValueError(f"{self.activity} cannot happen at {self.location}")
+        point = self.point  # validates point_id against activity and location
+        route = self.route
+        if route is None:
+            if self.activity_started_at > self.last_updated_at:
+                raise ValueError("activity cannot start after last_updated_at")
+        else:
+            if not isinstance(route, Route):
+                raise TypeError("route must be a Route")
+            if route.arrives_at != self.activity_started_at:
+                raise ValueError("the activity starts exactly when Maple arrives")
+            if not born <= route.departed_at <= self.last_updated_at:
+                raise ValueError("route must depart within Maple's life so far")
+            if route.destination != point:
+                raise ValueError("route must end at the activity's interaction point")
+
+        self._check_autonomy(born)
 
         records = self.recent_interactions
         if len(records) > GLOBAL_INTERACTION_LIMIT:
@@ -165,6 +201,66 @@ class MapleState:
         if self.reaction is not None:
             if not born <= self.reaction.started_at <= self.last_updated_at:
                 raise ValueError("reaction time outside Maple's life so far")
+
+    def _check_autonomy(self, born: datetime) -> None:
+        if self.needs_at is not None:
+            require_utc(self.needs_at, "needs_at")
+            if not self.last_tick_at <= self.needs_at <= self.last_updated_at:
+                raise ValueError("require last_tick_at <= needs_at <= last_updated_at")
+        for name in ("action_id", "goal_counter"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be an int >= 0")
+        if not isinstance(self.action_priority, Priority):
+            raise TypeError("action_priority must be a Priority")
+        goals = [g for g in (self.goal, self.suspended_goal) if g is not None]
+        for goal in goals:
+            if not isinstance(goal, Goal):
+                raise TypeError("goals must be Goal values")
+            if goal.id > self.goal_counter:
+                raise ValueError("goal id was never handed out")
+            if not born <= goal.started_at <= self.last_updated_at:
+                raise ValueError("goal start outside Maple's life so far")
+        if len(goals) == 2 and goals[0].id == goals[1].id:
+            raise ValueError("a goal cannot be active and suspended at once")
+        if (self.suspended_goal is None) != (self.suspended_action is None):
+            raise ValueError("a suspended goal and its interrupted action go together")
+        if self.suspended_action is not None and not isinstance(self.suspended_action, Activity):
+            raise TypeError("suspended_action must be an Activity")
+        if self.task is not None:
+            if not isinstance(self.task, Task):
+                raise TypeError("task must be a Task")
+            if not self.task.fits(self.activity):
+                raise ValueError(f"a {self.task.tool} task cannot go with {self.activity}")
+        for name in ("reevaluate_since", "critical_since"):
+            value = getattr(self, name)
+            if value is not None:
+                require_utc(value, name)
+                if not born <= value <= self.last_updated_at:
+                    raise ValueError(f"{name} outside Maple's life so far")
+
+    @property
+    def point(self) -> InteractionPoint:
+        """The interaction point where the current activity happens (or will, on arrival)."""
+        if self.point_id is None:
+            return canonical_point(self.activity, self.location)
+        point = POINT_BY_ID.get(self.point_id)
+        if point is None:
+            raise ValueError(f"unknown interaction point {self.point_id!r}")
+        if point.location is not self.location or self.activity not in point.allowed_actions:
+            raise ValueError(f"{self.activity} at {self.location} cannot use point {point.id}")
+        return point
+
+    def walking_at(self, now: datetime) -> bool:
+        """Whether Maple is still on the way to the activity's point at `now`."""
+        require_utc(now, "now")
+        return self.route is not None and now < self.route.arrives_at
+
+    def position_at(self, now: datetime) -> tuple[float, float]:
+        if self.route is not None and self.walking_at(now):
+            return self.route.position_at(now)
+        point = self.point
+        return (point.x, point.y)
 
     def active_reaction(self, now: datetime) -> Reaction | None:
         """The transient reaction showing at `now`, if any. No heartbeat needed to expire it."""
@@ -194,7 +290,9 @@ class MapleState:
         return now - self.identity.born_at
 
     def is_drowsy(self) -> bool:
-        return self.activity is Activity.SLEEP or self.needs.energy < SLEEPY_ENERGY
+        """Asleep (arrived in bed) or low on energy. Callers settle arrivals first."""
+        asleep = self.activity is Activity.SLEEP and self.route is None
+        return asleep or self.needs.energy < SLEEPY_ENERGY
 
 
 def prune_interactions(
@@ -211,14 +309,16 @@ def derive_expression(state: MapleState, now: datetime) -> Expression:
     `until` without waiting for a heartbeat.
     """
     needs = state.needs
-    if state.is_drowsy():
+    # While walking, the activity has not begun: its expression rules wait for arrival.
+    activity = Activity.WALK if state.walking_at(now) else state.activity
+    if activity is Activity.SLEEP or needs.energy < SLEEPY_ENERGY:
         return Expression.SLEEPY
     reaction = state.reaction
     if reaction is not None and reaction.is_active(now) and reaction.kind in HAPPY_REACTIONS:
         return Expression.HAPPY
-    if state.activity in (Activity.WRITE, Activity.OBSERVE_SERVER):
+    if activity in (Activity.WRITE, Activity.OBSERVE_SERVER):
         return Expression.FOCUSED
-    if state.activity is Activity.READ:
+    if activity is Activity.READ:
         if needs.curiosity >= CURIOUS_READING_CURIOSITY:
             return Expression.CURIOUS
         return Expression.FOCUSED

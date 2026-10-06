@@ -9,7 +9,7 @@
 
 import type { ApiClient } from "../api/client";
 import type { OpenStream, SseFrame, StreamHandle } from "../api/sse";
-import type { SnapshotOut } from "../api/types";
+import type { LifeEventOut, SnapshotOut } from "../api/types";
 import type { Store } from "./store";
 
 export interface Timers {
@@ -155,6 +155,10 @@ export class LiveConnection {
       this.store.applySnapshot(data as SnapshotOut);
       this.store.setStatus("live", null);
       return;
+    }
+    if (frame.event === "life" && typeof data === "object" && data !== null && "events" in data) {
+      const events = (data as { events: unknown }).events;
+      if (Array.isArray(events)) this.store.addLifeEvents(events as LifeEventOut[]);
     }
     const revision =
       typeof data === "object" && data !== null && "revision" in data

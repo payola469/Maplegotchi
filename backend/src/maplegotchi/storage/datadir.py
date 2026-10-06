@@ -95,6 +95,15 @@ class DataDir:
         os.link(src, dst)
         src.unlink()
 
+    def make_dir(self, name: str) -> Path:
+        """Create (if needed) a directory inside the data directory; returns its path."""
+        target = self.path(name)
+        target.mkdir(mode=0o700, exist_ok=True)
+        resolved = target.resolve(strict=True)
+        if not resolved.is_dir() or not resolved.is_relative_to(self._root):
+            raise UnsafePathError(f"{name!r} is not a directory inside the data directory")
+        return resolved
+
     def names_with_prefix(self, prefix: str) -> list[str]:
         """Top-level file names in the data directory starting with `prefix`."""
         _check_syntax(prefix)

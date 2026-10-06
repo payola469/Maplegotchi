@@ -9,6 +9,8 @@
 #   backend/             pyproject.toml, uv.lock, src/ (from `git archive <sha>`)
 #   frontend/dist/       built here from the same archive (pnpm install --frozen-lockfile)
 #   deploy/              unit, env template, polkit rule, install/verify/backup tools
+#   companion/brain/     maple-brain: pyproject.toml, uv.lock, src/ (deploy/brain/README.md)
+#   companion/discord/   maple-discord: pyproject.toml, uv.lock, src/ (deploy/discord/README.md)
 # Python dependencies are NOT bundled: paolo-core installs them from uv.lock
 # (hash-pinned) into the release venv. Nothing here needs node/pnpm on paolo-core.
 set -euo pipefail
@@ -30,7 +32,7 @@ BUNDLE="$WORK/bundle"
 rm -rf "$WORK"
 mkdir -p "$WORK/src" "$BUNDLE"
 
-git archive --format=tar "$SHA" backend frontend deploy | tar -x -C "$WORK/src"
+git archive --format=tar "$SHA" backend frontend deploy companion/brain companion/discord | tar -x -C "$WORK/src"
 
 (cd "$WORK/src/frontend" && "$PNPM" install --frozen-lockfile && "$PNPM" build)
 
@@ -39,6 +41,11 @@ cp -R "$WORK/src/backend/pyproject.toml" "$WORK/src/backend/uv.lock" "$WORK/src/
     "$BUNDLE/backend/"
 cp -R "$WORK/src/frontend/dist" "$BUNDLE/frontend/dist"
 cp -R "$WORK/src/deploy" "$BUNDLE/deploy"
+for c in brain discord; do
+    mkdir -p "$BUNDLE/companion/$c"
+    cp -R "$WORK/src/companion/$c/pyproject.toml" "$WORK/src/companion/$c/uv.lock" \
+        "$WORK/src/companion/$c/src" "$BUNDLE/companion/$c/"
+done
 find "$BUNDLE" -name '__pycache__' -prune -exec rm -rf {} +
 
 {

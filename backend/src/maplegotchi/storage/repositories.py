@@ -18,7 +18,11 @@ from datetime import date, datetime
 from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
+from maplegotchi.core.audit import ActionEvent, DecisionRecord
+from maplegotchi.core.conversation import Channel
+from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.daytime import require_utc
+from maplegotchi.core.goals import Goal, GoalEndReason, GoalSource, GoalType
 from maplegotchi.core.identity import Identity
 from maplegotchi.core.journal import (
     BrainKind,
@@ -27,14 +31,17 @@ from maplegotchi.core.journal import (
     JournalEntry,
     TriggerKind,
 )
+from maplegotchi.core.memory import Memory, MemoryChange, Tier
 from maplegotchi.core.observations import (
     Metric,
     Observation,
     ObservationStatus,
     ServiceState,
 )
+from maplegotchi.core.priority import Priority
 from maplegotchi.core.reflection import INITIAL_REFLECTION, ReflectionState
 from maplegotchi.core.rng import RngState
+from maplegotchi.core.room import PathPoint, Route
 from maplegotchi.core.state import (
     Expression,
     InteractionKind,
@@ -44,14 +51,26 @@ from maplegotchi.core.state import (
     Reaction,
     ReactionKind,
 )
+from maplegotchi.core.tasks import Task, Tool, ToolOp, ToolRecord
 from maplegotchi.core.timeline import (
     ActivityChanged,
     Born,
     DowntimeGap,
+    GoalAbandoned,
+    GoalCompleted,
+    GoalResumed,
+    GoalStarted,
+    GoalSuspended,
     InteractionAccepted,
     LifeEvent,
 )
+from maplegotchi.storage import audit_rows, conversation_rows, daily_rows, memory_rows, tool_rows
+from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.conversation_rows import MessageRecord, StoredMessage
+from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.errors import ConcurrentWriteError, CorruptStateError, StorageError
+from maplegotchi.storage.memory_rows import StoredMemoryEvent
+from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 MAPLE_ID = 1
 
@@ -153,6 +172,34 @@ def encode_event(event: LifeEvent) -> tuple[str, str, str]:
             )
         case DowntimeGap(since=since, until=at):
             kind, payload = "downtime_gap", {"since": _ts(since)}
+        case GoalStarted(at=at, goal=goal):
+            kind, payload = (
+                "goal_started",
+                {
+                    "goal_id": goal.id,
+                    "goal_type": goal.type.value,
+                    "summary": goal.summary,
+                    "source": goal.source.value,
+                    "horizon_until": _ts(goal.horizon_until),
+                },
+            )
+        case GoalSuspended(at=at, goal_id=goal_id, goal_type=goal_type, cause=cause):
+            kind, payload = (
+                "goal_suspended",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "cause": cause},
+            )
+        case GoalResumed(at=at, goal_id=goal_id, goal_type=goal_type):
+            kind, payload = "goal_resumed", {"goal_id": goal_id, "goal_type": goal_type.value}
+        case GoalCompleted(at=at, goal_id=goal_id, goal_type=goal_type, reason=reason):
+            kind, payload = (
+                "goal_completed",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "reason": reason.value},
+            )
+        case GoalAbandoned(at=at, goal_id=goal_id, goal_type=goal_type, reason=reason):
+            kind, payload = (
+                "goal_abandoned",
+                {"goal_id": goal_id, "goal_type": goal_type.value, "reason": reason.value},
+            )
         case _:
             raise TypeError(f"unknown life event {event!r}")
     return kind, _ts(at), json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -175,6 +222,37 @@ def decode_event(kind: str, at_text: str, payload_text: str) -> LifeEvent:
         )
     if kind == "downtime_gap":
         return DowntimeGap(since=_parse_ts(payload["since"]), until=at)
+    if kind == "goal_started":
+        return GoalStarted(
+            at=at,
+            goal=Goal(
+                id=int(payload["goal_id"]),
+                type=GoalType(payload["goal_type"]),
+                summary=str(payload["summary"]),
+                source=GoalSource(payload["source"]),
+                started_at=at,
+                horizon_until=_parse_ts(payload["horizon_until"]),
+            ),
+        )
+    if kind == "goal_suspended":
+        return GoalSuspended(
+            at=at,
+            goal_id=int(payload["goal_id"]),
+            goal_type=GoalType(payload["goal_type"]),
+            cause=str(payload["cause"]),
+        )
+    if kind == "goal_resumed":
+        return GoalResumed(
+            at=at, goal_id=int(payload["goal_id"]), goal_type=GoalType(payload["goal_type"])
+        )
+    if kind in ("goal_completed", "goal_abandoned"):
+        cls = GoalCompleted if kind == "goal_completed" else GoalAbandoned
+        return cls(
+            at=at,
+            goal_id=int(payload["goal_id"]),
+            goal_type=GoalType(payload["goal_type"]),
+            reason=GoalEndReason(payload["reason"]),
+        )
     raise CorruptStateError(f"unknown timeline event kind {kind!r}")
 
 
@@ -183,12 +261,39 @@ def decode_event(kind: str, at_text: str, payload_text: str) -> LifeEvent:
 _STATE_COLUMNS = (
     "mood, energy, curiosity, social, activity, location, activity_started_at, "
     "activity_until, last_tick_at, last_updated_at, tick_counter, interaction_counter, "
-    "reaction_kind, reaction_variant, reaction_started_at, reaction_until"
+    "reaction_kind, reaction_variant, reaction_started_at, reaction_until, "
+    "point_id, route_departed_at, route_from_activity, route_path, "
+    "needs_at, decision_counter, action_counter, goal_counter, action_priority, "
+    "active_goal_id, suspended_goal_id, suspended_action, decision_due_since, critical_since, "
+    "task_tool, task_target, task_title, task_category"
 )
+_STATE_PLACEHOLDERS = ", ".join("?" * len(_STATE_COLUMNS.split(",")))
+
+
+def encode_route_path(route: Route) -> str:
+    """Route corners as JSON. Python floats round-trip exactly through JSON."""
+    return json.dumps([[p.x, p.y, p.distance, p.node] for p in route.path], separators=(",", ":"))
+
+
+def decode_route(departed: str, arrives: str, from_activity: str, path_text: str) -> Route:
+    corners = json.loads(path_text)
+    if not isinstance(corners, list):
+        raise ValueError("route path must be a list")
+    path = tuple(
+        PathPoint(x=float(x), y=float(y), distance=float(d), node=None if n is None else str(n))
+        for x, y, d, n in corners
+    )
+    return Route(
+        departed_at=_parse_ts(departed),
+        arrives_at=_parse_ts(arrives),
+        path=path,
+        from_activity=Activity(from_activity),
+    )
 
 
 def _state_values(state: MapleState) -> tuple[object, ...]:
     r = state.reaction
+    route = state.route
     return (
         state.needs.mood,
         state.needs.energy,
@@ -206,6 +311,37 @@ def _state_values(state: MapleState) -> tuple[object, ...]:
         r.variant if r else None,
         _ts(r.started_at) if r else None,
         _ts(r.until) if r else None,
+        state.point_id,
+        _ts(route.departed_at) if route else None,
+        route.from_activity.value if route else None,
+        encode_route_path(route) if route else None,
+        _ts(state.needs_at) if state.needs_at else None,
+        state.rng.decision_counter,
+        state.action_id,
+        state.goal_counter,
+        state.action_priority.value,
+        state.goal.id if state.goal else None,
+        state.suspended_goal.id if state.suspended_goal else None,
+        state.suspended_action.value if state.suspended_action else None,
+        _ts(state.reevaluate_since) if state.reevaluate_since else None,
+        _ts(state.critical_since) if state.critical_since else None,
+        state.task.tool.value if state.task else None,
+        state.task.target if state.task else None,
+        state.task.title if state.task else None,
+        state.task.category if state.task else None,
+    )
+
+
+def _goal_row(goal: Goal, revision: int) -> tuple[object, ...]:
+    return (
+        goal.id,
+        MAPLE_ID,
+        revision,
+        goal.type.value,
+        goal.summary,
+        goal.source.value,
+        _ts(goal.started_at),
+        _ts(goal.horizon_until),
     )
 
 
@@ -214,6 +350,7 @@ class LifeRepository:
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
+        self.last_message_id: int | None = None  # set by a commit that wrote a message
 
     def close(self) -> None:
         self._conn.close()
@@ -241,7 +378,7 @@ class LifeRepository:
             )
             self._conn.execute(
                 f"INSERT INTO life_state (maple_id, revision, {_STATE_COLUMNS})"  # noqa: S608
-                " VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                f" VALUES (?, 1, {_STATE_PLACEHOLDERS})",
                 (MAPLE_ID, *_state_values(state)),
             )
             self._insert_events(1, (born,), None)
@@ -274,7 +411,11 @@ class LifeRepository:
         name, born_at, seed = identity_row
         (revision, mood, energy, curiosity, social, activity, location, started, until,
          last_tick, last_update, ticks, interactions,
-         r_kind, r_variant, r_start, r_until) = state_row  # fmt: skip
+         r_kind, r_variant, r_start, r_until,
+         point_id, route_departed, route_from, route_path,
+         needs_at, decisions, action_id, goal_counter, action_priority,
+         goal_id, suspended_id, suspended_action, reevaluate, critical,
+         task_tool, task_target, task_title, task_category) = state_row  # fmt: skip
         ledger = self._conn.execute(
             "SELECT position, kind, at FROM interaction_ledger WHERE maple_id = ?"
             " ORDER BY position",
@@ -300,14 +441,191 @@ class LifeRepository:
             activity_until=_parse_ts(until),
             last_tick_at=_parse_ts(last_tick),
             last_updated_at=_parse_ts(last_update),
-            rng=RngState(seed_hex=seed, tick_counter=ticks, interaction_counter=interactions),
+            rng=RngState(
+                seed_hex=seed,
+                tick_counter=ticks,
+                interaction_counter=interactions,
+                decision_counter=decisions,
+            ),
             recent_interactions=tuple(
                 InteractionRecord(kind=InteractionKind(kind), at=_parse_ts(at))
                 for _, kind, at in ledger
             ),
             reaction=reaction,
+            point_id=point_id,
+            route=(
+                decode_route(route_departed, started, route_from, route_path)
+                if route_path is not None
+                else None
+            ),
+            needs_at=_parse_ts(needs_at) if needs_at else None,
+            action_id=action_id,
+            action_priority=Priority(action_priority),
+            goal=self._goal(goal_id),
+            suspended_goal=self._goal(suspended_id),
+            suspended_action=Activity(suspended_action) if suspended_action else None,
+            goal_counter=goal_counter,
+            reevaluate_since=_parse_ts(reevaluate) if reevaluate else None,
+            critical_since=_parse_ts(critical) if critical else None,
+            task=(
+                Task(Tool(task_tool), task_target, task_title, task_category)
+                if task_tool is not None
+                else None
+            ),
         )
         return StoredLife(state=state, revision=revision)
+
+    def _goal(self, goal_id: int | None) -> Goal | None:
+        if goal_id is None:
+            return None
+        row = self._conn.execute(
+            "SELECT goal_type, summary, source, started_at, horizon_until FROM goal WHERE id = ?",
+            (goal_id,),
+        ).fetchone()
+        if row is None:
+            raise CorruptStateError(f"goal {goal_id} is missing")
+        goal_type, summary, source, started, horizon = row
+        return Goal(
+            id=goal_id,
+            type=GoalType(goal_type),
+            summary=summary,
+            source=GoalSource(source),
+            started_at=_parse_ts(started),
+            horizon_until=_parse_ts(horizon),
+        )
+
+    def decisions(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredDecision]:
+        """Decision audit rows, oldest first (ADR-0026 §8)."""
+        return audit_rows.decisions(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def action_events(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredActionEvent]:
+        """Action lifecycle rows, oldest first (ADR-0028 §2)."""
+        return audit_rows.action_events(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def events_since(self, revision: int, *, limit: int) -> list[StoredEvent]:
+        """Timeline rows committed after `revision`, oldest first (at most `limit`)."""
+        rows = self._conn.execute(
+            "SELECT id, revision, tick_id, kind, at, payload FROM timeline_event"
+            " WHERE revision > ? ORDER BY id LIMIT ?",
+            (revision, limit),
+        ).fetchall()
+        try:
+            return [
+                StoredEvent(id=i, revision=rev, tick_id=tick, event=decode_event(kind, at, p))
+                for i, rev, tick, kind, at, p in rows
+            ]
+        except (ValueError, TypeError, KeyError) as exc:
+            raise CorruptStateError(f"timeline event is invalid: {exc}") from exc
+
+    def tool_uses(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+        operation: ToolOp | None = None,
+    ) -> list[StoredToolUse]:
+        """Reader/writer provenance, oldest first (ADR-0029 §5)."""
+        return tool_rows.tool_uses(
+            self._conn,
+            limit=limit,
+            revision=revision,
+            since_revision=since_revision,
+            operation=operation,
+        )
+
+    def memories(
+        self, *, tiers: Sequence[Tier] | None = None, limit: int | None = None
+    ) -> list[Memory]:
+        """Maple's memories (ADR-0030), most recently seen last."""
+        return memory_rows.memories(self._conn, tiers=tiers, limit=limit)
+
+    def memory_by_key(self, key: str) -> Memory | None:
+        return memory_rows.memory_by_key(self._conn, key)
+
+    def memory_events(
+        self,
+        *,
+        revision: int | None = None,
+        since_revision: int | None = None,
+        limit: int | None = None,
+    ) -> list[StoredMemoryEvent]:
+        return memory_rows.memory_events(
+            self._conn, revision=revision, since_revision=since_revision, limit=limit
+        )
+
+    def messages(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredMessage]:
+        """Conversation messages with Paolo, oldest first (ADR-0032)."""
+        return conversation_rows.messages(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def message_by_external_id(self, channel: Channel, external_id: str) -> StoredMessage | None:
+        return conversation_rows.by_external_id(self._conn, channel, external_id)
+
+    def reply_to(self, message_id: int) -> StoredMessage | None:
+        return conversation_rows.reply_to(self._conn, message_id)
+
+    def recent_incoming(self, since: datetime) -> int:
+        return conversation_rows.recent_incoming(self._conn, since)
+
+    def reflections(
+        self,
+        *,
+        limit: int | None = None,
+        revision: int | None = None,
+        since_revision: int | None = None,
+    ) -> list[StoredReflection]:
+        """Daily Reflections, oldest day first (ADR-0031)."""
+        return daily_rows.reflections(
+            self._conn, limit=limit, revision=revision, since_revision=since_revision
+        )
+
+    def reflection_for(self, day: date) -> StoredReflection | None:
+        return daily_rows.reflection_for(self._conn, day)
+
+    def rows_between(self, table: str, start: datetime, end: datetime) -> list[Any]:
+        return daily_rows.rows_between(self._conn, table, start, end)
+
+    def documents(self, *, limit: int | None = None) -> list[StoredDocument]:
+        """Maple's workspace documents, oldest first."""
+        return tool_rows.documents(self._conn, limit=limit)
+
+    def document(self, document_id: int) -> StoredDocument | None:
+        return tool_rows.document(self._conn, document_id)
+
+    def goals(self, *, limit: int | None = None) -> list[Goal]:
+        """Goal definitions, oldest first (all, or only the most recent `limit`)."""
+        if limit is None:
+            rows = self._conn.execute("SELECT id FROM goal ORDER BY id DESC").fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT id FROM goal ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        found = [self._goal(int(r[0])) for r in reversed(rows)]
+        return [g for g in found if g is not None]
 
     def commit(
         self,
@@ -319,13 +637,33 @@ class LifeRepository:
         observations: Sequence[Observation] = (),
         journal: Sequence[JournalEntry] = (),
         reflection: ReflectionState | None = None,
+        actions: Sequence[ActionEvent] = (),
+        decisions: Sequence[DecisionRecord] = (),
+        tools: Sequence[ToolRecord] = (),
+        memories: Sequence[MemoryChange] = (),
+        daily: DailyReflection | None = None,
+        message: MessageRecord | None = None,
     ) -> int:
         """Atomically replace Maple's state and append events (and, for a heartbeat, the
-        observations it used). Returns the new revision."""
+        observations it used), action lifecycle events, and decision audit rows.
+        Returns the new revision."""
         if observations and tick_id is None:
             raise ValueError("observations are recorded with the heartbeat that used them")
         new_revision = expected_revision + 1
+        started = [e.goal for e in events if isinstance(e, GoalStarted)]
         with transaction(self._conn):
+            # Decisions, then goals (which name the decision that started them), then
+            # life_state (which references the active/suspended goal).
+            decided_goal: dict[int, int] = {}
+            for record in decisions:
+                row_id = audit_rows.insert_decision(self._conn, new_revision, record)
+                if record.executed is not None and record.executed.goal_id is not None:
+                    decided_goal.setdefault(record.executed.goal_id, row_id)
+            self._conn.executemany(
+                "INSERT INTO goal (id, maple_id, revision, goal_type, summary, source,"
+                " started_at, horizon_until, decision_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(*_goal_row(goal, new_revision), decided_goal.get(goal.id)) for goal in started],
+            )
             identity_row = self._conn.execute(
                 "SELECT name, born_at, life_seed FROM maple WHERE id = ?", (MAPLE_ID,)
             ).fetchone()
@@ -337,7 +675,7 @@ class LifeRepository:
                 raise StorageError("identity and life seed can never change")
             updated = self._conn.execute(
                 f"UPDATE life_state SET revision = ?, ({_STATE_COLUMNS})"  # noqa: S608
-                " = (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                f" = ({_STATE_PLACEHOLDERS})"
                 " WHERE maple_id = ? AND revision = ?",
                 (new_revision, *_state_values(state), MAPLE_ID, expected_revision),
             ).rowcount
@@ -354,6 +692,15 @@ class LifeRepository:
                 ],
             )
             self._insert_events(new_revision, events, tick_id)
+            audit_rows.insert_actions(self._conn, new_revision, actions)
+            tool_rows.insert_tools(self._conn, new_revision, tools)
+            memory_rows.apply_changes(self._conn, new_revision, memories)
+            if daily is not None:
+                daily_rows.insert_reflection(self._conn, new_revision, daily)
+            if message is not None:
+                self.last_message_id = conversation_rows.insert_message(
+                    self._conn, new_revision, message
+                )
             if tick_id is not None and observations:
                 self._insert_observations(new_revision, tick_id, observations)
             for entry in journal:

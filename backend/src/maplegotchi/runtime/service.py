@@ -12,13 +12,22 @@ then the heartbeat commits through the same serialized path as Greet/Pet.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Protocol
 
+import httpx2
+
+from maplegotchi.brain.director import Director, DirectorKind
 from maplegotchi.config import SensesKind, Settings
 from maplegotchi.core.attention import ServerAttention, assess_server_attention
+from maplegotchi.core.audit import RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION
+from maplegotchi.core.conversation import IncomingMessage, ReplyContext, reply_problems, rule_reply
 from maplegotchi.core.daytime import DayPhase, day_phase, is_night, local_hour
+from maplegotchi.core.direction import RejectionCode
 from maplegotchi.core.heartbeat import TickResult
 from maplegotchi.core.interactions import (
     Accepted,
@@ -33,9 +42,10 @@ from maplegotchi.core.observations import (
     ServiceState,
 )
 from maplegotchi.core.parameters import CoreParameters
+from maplegotchi.core.proposal import DecisionContext, DirectorLabel
 from maplegotchi.core.reflection import ReflectionState, server_summary
 from maplegotchi.core.state import Expression, InteractionKind, MapleState, Reaction
-from maplegotchi.runtime.brain_factory import build_brain
+from maplegotchi.runtime.brain_factory import build_brain, build_director, build_replier
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
@@ -47,6 +57,7 @@ from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.repositories import StoredEvent, StoredJournalEntry, StoredObservation
 
 HEARTBEAT_GRACE = timedelta(seconds=60)
+DECISION_GRACE = timedelta(seconds=120)
 RECENT_LIMIT = 10
 SSE_KEEPALIVE_SECONDS = 15
 
@@ -114,6 +125,7 @@ class LiveSnapshot:
     timeline: tuple[StoredEvent, ...]
     freshness: Freshness
     brain: BrainLabel
+    director: DirectorLabel
     interactions: tuple[InteractionAvailability, ...]
 
 
@@ -122,6 +134,40 @@ class InteractionResult:
     outcome: InteractionOutcome
     revision: int  # the interaction's own committed revision (unchanged if rejected)
     snapshot: LiveSnapshot  # read after the commit, so snapshot.revision >= revision
+
+
+class DirectorNotAllowed(RuntimeError):
+    """The configured object is not an external Director (rule direction is core's own)."""
+
+
+def require_supported_director(director: Director | None) -> Director | None:
+    if director is None:
+        return None
+    if getattr(director, "kind", None) is not DirectorKind.EXTERNAL:
+        raise DirectorNotAllowed(
+            f"only external Directors can be wired; rule direction is core's own "
+            f"(got {type(director).__name__})"
+        )
+    if not callable(getattr(director, "propose_decision", None)):
+        raise DirectorNotAllowed(f"{type(director).__name__} has no propose_decision")
+    return director
+
+
+class Replier(Protocol):
+    kind: str
+    name: str
+
+    def reply(self, context: ReplyContext) -> str: ...
+
+
+@dataclass(frozen=True)
+class ConversationResult:
+    reply: str
+    revision: int
+    duplicate: bool  # a retried message: the earlier reply is returned
+    replier_kind: str
+    replier_name: str
+    fallback_code: str | None  # why the rule reply was used instead, if it was
 
 
 def fake_senses() -> Senses:
@@ -141,12 +187,25 @@ class MapleService:
         clock: Clock,
         params: CoreParameters,
         hub: EventHub | None = None,
+        director: Director | None = None,
+        director_timeout_seconds: float = 15.0,
+        replier: Replier | None = None,
     ) -> None:
         self.runtime = runtime
         self.senses = senses
         self.clock = clock
         self.params = params
         self.hub = hub or EventHub()
+        self.director = require_supported_director(director)
+        self.director_timeout_seconds = director_timeout_seconds
+        self._director_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="maple-director"
+        )
+        self._director_call: concurrent.futures.Future[object | None] | None = None
+        self.replier = replier
+        self._replier_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="maple-replier"
+        )
         self._loop_task: asyncio.Task[None] | None = None
         self._loop_error: str | None = None
         self._stop = asyncio.Event()
@@ -160,7 +219,12 @@ class MapleService:
         senses: Senses | None = None,
     ) -> MapleService:
         clock = clock or SystemClock()
-        params = CoreParameters(heartbeat_interval=timedelta(seconds=settings.heartbeat_seconds))
+        params = CoreParameters(
+            heartbeat_interval=timedelta(seconds=settings.heartbeat_seconds),
+            # Decisions have their own transition; the heartbeat steps in only if one
+            # is overdue (ADR-0026 §3).
+            decision_grace=DECISION_GRACE,
+        )
         if senses is None:
             senses = (
                 fake_senses()
@@ -169,7 +233,15 @@ class MapleService:
             )
         brain = build_brain(settings)
         runtime = LifeRuntime.open(DataDir(settings.data_dir), clock, params, brain=brain)
-        return cls(runtime, senses, clock, params)
+        return cls(
+            runtime,
+            senses,
+            clock,
+            params,
+            director=build_director(settings),
+            director_timeout_seconds=settings.director_timeout_seconds,
+            replier=build_replier(settings),
+        )
 
     # ------------------------------------------------------------ reads
 
@@ -256,13 +328,129 @@ class MapleService:
             timeline=view.timeline,
             freshness=self.freshness(state, now, server.observed_at),
             brain=BrainLabel(brain.kind, brain.name, brain.version),
+            director=self.director_label,
             interactions=self.interaction_availability(state, now),
         )
 
     # ------------------------------------------------------------ transitions
 
+    def settle(self) -> None:
+        """Record a walk's arrival between heartbeats, so the activity begins on time."""
+        if not self.runtime.arrival_due():
+            return
+        committed = self.runtime.settle_committed()
+        if committed is None:
+            return
+        self._publish("movement", {"revision": committed.revision, "state": committed.state})
+        self._publish_written(
+            committed.revision, events=bool(committed.events), journal=bool(committed.journal)
+        )
+
+    def decide(self) -> None:
+        """Run a due decision transition (ADR-0026 §3): next goal and action.
+
+        With a Director, its proposal is requested OUTSIDE the writer lock, with a
+        hard deadline; core then re-validates it against the current state. Any
+        failure becomes a recorded rule-direction fallback; it never stops the loop.
+        """
+        if not self.runtime.decision_is_due():
+            return
+        director = self.director
+        if director is None:
+            committed = self.runtime.decide_committed()
+        else:
+            pending = self.runtime.pending_decision()
+            if pending is None:
+                return
+            raw, failure, latency = self._ask_director(director, pending.context)
+            committed = self.runtime.decide_proposal_committed(
+                pending,
+                director=DirectorLabel(director.kind.value, director.name, director.version),
+                raw=raw,
+                failure=failure,
+                latency_ms=latency,
+            )
+        if committed is None:
+            return
+        self._publish(
+            "movement", {"revision": committed.revision, "state": committed.outcome.state}
+        )
+        self._publish_written(
+            committed.revision,
+            events=bool(committed.outcome.events),
+            journal=bool(committed.journal),
+        )
+
+    def _ask_director(
+        self, director: Director, context: DecisionContext
+    ) -> tuple[object, RejectionCode | None, int]:
+        """(raw proposal, failure code, latency ms). Never raises; never holds the lock."""
+        started = time.perf_counter()
+        if self._director_call is not None and not self._director_call.done():
+            # A previous call is still stuck past its deadline: do not pile up.
+            return None, RejectionCode.TIMEOUT, 0
+        future = self._director_pool.submit(director.propose_decision, context)
+        self._director_call = future
+        raw: object = None
+        failure: RejectionCode | None = None
+        try:
+            raw = future.result(timeout=self.director_timeout_seconds)
+        except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            failure = RejectionCode.TIMEOUT
+        except Exception:  # transport, HTTP status, decoding, contract: all just "no answer"
+            failure = RejectionCode.TRANSPORT_ERROR
+        if failure is None and raw is None:
+            failure = RejectionCode.NO_PROPOSAL
+        latency = int((time.perf_counter() - started) * 1000)
+        return raw, failure, latency
+
+    def converse(self, message: IncomingMessage) -> ConversationResult:
+        """A message from Paolo: record it and its effects, reply truthfully, record the reply.
+
+        The reply is produced outside the writer lock; any replier failure falls back
+        to core's rule reply. Retried messages (same id) get the stored reply again.
+        """
+        received = self.runtime.receive_message_committed(message)
+        if not received.duplicate:
+            self._publish("movement", {"revision": received.revision, "state": self.runtime.state})
+            self._publish_written(received.revision, events=True, journal=False)
+        if received.existing_reply is not None:
+            return ConversationResult(
+                received.existing_reply, received.revision, True, "rule", "stored", None
+            )
+        text, kind, name, code = self._reply(received.context)
+        revision = self.runtime.record_reply_committed(
+            received.message_id, text, replier_kind=kind, replier_name=name, fallback_code=code
+        )
+        self._publish_written(revision, events=False, journal=False)
+        return ConversationResult(text, revision, received.duplicate, kind, name, code)
+
+    def _reply(self, context: ReplyContext) -> tuple[str, str, str, str | None]:
+        replier = self.replier
+        if replier is None:
+            return rule_reply(context), "rule", "rule_replier", None
+        code: str | None
+        try:
+            text = self._replier_pool.submit(replier.reply, context).result(
+                timeout=self.director_timeout_seconds
+            )
+            code = "invalid_reply" if reply_problems(text) else None
+        except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            text, code = "", "timeout"
+        except Exception:  # transport, status, contract: no usable reply
+            text, code = "", "transport_error"
+        if code is not None:
+            return rule_reply(context), "rule", "rule_replier", code
+        return text.strip(), replier.kind, replier.name, None
+
+    def step(self) -> None:
+        """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""
+        self.settle()
+        self.decide()
+        self.tick()
+
     def tick(self) -> TickResult | None:
-        """One life-loop step: observe (outside the lock) and heartbeat if due.
+        """Observe (outside the lock) and heartbeat if due.
 
         Events are published only after the runtime has durably committed the
         transition and released its lock; if the commit fails, nothing is published.
@@ -293,14 +481,16 @@ class MapleService:
         return InteractionResult(outcome, committed.revision, self.snapshot())
 
     def _publish_written(self, revision: int, *, events: bool, journal: bool) -> None:
-        """Publish the timeline events and journal entries committed by exactly `revision`."""
-        if not (events or journal):
-            return
-        timeline, entries = self.runtime.written_at(revision)
+        """Publish what exactly `revision` committed: timeline, journal, and life events."""
+        timeline, entries = self.runtime.written_at(revision) if (events or journal) else ([], [])
         if timeline:
             self._publish("timeline", {"revision": revision, "events": tuple(timeline)})
         if entries:
             self._publish("journal", {"revision": revision, "entries": tuple(entries)})
+        records = self.runtime.life_written_at(revision)
+        if records:
+            # One coherent event model for Web, iOS and Discord (ADR-0028 §2).
+            self._publish("life", {"revision": revision, "records": records})
 
     def _publish(self, kind: str, data: dict[str, object]) -> None:
         """Best-effort notice of an already-committed fact; it can never undo or block it."""
@@ -314,7 +504,7 @@ class MapleService:
     async def _life_loop(self, poll_seconds: float) -> None:
         while not self._stop.is_set():
             try:
-                await asyncio.to_thread(self.tick)
+                await asyncio.to_thread(self.step)
                 self._loop_error = None
             except Exception as exc:  # fail soft: record, keep living, try again
                 self._loop_error = type(exc).__name__
@@ -333,5 +523,14 @@ class MapleService:
             await self._loop_task
             self._loop_task = None
 
+    @property
+    def director_label(self) -> DirectorLabel:
+        director = self.director
+        if director is None:
+            return DirectorLabel("rule", RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION)
+        return DirectorLabel(director.kind.value, director.name, director.version)
+
     def close(self) -> None:
+        self._director_pool.shutdown(wait=False, cancel_futures=True)
+        self._replier_pool.shutdown(wait=False, cancel_futures=True)
         self.runtime.close()

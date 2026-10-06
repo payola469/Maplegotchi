@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import hmac
 from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any
 
@@ -23,6 +24,8 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 MAX_BODY_BYTES = 1024
+# Paths that accept a larger body (a Discord message is up to 2000 characters).
+LARGER_BODIES: dict[str, int] = {"/api/conversation/messages": 8192}
 
 SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
     (
@@ -70,13 +73,14 @@ class BodyLimitMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
+            limit = LARGER_BODIES.get(str(scope.get("path", "")), self.max_bytes)
             headers = {k.lower(): v for k, v in scope.get("headers", [])}
             length = headers.get(b"content-length")
             chunked = b"chunked" in headers.get(b"transfer-encoding", b"").lower()
             too_big = False
             if length is not None:
                 try:
-                    too_big = int(length) > self.max_bytes
+                    too_big = int(length) > limit
                 except ValueError:
                     too_big = True
             if too_big or (chunked and length is None):
@@ -109,6 +113,26 @@ def origin_guard(allowed: tuple[str, ...]) -> Callable[[Request], None]:
             raise HTTPException(status_code=403, detail="untrusted origin")
 
     return require_trusted_origin
+
+
+def gateway_guard(token: str | None) -> Callable[[Request], None]:
+    """Only the local conversation gateway may post messages (ADR-0032).
+
+    Disabled (404) unless a token is configured; requires `Authorization: Bearer`
+    with that token (constant-time comparison); refuses browser requests (Origin).
+    """
+    expected = token.encode() if token else None
+
+    def require_gateway(request: Request) -> None:
+        if expected is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        if request.headers.get("origin") is not None:
+            raise HTTPException(status_code=403, detail="browsers cannot post conversations")
+        scheme, _, presented = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not hmac.compare_digest(presented.encode(), expected):
+            raise HTTPException(status_code=401, detail="gateway token required")
+
+    return require_gateway
 
 
 async def require_empty_body(request: Request) -> None:

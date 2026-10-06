@@ -16,14 +16,31 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from types import TracebackType
 
 from maplegotchi.brain.interface import Brain
 from maplegotchi.brain.rule_brain import RuleBrain
-from maplegotchi.core.attention import behavior_inputs
+from maplegotchi.core.attention import ServerAttention, assess_server_attention, behavior_inputs
+from maplegotchi.core.behavior import BehaviorInputs
+from maplegotchi.core.conversation import (
+    Channel,
+    IncomingMessage,
+    ReplyContext,
+    Speaker,
+    build_reply_context,
+    receive_message,
+)
+from maplegotchi.core.direction import (
+    DecisionOutcome,
+    DecisionTrigger,
+    RejectionCode,
+    decide,
+    decision_due,
+    prepare,
+)
 from maplegotchi.core.heartbeat import TickResult, heartbeat
 from maplegotchi.core.interactions import Accepted, InteractionOutcome, apply_interaction
 from maplegotchi.core.journal import (
@@ -34,8 +51,28 @@ from maplegotchi.core.journal import (
     TriggerKind,
     accept_drafts,
 )
+from maplegotchi.core.memory import (
+    Memory,
+    MemoryChange,
+    MemoryEvent,
+    MemoryEventKind,
+    MemoryKind,
+    MemoryStatus,
+    Tier,
+    memories_from,
+)
+from maplegotchi.core.memory import consolidate as consolidate_memories
+from maplegotchi.core.memory import search as search_memories
+from maplegotchi.core.movement import arrival_actions, settle_movement
 from maplegotchi.core.observations import ObservationSnapshot
 from maplegotchi.core.parameters import CoreParameters
+from maplegotchi.core.proposal import (
+    DecisionContext,
+    DirectorLabel,
+    build_context,
+    decide_with_proposal,
+    stale_record,
+)
 from maplegotchi.core.reflection import (
     JournalParameters,
     ReflectionState,
@@ -43,12 +80,21 @@ from maplegotchi.core.reflection import (
     interaction_triggers,
     local_time,
     mark_journaled,
+    settle_triggers,
 )
+from maplegotchi.core.rng import RngStream
 from maplegotchi.core.state import InteractionKind, MapleState, birth
-from maplegotchi.core.timeline import Born
+from maplegotchi.core.tasks import ToolRecord, one_line
+from maplegotchi.core.timeline import Born, LifeEvent
 from maplegotchi.runtime.clock import Clock
+from maplegotchi.runtime.daily import reflect_if_due, todays_intent
+from maplegotchi.runtime.tasks import TaskWorker, relevant_memories
+from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
+from maplegotchi.storage.conversation_rows import MessageRecord, StoredMessage
+from maplegotchi.storage.daily_rows import StoredReflection
 from maplegotchi.storage.datadir import DataDir
 from maplegotchi.storage.db import open_life_database
+from maplegotchi.storage.memory_rows import StoredMemoryEvent
 from maplegotchi.storage.repositories import (
     LifeRepository,
     PersistedView,
@@ -56,8 +102,10 @@ from maplegotchi.storage.repositories import (
     StoredJournalEntry,
     StoredObservation,
 )
+from maplegotchi.storage.tool_rows import StoredDocument, StoredToolUse
 
 DEFAULT_NAME = "Maple"
+MESSAGE_WINDOW = timedelta(minutes=10)  # repeated messages within this have less effect
 
 
 def new_life_seed() -> str:
@@ -89,6 +137,71 @@ class CommittedInteraction:
     outcome: InteractionOutcome
     revision: int
     journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class CommittedArrival:
+    """A walk's arrival recorded between heartbeats: the activity has begun."""
+
+    state: MapleState
+    revision: int
+    events: tuple[LifeEvent, ...]
+    journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class CommittedDecision:
+    """A decision transition exactly as committed (ADR-0026 §3)."""
+
+    outcome: DecisionOutcome
+    revision: int
+    journal: tuple[JournalEntry, ...]
+
+
+@dataclass(frozen=True)
+class PendingDecision:
+    """A due decision, handed to a Director outside the lock (ADR-0026 §3)."""
+
+    revision: int
+    trigger: DecisionTrigger
+    inputs: BehaviorInputs
+    context: DecisionContext
+
+
+@dataclass(frozen=True)
+class ReceivedMessage:
+    """A message from Paolo as committed, with the context for replying (ADR-0032)."""
+
+    message_id: int
+    revision: int
+    context: ReplyContext
+    existing_reply: str | None  # set when this message was already answered (a retry)
+    duplicate: bool
+    interrupted: bool
+
+
+@dataclass(frozen=True)
+class LifeRecords:
+    """Life events from the three stores (ADR-0028 §2), each oldest first."""
+
+    timeline: tuple[StoredEvent, ...]
+    actions: tuple[StoredActionEvent, ...]
+    decisions: tuple[StoredDecision, ...]
+    tools: tuple[StoredToolUse, ...] = ()
+    memory: tuple[StoredMemoryEvent, ...] = ()
+    reflections: tuple[StoredReflection, ...] = ()
+    messages: tuple[StoredMessage, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(
+            self.timeline
+            or self.actions
+            or self.decisions
+            or self.tools
+            or self.memory
+            or self.reflections
+            or self.messages
+        )
 
 
 class ExternalBrainNotAllowed(RuntimeError):
@@ -125,6 +238,7 @@ class LifeRuntime:
         self._params = params
         self._journal_params = journal or JournalParameters()
         self._lock = threading.Lock()
+        self._tasks = TaskWorker()
         stored = repository.load()
         self._state = stored.state
         self._revision = stored.revision
@@ -156,7 +270,7 @@ class LifeRuntime:
             state = birth(name=name, born_at=born_at, seed_hex=new_seed())
             return state, Born(at=born_at, name=name)
 
-        repository = LifeRepository(open_life_database(data_dir, first_life))
+        repository = LifeRepository(open_life_database(data_dir, first_life, now=clock.now))
         try:
             return cls(repository, clock, params or CoreParameters(), brain=brain, journal=journal)
         except BaseException:
@@ -213,6 +327,50 @@ class LifeRuntime:
             repo = self._repository()
             return repo.events(revision=revision), repo.journal(revision=revision)
 
+    def life_written_at(self, revision: int) -> LifeRecords:
+        """Every life event (timeline, actions, decisions, tools, memory) of this revision."""
+        with self._lock:
+            repo = self._repository()
+            return LifeRecords(
+                tuple(repo.events(revision=revision)),
+                tuple(repo.action_events(revision=revision)),
+                tuple(repo.decisions(revision=revision)),
+                tuple(repo.tool_uses(revision=revision)),
+                tuple(repo.memory_events(revision=revision)),
+                tuple(repo.reflections(revision=revision)),
+                tuple(repo.messages(revision=revision)),
+            )
+
+    def life_since(self, revision: int, *, limit: int) -> LifeRecords:
+        """Life events committed after `revision`, each store capped at `limit` rows."""
+        with self._lock:
+            repo = self._repository()
+            return LifeRecords(
+                tuple(repo.events_since(revision, limit=limit)),
+                tuple(repo.action_events(since_revision=revision, limit=limit)),
+                tuple(repo.decisions(since_revision=revision, limit=limit)),
+                tuple(repo.tool_uses(since_revision=revision, limit=limit)),
+                tuple(repo.memory_events(since_revision=revision, limit=limit)),
+                tuple(repo.reflections(since_revision=revision, limit=limit)),
+                tuple(repo.messages(since_revision=revision, limit=limit)),
+            )
+
+    def documents(self, *, limit: int) -> list[StoredDocument]:
+        with self._lock:
+            return self._repository().documents(limit=limit)
+
+    def document(self, document_id: int) -> StoredDocument | None:
+        with self._lock:
+            return self._repository().document(document_id)
+
+    def tool_uses(self, *, limit: int) -> list[StoredToolUse]:
+        with self._lock:
+            return self._repository().tool_uses(limit=limit)
+
+    def decisions(self, *, limit: int) -> list[StoredDecision]:
+        with self._lock:
+            return self._repository().decisions(limit=limit)
+
     @property
     def reflection_state(self) -> ReflectionState:
         return self._reflection
@@ -230,7 +388,371 @@ class LifeRuntime:
             now >= state.last_updated_at
         )
 
+    def arrival_due(self) -> bool:
+        """Whether a walk has reached its destination and is not yet recorded."""
+        route = self._state.route
+        return route is not None and self._clock.now() >= route.arrives_at
+
+    def decision_is_due(self) -> bool:
+        """Whether a decision transition would run now."""
+        state = self._state
+        now = self._clock.now()
+        return now >= state.last_updated_at and decision_due(state, now) is not None
+
+    def pending_decision(self) -> PendingDecision | None:
+        """The context for a due decision, or None. Reads only; commits nothing."""
+        attention = self._latest_attention()
+        inputs = BehaviorInputs(server_attention=attention.level)
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                return None
+            prepared = prepare(self._state, now, trigger, self._params)
+            recent = [d.record for d in repo.decisions(limit=3)]
+            memories = relevant_memories(repo, prepared.state, now)
+            intent = todays_intent(repo, now, self._params.utc_offset)
+            context = build_context(
+                prepared,
+                now,
+                trigger,
+                inputs,
+                self._params,
+                server_reasons=attention.reasons,
+                recent=recent,
+                catalog=self._tasks.catalog(repo),
+                memories=memories,
+                intent=(intent.intent_type, intent.intent_summary) if intent else None,
+            )
+            return PendingDecision(self._revision, trigger, inputs, context)
+
+    def decide_proposal_committed(
+        self,
+        pending: PendingDecision,
+        *,
+        director: DirectorLabel,
+        raw: object = None,
+        failure: RejectionCode | None = None,
+        latency_ms: int | None = None,
+    ) -> CommittedDecision | None:
+        """Apply a Director's answer: re-validated against the state as it is NOW.
+
+        If the decision stopped being due while the Director was thinking (a
+        heartbeat or an interruption handled it), the proposal is recorded as
+        stale and nothing else changes. Returns None only if there was no answer
+        and nothing is due any more.
+        """
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                if failure is not None:
+                    return None
+                record = stale_record(
+                    self._state,
+                    now,
+                    pending.inputs,
+                    self._params,
+                    director=director,
+                    raw=raw,
+                    latency_ms=latency_ms,
+                )
+                revision = repo.commit(
+                    self._state, expected_revision=self._revision, events=(), decisions=(record,)
+                )
+                self._revision = revision
+                return None
+            intent = todays_intent(repo, now, self._params.utc_offset)
+            outcome = decide_with_proposal(
+                self._state,
+                now,
+                trigger,
+                pending.inputs,
+                self._params,
+                director=director,
+                raw=raw,
+                failure=failure,
+                latency_ms=latency_ms,
+                catalog=self._tasks.catalog(repo),  # as it is now, not when asked
+                intent=intent.intent_type if intent else None,
+            )
+            return self._commit_decision(repo, outcome, now)
+
+    def _latest_attention(self) -> ServerAttention:
+        latest = self.latest_observations()
+        if not latest:
+            return assess_server_attention(None)
+        observed_at = max(s.observation.observed_at for s in latest)
+        snapshot = ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
+        return assess_server_attention(snapshot)
+
+    def _memory_changes(
+        self,
+        repo: LifeRepository,
+        events: Sequence[LifeEvent],
+        tools: Sequence[ToolRecord],
+        now: datetime,
+        *,
+        consolidate: bool = False,
+    ) -> tuple[MemoryChange, ...]:
+        """New memories from this transition, and (on heartbeats) consolidation (ADR-0030)."""
+        created = tuple(
+            MemoryChange(m, MemoryEvent(MemoryEventKind.CREATED, now))
+            for m in memories_from(events, tools, now, self._params.utc_offset)
+        )
+        if not consolidate:
+            return created
+        short = repo.memories(tiers=(Tier.SHORT_TERM,), limit=1000)
+        return created + consolidate_memories(short, now)
+
+    def memories(self, *, tiers: Sequence[Tier] | None = None, limit: int) -> list[Memory]:
+        with self._lock:
+            return self._repository().memories(tiers=tiers, limit=limit)
+
+    def receive_message_committed(self, message: IncomingMessage) -> ReceivedMessage:
+        """Record a message from Paolo and apply its effects; idempotent by message id."""
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            existing = repo.message_by_external_id(message.channel, message.external_id)
+            if existing is not None:
+                answered = repo.reply_to(existing.id)
+                context = self._reply_context(repo, self._state, now, message)
+                return ReceivedMessage(
+                    existing.id,
+                    self._revision,
+                    context,
+                    answered.text if answered else None,
+                    duplicate=True,
+                    interrupted=False,
+                )
+            audit = arrival_actions(self._state, now)
+            settled, arrival = settle_movement(self._state, now)
+            counter = settled.rng.interaction_counter + 1
+            rng = RngStream(settled.rng.seed_hex, "interaction", counter)
+            recent = repo.recent_incoming(now - MESSAGE_WINDOW)
+            outcome = receive_message(settled, now, recent, rng)
+            state = replace(
+                outcome.state, rng=replace(outcome.state.rng, interaction_counter=counter)
+            )
+            remembered = (
+                MemoryChange(
+                    Memory(
+                        kind=MemoryKind.CONVERSATION,
+                        tier=Tier.SHORT_TERM,
+                        status=MemoryStatus.ACTIVE,
+                        text=one_line(f"Paolo wrote to me: {message.text}", 240),
+                        created_at=now,
+                        last_seen_at=now,
+                        key=f"conversation:{message.channel.value}:{message.external_id}",
+                        source=f"{message.channel.value}:{message.external_id}",
+                        importance=0.6,
+                    ),
+                    MemoryEvent(MemoryEventKind.CREATED, now),
+                ),
+            )
+            revision = repo.commit(
+                state,
+                expected_revision=self._revision,
+                events=(*arrival, *outcome.events),
+                actions=(*audit, *outcome.actions),
+                memories=remembered,
+                message=MessageRecord(
+                    at=now,
+                    channel=message.channel,
+                    speaker=message.speaker,
+                    text=message.text,
+                    external_id=message.external_id,
+                ),
+            )
+            self._state, self._revision = state, revision
+            message_id = repo.last_message_id
+            if message_id is None:  # pragma: no cover - the commit wrote it
+                raise RuntimeError("message row id missing")
+            context = self._reply_context(repo, state, now, message)
+            return ReceivedMessage(
+                message_id, revision, context, None, duplicate=False,
+                interrupted=outcome.interrupted,
+            )  # fmt: skip
+
+    def record_reply_committed(
+        self,
+        message_id: int,
+        text: str,
+        *,
+        replier_kind: str,
+        replier_name: str,
+        fallback_code: str | None,
+    ) -> int:
+        """Store Maple's reply to a message; changes no state. Returns the revision."""
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            revision = repo.commit(
+                self._state,
+                expected_revision=self._revision,
+                events=(),
+                message=MessageRecord(
+                    at=now,
+                    channel=Channel.DISCORD,
+                    speaker=Speaker.MAPLE,
+                    text=text,
+                    reply_to=message_id,
+                    replier_kind=replier_kind,
+                    replier_name=replier_name,
+                    fallback_code=fallback_code,
+                ),
+            )
+            self._revision = revision
+            return revision
+
+    def _reply_context(
+        self, repo: LifeRepository, state: MapleState, now: datetime, message: IncomingMessage
+    ) -> ReplyContext:
+        server = self._server_line(repo) or "I have no observations of the server yet"
+        return build_reply_context(
+            state,
+            now,
+            message,
+            utc_offset=self._params.utc_offset,
+            expression=state.expression_at(max(now, state.last_updated_at)).value,
+            server_summary=server,
+            memories=[m.text for m in relevant_memories(repo, state, now)],
+            conversation=[(m.speaker.value, m.text) for m in repo.messages(limit=6)],
+        )
+
+    def messages(self, *, limit: int) -> list[StoredMessage]:
+        with self._lock:
+            return self._repository().messages(limit=limit)
+
+    def reflections(self, *, limit: int) -> list[StoredReflection]:
+        with self._lock:
+            return self._repository().reflections(limit=limit)
+
+    def memory_search(self, text: str, *, limit: int) -> tuple[Memory, ...]:
+        with self._lock:
+            everything = self._repository().memories(limit=5000)
+        return search_memories(everything, text, limit)
+
+    @staticmethod
+    def _server_line(repo: LifeRepository) -> str | None:
+        """One factual line about the server for documents (lock held by the caller)."""
+        tick = repo.latest_observation_tick()
+        if tick is None:
+            return None
+        stored = repo.observations(tick_id=tick)
+        snapshot = ObservationSnapshot(
+            max(s.observation.observed_at for s in stored), tuple(s.observation for s in stored)
+        )
+        attention = assess_server_attention(snapshot)
+        if not attention.reasons:
+            return "nothing notable in the latest observations"
+        return "noticed " + ", ".join(attention.reasons[:3])
+
+    def latest_inputs(self) -> BehaviorInputs:
+        """Behavior inputs from the most recent stored observations (facts only)."""
+        latest = self.latest_observations()
+        if not latest:
+            return BehaviorInputs()
+        observed_at = max(s.observation.observed_at for s in latest)
+        return behavior_inputs(
+            ObservationSnapshot(observed_at, tuple(s.observation for s in latest))
+        )
+
     # ------------------------------------------------------------ transitions
+
+    def decide_committed(self, inputs: BehaviorInputs | None = None) -> CommittedDecision | None:
+        """Choose and begin Maple's next goal/action if a decision is due (rule direction)."""
+        inputs = inputs if inputs is not None else self.latest_inputs()
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            trigger = decision_due(self._state, now)
+            if trigger is None:
+                return None
+            intent = todays_intent(repo, now, self._params.utc_offset)
+            outcome = decide(
+                self._state,
+                now,
+                trigger,
+                inputs,
+                self._params,
+                catalog=self._tasks.catalog(repo),
+                intent=intent.intent_type if intent else None,
+            )
+            return self._commit_decision(repo, outcome, now)
+
+    def _commit_decision(
+        self, repo: LifeRepository, outcome: DecisionOutcome, now: datetime
+    ) -> CommittedDecision:
+        """Commit a decision with its journal, actions and audit row (lock held)."""
+        if outcome.record is None:  # pragma: no cover - every decision is recorded
+            raise RuntimeError("decision without an audit record")
+        triggers, reflection = settle_triggers(
+            self._reflection,
+            events=outcome.events,
+            now=now,
+            params=self._params,
+            journal=self._journal_params,
+        )
+        entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
+        reflection = mark_journaled(reflection, triggers, _written(entries), now)
+        tools = self._tasks.effects(
+            repo, self._state, outcome.state, now, server_line=self._server_line(repo)
+        )
+        remembered = self._memory_changes(repo, outcome.events, tools, now)
+        daily = reflect_if_due(repo, self._state, outcome.state, now, self._params.utc_offset)
+        if daily is not None:
+            remembered += daily.memory_changes
+        revision = repo.commit(
+            outcome.state,
+            expected_revision=self._revision,
+            events=outcome.events,
+            journal=entries,
+            reflection=reflection,
+            actions=outcome.actions,
+            decisions=(outcome.record,),
+            tools=tools,
+            memories=remembered,
+            daily=daily.reflection if daily else None,
+        )
+        self._state, self._revision, self._reflection = outcome.state, revision, reflection
+        return CommittedDecision(outcome, revision, entries)
+
+    def settle_committed(self) -> CommittedArrival | None:
+        """Record an arrival that has happened (ADR-0027 §5): the activity begins.
+
+        Uses no randomness and no Brain decisions; only the journal wording of a
+        newly begun notable activity, exactly as a heartbeat would.
+        """
+        with self._lock:
+            repo = self._repository()
+            now = max(self._clock.now(), self._state.last_updated_at)
+            arrived = arrival_actions(self._state, now)
+            settled, events = settle_movement(self._state, now)
+            if settled is self._state:
+                return None
+            triggers, reflection = settle_triggers(
+                self._reflection,
+                events=events,
+                now=now,
+                params=self._params,
+                journal=self._journal_params,
+            )
+            entries = self._write_journal(triggers, settled, now, None, tick_id=None)
+            reflection = mark_journaled(reflection, triggers, _written(entries), now)
+            revision = repo.commit(
+                settled,
+                expected_revision=self._revision,
+                events=events,
+                journal=entries,
+                reflection=reflection,
+                actions=arrived,
+            )
+            self._state, self._revision, self._reflection = settled, revision, reflection
+            return CommittedArrival(settled, revision, events, entries)
 
     def heartbeat_if_due(
         self, observations: ObservationSnapshot | None = None
@@ -271,6 +793,13 @@ class LifeRuntime:
                 triggers, result.state, now, observations, tick_id=result.tick_id
             )
             reflection = mark_journaled(reflection, triggers, _written(entries), now)
+            tools = self._tasks.effects(
+                repo, state, result.state, now, server_line=self._server_line(repo)
+            )
+            remembered = self._memory_changes(repo, result.events, tools, now, consolidate=True)
+            daily = reflect_if_due(repo, state, result.state, now, self._params.utc_offset)
+            if daily is not None:
+                remembered += daily.memory_changes
             revision = repo.commit(
                 result.state,
                 expected_revision=self._revision,
@@ -279,6 +808,11 @@ class LifeRuntime:
                 observations=observations.observations if observations else (),
                 journal=entries,
                 reflection=reflection,
+                actions=result.actions,
+                decisions=(result.decision,) if result.decision else (),
+                tools=tools,
+                memories=remembered,
+                daily=daily.reflection if daily else None,
             )
             self._state, self._revision, self._reflection = result.state, revision, reflection
             return CommittedTick(result, revision, entries)
@@ -293,23 +827,36 @@ class LifeRuntime:
             # If the wall clock stepped backwards, act at the latest known time
             # rather than before it; core forbids going back in time.
             now = max(self._clock.now(), self._state.last_updated_at)
-            outcome = apply_interaction(self._state, kind, now, self._params)
+            # A finished walk is recorded first, so drowsiness reflects arrival in bed.
+            audit = arrival_actions(self._state, now)
+            settled, arrival = settle_movement(self._state, now)
+            outcome = apply_interaction(settled, kind, now, self._params)
             if isinstance(outcome, Accepted):
-                triggers, reflection = interaction_triggers(
+                arrived, reflection = settle_triggers(
                     self._reflection,
+                    events=arrival,
+                    now=now,
+                    params=self._params,
+                    journal=self._journal_params,
+                )
+                interacted, reflection = interaction_triggers(
+                    reflection,
                     accepted=outcome,
                     now=now,
                     params=self._params,
                     journal=self._journal_params,
                 )
+                triggers = arrived + interacted
                 entries = self._write_journal(triggers, outcome.state, now, None, tick_id=None)
                 reflection = mark_journaled(reflection, triggers, _written(entries), now)
                 revision = repo.commit(
                     outcome.state,
                     expected_revision=self._revision,
-                    events=(outcome.event,),
+                    events=(*arrival, outcome.event),
                     journal=entries,
                     reflection=reflection,
+                    actions=audit,
+                    memories=self._memory_changes(repo, (*arrival, outcome.event), (), now),
                 )
                 self._state, self._revision, self._reflection = outcome.state, revision, reflection
                 return CommittedInteraction(outcome, revision, entries)

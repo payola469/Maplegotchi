@@ -14,13 +14,18 @@ Opening policy (see docs/persistence.md):
 - `maple.db` present -> it must be a non-empty Maplegotchi database that
   passes integrity checks, migrates cleanly, and holds exactly one life.
   Otherwise opening fails loudly. Existing files are never recreated.
+- Before an existing database is migrated to schema v4 or later, a verified copy
+  is written to `pre-migration/` first (ADR-0028 R2); if that copy cannot be
+  made and verified, the migration is refused and `maple.db` is left untouched.
 """
 
 from __future__ import annotations
 
+import os
 import secrets
 import sqlite3
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from maplegotchi.core.state import MapleState
@@ -31,7 +36,12 @@ from maplegotchi.storage.errors import (
     NotAMapleDatabaseError,
     StorageError,
 )
-from maplegotchi.storage.migrations import APPLICATION_ID, migrate
+from maplegotchi.storage.migrations import (
+    APPLICATION_ID,
+    latest_version,
+    migrate,
+    schema_version,
+)
 from maplegotchi.storage.repositories import LifeRepository
 
 DB_FILENAME = "maple.db"
@@ -43,6 +53,14 @@ _ROLLBACK_JOURNAL_VERSIONS = b"\x01\x01"
 MIN_SQLITE_VERSION = (3, 38, 0)  # STRICT tables, json_valid
 
 FirstLife = Callable[[], tuple[MapleState, Born]]
+
+PRE_MIGRATION_DIR = "pre-migration"
+# Migrating an existing database to this version or later first takes a verified copy.
+SNAPSHOT_FROM_VERSION = 4
+
+
+class PreMigrationSnapshotError(StorageError):
+    """The verified pre-migration copy could not be made; the migration was refused."""
 
 
 def _connect(path: Path, *, create: bool) -> sqlite3.Connection:
@@ -128,8 +146,66 @@ def _give_birth(data_dir: DataDir, first_life: FirstLife) -> None:
         _remove_with_side_files(data_dir, temp)
 
 
-def open_life_database(data_dir: DataDir, first_life: FirstLife) -> sqlite3.Connection:
-    """Open Maple's database, giving birth first if and only if none exists yet."""
+def _snapshot_name(version: int, now: datetime | None) -> str:
+    stamp = now.strftime("%Y%m%dT%H%M%SZ") if now is not None else "undated"
+    return f"{PRE_MIGRATION_DIR}/maple.v{version}.{stamp}.{secrets.token_hex(4)}.db"
+
+
+def take_pre_migration_snapshot(
+    conn: sqlite3.Connection, data_dir: DataDir, now: datetime | None = None
+) -> str:
+    """Copy the database (online backup API) into `pre-migration/` and verify the copy.
+
+    The copy is self-contained (DELETE journal), passes integrity_check, carries
+    the Maplegotchi application_id and the source's schema version, is 0600,
+    fsynced, and published without overwriting anything. Returns its name.
+    """
+    version = schema_version(conn)
+    final = _snapshot_name(version, now)
+    partial = final + ".partial"
+    try:
+        data_dir.make_dir(PRE_MIGRATION_DIR)
+    except OSError as exc:
+        raise PreMigrationSnapshotError(f"cannot create {PRE_MIGRATION_DIR}/: {exc}") from exc
+    try:
+        target = sqlite3.connect(data_dir.path(partial), isolation_level=None)
+        try:
+            conn.backup(target)
+            mode = target.execute("PRAGMA journal_mode = DELETE").fetchone()[0]
+            if str(mode).lower() != "delete":
+                raise PreMigrationSnapshotError(f"snapshot journal mode is {mode!r}")
+            if [r[0] for r in target.execute("PRAGMA integrity_check").fetchall()] != ["ok"]:
+                raise PreMigrationSnapshotError("snapshot failed integrity_check")
+            if target.execute("PRAGMA application_id").fetchone()[0] != APPLICATION_ID:
+                raise PreMigrationSnapshotError("snapshot lost the application_id")
+            if schema_version(target) != version:
+                raise PreMigrationSnapshotError("snapshot schema version differs from source")
+        finally:
+            target.close()
+        path = data_dir.path(partial)
+        path.chmod(0o600)
+        with path.open("rb+") as file:
+            os.fsync(file.fileno())
+        data_dir.publish(partial, final)
+    except PreMigrationSnapshotError:
+        _remove_with_side_files(data_dir, partial)
+        raise
+    except (OSError, sqlite3.Error) as exc:
+        _remove_with_side_files(data_dir, partial)
+        raise PreMigrationSnapshotError(f"pre-migration snapshot failed: {exc}") from exc
+    return final
+
+
+def open_life_database(
+    data_dir: DataDir,
+    first_life: FirstLife,
+    *,
+    now: Callable[[], datetime] | None = None,
+) -> sqlite3.Connection:
+    """Open Maple's database, giving birth first if and only if none exists yet.
+
+    `now` only names pre-migration snapshots; nothing else here reads time.
+    """
     if not data_dir.exists(DB_FILENAME):
         _give_birth(data_dir, first_life)
 
@@ -139,6 +215,9 @@ def open_life_database(data_dir: DataDir, first_life: FirstLife) -> sqlite3.Conn
     conn = _connect(path, create=False)
     try:
         _verify(conn)
+        current = schema_version(conn)
+        if 1 <= current < latest_version() and latest_version() >= SNAPSHOT_FROM_VERSION:
+            take_pre_migration_snapshot(conn, data_dir, now() if now is not None else None)
         _enable_wal(conn)
         migrate(conn)
         if not LifeRepository(conn).has_life():

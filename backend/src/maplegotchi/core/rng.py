@@ -49,11 +49,13 @@ class RngState:
     seed_hex: str
     tick_counter: int = 0
     interaction_counter: int = 0
+    decision_counter: int = 0  # stream "decision" (ADR-0026 §9)
 
     def __post_init__(self) -> None:
         validate_seed_hex(self.seed_hex)
         _validate_counter("tick_counter", self.tick_counter)
         _validate_counter("interaction_counter", self.interaction_counter)
+        _validate_counter("decision_counter", self.decision_counter)
 
 
 class RngStream:

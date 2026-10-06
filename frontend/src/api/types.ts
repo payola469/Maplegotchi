@@ -22,11 +22,86 @@ export interface NeedsOut {
   social: number;
 }
 
+export interface PositionOut {
+  x: number;
+  y: number;
+}
+
+export interface PathPointOut {
+  x: number;
+  y: number;
+  distance: number;
+  node: string | null;
+}
+
+export interface RouteOut {
+  departed_at: string;
+  arrives_at: string; // the activity begins here (ADR-0027)
+  from_activity: string;
+  path: PathPointOut[];
+}
+
 export interface ActivityOut {
   kind: string;
   location: string;
-  started_at: string;
+  started_at: string; // while walking: the planned start, i.e. arrival
   until: string;
+  phase: string; // walking | performing
+  point: string;
+  furniture: string;
+  pose: string;
+  facing: string;
+  position: PositionOut; // at generated_at
+  route: RouteOut | null;
+  task: TaskOut | null; // what is being read/written (ADR-0029)
+}
+
+export interface TaskOut {
+  tool: string; // reader | writer
+  target: string;
+  title: string;
+  category: string;
+}
+
+export interface DocumentSummaryOut {
+  id: number;
+  kind: string; // note | summary | reflection | research
+  title: string;
+  created_at: string;
+  chars: number;
+  action_id: number;
+  goal_id: number | null;
+}
+
+export interface DocumentOut extends DocumentSummaryOut {
+  body: string;
+  sources: string[];
+}
+
+export interface InteractionPointOut {
+  id: string;
+  location: string;
+  furniture: string;
+  x: number;
+  y: number;
+  facing: string;
+  pose: string;
+  allowed_actions: string[];
+}
+
+export interface FurnitureOut {
+  id: string;
+  label: string;
+  location: string;
+}
+
+export interface RoomOut {
+  width: number;
+  height: number;
+  floor_y: number;
+  walk_speed: number;
+  furniture: FurnitureOut[];
+  points: InteractionPointOut[];
 }
 
 export interface ReactionOut {
@@ -43,6 +118,15 @@ export interface InteractionAvailabilityOut {
   retry_after_seconds: number | null;
 }
 
+export interface GoalOut {
+  id: number;
+  type: string; // one of the 16 goal types (ADR-0026)
+  summary: string;
+  source: string; // rule | external
+  started_at: string;
+  horizon_until: string;
+}
+
 export interface MapleOut {
   revision: number;
   generated_at: string;
@@ -52,6 +136,15 @@ export interface MapleOut {
   expression: string;
   reaction: ReactionOut | null;
   interactions: InteractionAvailabilityOut[];
+  goal: GoalOut | null;
+  suspended_goal: GoalOut | null;
+  action_priority: string; // critical | high | normal | low
+  bubble: BubbleOut | null; // the speech bubble, derived by the backend from real state
+}
+
+export interface BubbleOut {
+  kind: string; // needs_attention | thinking | reading | writing | waiting_for_paolo | approval_required
+  text: string;
 }
 
 export interface DayOut {
@@ -146,6 +239,7 @@ export interface SnapshotOut {
   timeline: TimelineEventOut[];
   freshness: FreshnessOut;
   brain: BrainOut;
+  director: BrainOut; // who proposes goals and actions (ADR-0026)
 }
 
 export interface InteractionOut {
@@ -159,3 +253,83 @@ export interface InteractionOut {
 }
 
 export type InteractionKind = "greet" | "pet";
+
+// Decision audit and the one life-event model (ADR-0026 §8, ADR-0028 §2).
+
+export interface DecisionOut {
+  id: number;
+  revision: number;
+  at: string;
+  trigger: string;
+  priority: string | null;
+  director: { kind: string; name: string; version: string };
+  context_summary: string; // written by core, not by a Director
+  proposal: {
+    goal_op: string | null;
+    goal_type: string | null;
+    goal_summary: string | null;
+    horizon_minutes: number | null;
+    abandon_reason: string | null;
+    action: string | null;
+    duration_minutes: number | null;
+    reason: string | null; // concise and validated; never model reasoning
+  } | null;
+  verdict: string; // accepted | clamped | rejected | fallback | stale
+  reason_code: string | null;
+  clamped: Record<string, number>;
+  executed: {
+    by: string;
+    reason: string;
+    goal_id: number | null;
+    action_id: number;
+    action: string;
+    point: string;
+    duration_minutes: number;
+  } | null;
+  latency_ms: number | null;
+}
+
+export interface LifeEventOut {
+  id: string; // "<timeline|action|decision>:<row id>"
+  type: string;
+  at: string;
+  revision: number;
+  goal_id: number | null;
+  action_id: number | null;
+  priority: string | null;
+  payload: Record<string, string | number | null>;
+}
+
+export interface LifeEventsOut {
+  events: LifeEventOut[];
+  last_revision: number;
+}
+
+// Maple's memory (ADR-0030).
+export interface MemoryOut {
+  id: number;
+  kind: string;
+  tier: string; // short_term | long_term | archive
+  status: string; // active, or candidate | accepted | rejected (preferences)
+  text: string;
+  key: string | null;
+  source: string | null;
+  importance: number;
+  evidence_days: string[];
+  created_at: string;
+  last_seen_at: string;
+}
+
+// Daily Reflection (ADR-0031).
+export interface ReflectionOut {
+  day: string;
+  created_at: string;
+  recovered: boolean;
+  summary: string;
+  learned: string[];
+  moments: string[];
+  memory_candidates: { memory_id: number; text: string; reason: string }[];
+  promoted: number[];
+  preference_candidates: string[][];
+  intent: { type: string; summary: string };
+}

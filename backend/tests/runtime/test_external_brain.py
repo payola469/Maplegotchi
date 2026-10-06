@@ -89,6 +89,17 @@ def test_external_http_brain_posts_prompt_and_parses_draft(
     assert isinstance(prompt, str)
     assert "Owner: Paolo" in prompt
     assert "topic=daily:read" in prompt
+    for required in (
+        "Do not use any tools.",
+        "Do not run commands.",
+        "Do not inspect workspace files.",
+        "Do not access external information.",
+        "Return ONLY a JSON array.",
+        "trigger_index",
+        "importance: one of low, normal, high",
+        "template_id",
+    ):
+        assert required in prompt
 
     assert len(drafts) == 1
     assert drafts[0].trigger_index == 0

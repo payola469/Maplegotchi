@@ -30,7 +30,8 @@ export const FURNITURE_ASSETS: Readonly<Record<FurnitureKey, FurnitureAsset>> = 
   chair: { key: "chair", description: "desk chair" },
   computerDesk: { key: "computerDesk", description: "desk under the computer" },
   monitor: { key: "monitor", description: "computer monitor showing paolo-core" },
-  plant: { key: "plant", description: "potted plant" },
+  plant: { key: "plant", description: "potted plant beside the window (Window / Plant Corner)" },
+  sofa: { key: "sofa", description: "sofa where Maple rests (Bed is for sleep only)" },
   rug: { key: "rug", description: "round rug in the middle of the floor" },
 };
 
@@ -49,6 +50,7 @@ export const MAPLE_POSES = [
   "sit_monitor",
   "read",
   "rest",
+  "think",
 ] as const;
 export const MAPLE_FACES = ["calm", "happy", "curious", "sleepy", "focused"] as const;
 export const REACTION_SYMBOLS = ["wave", "heart", "sleepy_wave", "sleepy_heart", "sparkle"] as const;

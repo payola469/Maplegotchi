@@ -167,14 +167,15 @@ def test_reconnect_with_last_event_id_replays_only_what_was_missed(tmp_path: Pat
         last_id = str(seen[0]["id"])  # the client only processed the first one
         service.interact(InteractionKind.PET)  # happens while disconnected
         second = Connection(service, last_id)
-        replay = [await second.next_frame() for _ in range(4)]
+        replay = [await second.next_frame() for _ in range(6)]
         second.disconnected = True
         return [str(f["event"]) for f in seen], [str(f["event"]) for f in replay]
 
     seen, replay = asyncio.run(scenario())
     assert seen == ["interaction", "timeline", "journal"]
     # No snapshot; and no journal event for the Pet (inside the 30-minute journal gap).
-    assert replay == ["timeline", "journal", "interaction", "timeline"]
+    # Each commit's life events follow as one `life` envelope list (ADR-0028 §2).
+    assert replay == ["timeline", "journal", "life", "interaction", "timeline", "life"]
     service.close()
 
 

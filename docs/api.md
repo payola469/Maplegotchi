@@ -31,6 +31,16 @@ no rows or domain objects are returned.
 | GET | `/api/maple` | `MapleOut` | identity, age, needs, activity, location, expression, reaction, interaction availability |
 | GET | `/api/status` | `StatusOut` | revision, freshness, brain label |
 | GET | `/api/server` | `ServerOut` | summary, attention, service health, host readings, counts by status |
+| GET | `/api/room` | `RoomOut` | room size, furniture labels, interaction points (ADR-0027); static per release |
+| GET | `/api/decisions?limit=1..100` | `DecisionOut[]` | decision audit, most recent, oldest first (ADR-0026 §8) |
+| GET | `/api/documents?limit=1..100` | `DocumentSummaryOut[]` | Maple's workspace documents (ADR-0029) |
+| GET | `/api/documents/{id}` | `DocumentOut` | one document with its body and cited sources; 404 if none |
+| GET | `/api/memory?tier=short_term\|long_term\|archive&limit=1..500` | `MemoryOut[]` | Maple's memories, most recently seen last (ADR-0030) |
+| GET | `/api/memory/search?q=…&limit=1..100` | `MemoryOut[]` | keyword search across every tier, archive included |
+| GET | `/api/reflections?limit=1..100` | `ReflectionOut[]` | Daily Reflections, most recent days, oldest first (ADR-0031) |
+| GET | `/api/conversation?limit=1..100` | `ConversationMessageOut[]` | recent conversation with Paolo, oldest first |
+| POST | `/api/conversation/messages` | `ConversationOut` | **gateway only** (ADR-0032): `Authorization: Bearer <MAPLE_GATEWAY_TOKEN>`, no `Origin`, body `{message_id, channel: "discord", speaker: "paolo", text ≤ 2000}` (≤ 8 KB); 404 when no token is configured; idempotent by `message_id` |
+| GET | `/api/life-events?after_revision=N&limit=1..500` | `LifeEventsOut` | every life event after revision N, whole revisions only; continue from `last_revision` |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
 | GET | `/api/journal?limit=1..100` | `JournalEntryOut[]` | most recent, oldest first (default 20) |
 | GET | `/api/timeline?limit=1..100` | `TimelineEventOut[]` | most recent, oldest first (default 20) |
@@ -53,13 +63,28 @@ against this list.
     "revision": 42, "generated_at": "…Z",
     "identity": {"name": "Maple", "born_at": "…Z", "age_seconds": 1234.5, "ticks_lived": 4},
     "needs": {"mood": 64.0, "energy": 79.1, "curiosity": 60.3, "social": 62.0},
-    "activity": {"kind": "idle", "location": "rug", "started_at": "…Z", "until": "…Z"},
+    "activity": {"kind": "write", "location": "desk", "started_at": "…Z", "until": "…Z",
+                 // additive (ADR-0027): movement is backend state
+                 "phase": "walking|performing", "point": "writing_desk.chair",
+                 "furniture": "writing_desk", "pose": "walk|sit_write|…", "facing": "back",
+                 "position": {"x": 412.5, "y": 520.0},          // at generated_at
+                 "route": {"departed_at": "…Z", "arrives_at": "…Z",  // == started_at
+                           "from_activity": "read",
+                           "path": [{"x": 330, "y": 500, "distance": 0, "node": "bookshelf.front"}, …]}
+                          | null},
     "expression": "happy",              // at generated_at
     "reaction": {"kind": "greet_happy", "variant": 1, "started_at": "…Z", "until": "…Z"} | null,
     "interactions": [
       {"kind": "greet", "available": false, "reason": "cooldown", "retry_after_seconds": 51.2},
       {"kind": "pet",   "available": true,  "reason": null,       "retry_after_seconds": null}
-    ]
+    ],
+    // additive (ADR-0026)
+    "goal": {"id": 3, "type": "learn", "summary": "Learn something new", "source": "rule",
+             "started_at": "…Z", "horizon_until": "…Z"} | null,
+    "suspended_goal": GoalOut | null,   // paused by an interruption
+    "action_priority": "critical|high|normal|low",
+    // additive (A8): what the speech bubble says, derived from real state
+    "bubble": {"kind": "needs_attention|thinking|reading|writing|waiting_for_paolo", "text": "…"} | null
   },
   "day": {"local_time": "2026-01-01T07:05:00+07:00", "local_hour": 7.0833, "phase": "morning",
           "is_night": false, "timezone": "Asia/Bangkok", "utc_offset_minutes": 420},
@@ -72,7 +97,8 @@ against this list.
   "journal":  [JournalEntryOut…],       // 10 most recent, oldest first
   "timeline": [TimelineEventOut…],      // 10 most recent, oldest first
   "freshness": {…},                     // below
-  "brain": {"kind": "rule", "name": "rule_brain", "version": "1"}
+  "brain": {"kind": "rule", "name": "rule_brain", "version": "1"},
+  "director": {"kind": "rule", "name": "rule_director", "version": "1"}  // additive (ADR-0026)
 }
 ```
 
@@ -191,6 +217,8 @@ data: <one line of JSON>
 | `heartbeat` | after each heartbeat | `revision`, `tick_id`, `activity`, `location`, `needs`, `last_heartbeat_at` |
 | `observations` | after each observed heartbeat | `revision`, `observed_at`, `counts` |
 | `interaction` | after an accepted Greet/Pet | `revision`, `kind`, `reaction` |
+| `movement` | when an arrival or a decision changed where Maple is going | `revision`, `activity`, `location`, `point` |
+| `life` | after every commit that wrote life events | `revision`, `events: LifeEventOut[]` (below) |
 | `journal` | when entries were written | `revision`, `entries: JournalEntryOut[]` |
 | `timeline` | when lifecycle events were written | `revision`, `events: TimelineEventOut[]` |
 
@@ -200,7 +228,7 @@ data: <one line of JSON>
   buffer → the missed events are replayed. Absent, malformed, from an earlier
   process, from the future, or older than the buffer → a `snapshot` event, then
   live events. The client never silently misses a change.
-- **Bounded:** the hub keeps the last 256 events. Publishing only appends and
+- **Bounded:** the hub keeps the last 512 events. Publishing only appends and
   wakes waiters; it never waits for a client. A slow client that falls behind
   is resynced with a snapshot.
 - **Read-only:** the stream accepts no input; other methods on `/api/events`
@@ -229,3 +257,37 @@ uv run maplegotchi run --data-dir ../var/maple-data --senses fake \
 
 Settings come from the environment (`MAPLE_*`, see `maplegotchi/config.py`);
 the flags above override them.
+
+## Life events: one model for Web, iOS and Discord (ADR-0028 §2)
+
+Three append-only stores, one envelope:
+
+| Store | Types |
+|---|---|
+| `timeline` (significant life events) | `born`, `activity_changed`, `interaction_accepted`, `downtime_gap`, `goal_started`, `goal_suspended`, `goal_resumed`, `goal_completed`, `goal_abandoned` |
+| `action` (action lifecycle) | `destination_selected`, `walking_started`, `walking_cancelled`, `arrived`, `activity_started`, `activity_completed`, `activity_interrupted`, `activity_resumed`, `needs_attention` |
+| `decision` (audit) | `goal_proposed` (a new goal was proposed), `decision_made`, `decision_rejected` (rejected or stale proposal) |
+| `conversation` (ADR-0032) | `conversation_received`, `conversation_replied` (payload: channel, speaker, text ≤ 200, replier, fallback_code) |
+| `reflection` (ADR-0031) | `daily_reflection` (payload: day, recovered, summary, intent_type, intent_summary, promoted) |
+| `memory` (ADR-0030) | `memory_created`, `memory_reinforced`, `memory_promoted`, `memory_archived`, `memory_confirmed`, `memory_rejected` |
+| `tool` (reader/writer provenance, ADR-0029) | `read_started`, `read_completed`, `read_failed`, `write_started`, `write_completed`, `write_failed` (payload: tool, target, title, category, status, detail, chars, document_id) |
+
+```jsonc
+{"id": "action:42", "type": "walking_started", "at": "…Z", "revision": 310,
+ "goal_id": 7, "action_id": 55, "priority": null,
+ "payload": {"point": "writing_desk.chair", "furniture": "writing_desk",
+             "arrives_at": "…Z", "distance": 400.0}}
+```
+
+- Ordering: by revision, then decision → timeline → action → tool → memory → reflection →
+  conversation, then row id.
+- The snapshot's `maple.activity.task` (`tool`, `target`, `title`, `category`) says what
+  Maple is reading or writing; null for other activities.
+- Live: the SSE `life` event carries the envelopes of one commit. Catch-up or
+  polling (iOS, Discord gateway): `GET /api/life-events?after_revision=<last seen>`;
+  a page never ends part-way through a revision.
+- `DecisionOut` holds core's `context_summary`, the proposal (with the
+  proposer's single concise `reason`), the verdict and reason code, clamped
+  originals, and what was executed. No prompt, raw model output, or model
+  reasoning is stored or served.
+

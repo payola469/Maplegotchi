@@ -3,6 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector), A9 Discord conversations (schema v9, `companion/discord`), A10 Brain companion packaging (`companion/brain`, ADR-0033) implemented. **A10 approved by the owner (2026-10-06); the branch is prepared for owner review (`docs/v0.2-review.md`); no further feature phase is authorized.** Not pushed, not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -39,6 +40,14 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D22 | 2026-09-30 | Production runtime is uv-managed **CPython 3.12** under `/opt/maplegotchi/python` (not the host's 3.14); immutable `releases/<commit-sha>` with per-release venv from `uv.lock`; bundle built on the trusted build machine (incl. frontend); rollback swaps code only and never downgrades the database. All privileged steps are owner-run. | 0023 |
 | D23 | 2026-09-30 | Maple's database joins the nightly paolo-core backup via SQLite backup API → `$RUN_DIR/maple.db` (0600) → `integrity_check` = `ok` → added to the explicit restic paths only when staged; no `maple.db` = intentional skip; a present but unstageable DB fails the job (`set -Eeuo pipefail`). Exact two-insertion patch in `deploy/backup/`. | 0024 |
 | D24 | 2026-10-04 | v0.2 may select an External Brain through a localhost-only HTTP runtime boundary. `brain/` stays pure; Maplegotchi never invokes Antigravity, provider CLIs, subprocesses, shells, or exec APIs directly. Provider execution belongs to a separate companion service. | 0025 |
+| D25 | 2026-10-05 | **AI Director**: a separate pure `Director` protocol (journal `Brain` unchanged) proposes Maple's short-term goal (16 semantic goal types, 30–120 min horizon) and next action; core validates/executes. Decisions are their own transition, called outside the writer lock; the heartbeat never calls a Director (critical interrupts and overdue fallback are core rules). Out-of-range durations/horizons are clamped and recorded `clamped`; any reject/timeout/error falls back to rule direction. Priorities critical/high/normal/low; Greet/Pet stay non-interrupting. Audit stores concise reasons only, never chain-of-thought; accepted proposals are stored inputs (determinism). | 0026 |
+| D26 | 2026-10-05 | Room **interaction points** (id, location, x/y, facing, pose, allowed_actions) in pure `core/room.py`, served by `/api/room`. Writing Desk (`desk`) ≠ Computer Desk (`terminal`); new `sofa`. Movement is **backend-modeled**: action → destination → path → arrive → activity begins (`activity_started_at = arrives_at`); phase derived from `now`; rerouting cancels the old destination and paths from the current position. | 0027 |
+| D28 | 2026-10-05 | **Real reader/writer**: Maple reads only an allowlisted catalog by id (release-bundled `maplegotchi/library`, its own documents, recent journal, latest observations); writes only documents into its workspace — the append-only `document` table in maple.db (no new filesystem write path); deterministic core writer; `tool_use` provenance for every read/write; the current task is part of state and the API. | 0029 |
+| D29 | 2026-10-05 | **Memory** is Maple's data (maple.db `memory` + append-only `memory_event`), never provider-owned: `short_term` (~36 h) → `archive` (searchable, never injected) unless explicitly promoted to `long_term`; preferences go candidate → accepted only with evidence on 3 distinct days or explicit confirmation; Directors/writer get ≤ 5 relevant memories. | 0030 |
+| D30 | 2026-10-06 | **Daily Reflection** once per Maple day (06:00→06:00 local) when the night's sleep begins, or recovered at the first awake transition after a missed day: summary, learned, moments, memory candidates (only the strongest, importance ≥ 0.6, promoted), preference candidates (evidence only), tomorrow intent. Never changes needs; influences via memory, preferences and intent (rule direction lean + Director `intent`). | 0031 |
+| D31 | 2026-10-06 | **Discord conversations** (supersedes D3's "no chat" for v0.2): a separate `maple-discord` service/account holds the bot token and relays Paolo's `#maple-chat` messages to the one token-guarded, idempotent `POST /api/conversation/messages` (no browser Origin, 8 KB body); a message is social (+6 social, +2 mood, diminishing) and high-priority (interrupts normal/low to listen; never wakes Maple); replies come from real context (rule, or validated `/reply` with fallback) outside the lock; both directions stored append-only; slash commands read-only. | 0032 |
+| D32 | 2026-10-06 | **Brain companion in the repository**: `companion/brain` (`maple-brain`, stdlib-only) serves `/generate`, `/decide` (`maple.decision.v1`), `/reply` (`maple.reply.v1`), `/health` on loopback only (127.0.0.1:8471); the provider is configuration (`MAPLE_BRAIN_PROVIDER=none|command`, JSON argv with an absolute path, no shell, stdin prompt, minimal env, scratch cwd, timeout, output cap; auto-approve/permission-bypass flags refused); unit `deploy/brain/maple-brain.service` runs as `maple-brain-svc` with no capabilities, `/data`, `/etc/maplegotchi`, `/etc/maple-discord` inaccessible, provider login only in its `StateDirectory`; no secrets in the repo. Owner-accepted: `MemoryDenyWriteExecute` unset for this unit only (JIT provider CLIs); outbound network allowed for this unit only; template default `none`, production provider/model only in `/etc/maple-brain/maple-brain.env`. | 0033 |
+| D27 | 2026-10-05 | Activity set v2 adds `think` (window/plant corner) with bounded durations; one life-event envelope over the timeline (goal-level kinds only), new append-only `action_event` and `decision` tables, and the existing SSE hub. Schema v4 is forward-only, one transaction with in-transaction verification, preceded by a verified automatic pre-migration snapshot plus the owner's `maple-db-snapshot` copy; returning to a pre-v4 release is an owner-run v3 restore (loses life since). | 0028 |
 
 ---
 
@@ -111,8 +120,18 @@ Maplegotchi/
 │   │   │   state.py activities.py behavior.py heartbeat.py interactions.py        (P1)
 │   │   │   timeline.py identity.py rng.py daytime.py parameters.py simulation.py (P1)
 │   │   │   observations.py attention.py                                      (P3)
+│   │   │   room.py movement.py   (v0.2 A1: interaction points, routes, walk-then-act)
+│   │   │   goals.py priority.py signals.py direction.py needs.py   (v0.2 A2; docs/autonomy.md)
+│   │   │   audit.py   (v0.2 A3: decision records, action lifecycle events)
+│   │   │   proposal.py tasks.py   (v0.2 A4 Director context/validation; A5 reader/writer rules)
+│   │   │   memory.py   (v0.2 A6: creation, consolidation, preferences, retrieval)
+│   │   │   daily.py    (v0.2 A7: Daily Reflection)
+│   │   │   presence.py (v0.2 A8: speech bubble from real state)
+│   │   │   conversation.py (v0.2 A9: messages from Paolo, truthful replies)
+│   │   ├── library/               (v0.2 A5: approved read-only documentation, by catalog id)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
+│   │   │                             #   director.py (v0.2 A4: Director protocol) — pure
 │   │   ├── sensors/       (P3)       # interface.py, system.py (psutil), fake.py, host.py, observe.py
 │   │   │   └── service_health/ (P3)  # interface.py (get_service_health), monitor_db.py (#1),
 │   │   │                             #   systemd_dbus.py (#2), dbus_transport.py (P7), fake.py
@@ -141,6 +160,8 @@ Maplegotchi/
 │       ├── room/                     # PixiJS only: visual mapping, anchors, motion, scene, art
 │       └── ui/                       # Preact DOM: App, panels, interaction bar
 ├── scripts/build_release.sh          # P7: bundle for one commit (git archive + built frontend + SHA256SUMS)
+├── companion/discord/                # v0.2 A9: maple-discord gateway (own uv project, own account)
+├── companion/brain/                  # v0.2 A10: maple-brain companion (/generate /decide /reply; stdlib only)
 └── deploy/                           # Phase 7 (docs/deployment.md)
     ├── systemd/maplegotchi.service   # hardened unit (User=maple-svc, /data namespace)
     ├── etc/maplegotchi/maplegotchi.env   # MAPLE_* env template (the only config file)
@@ -148,6 +169,8 @@ Maplegotchi/
     ├── install/                      # owner-run: install_release.sh, setup_host.sh, activate_release.sh
     ├── backup/                       # maple_db_snapshot.py (backup helper) + patch plan
     ├── tailscale/serve.md            # Tailscale Serve setup; Funnel explicitly off
+    ├── brain/                        # v0.2 A10: maple-brain unit, env template, install/update
+    ├── discord/                      # v0.2 A9: maple-discord unit, env template, install
     ├── survey/        (P3)           # read-only survey script + procedure; findings.md (Stage A)
     ├── verify/                       # check_boundaries.py (owner, no sudo), sandbox_probe.sh (nsenter)
     └── install.md                    # Stage C runbook, verification checklist, rollback
@@ -182,7 +205,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 **Heartbeat tick** (every `heartbeat_interval_s`, default **300**):
 1. Collect `SensorReading`s and `get_service_health()` (per-source timeout; failure → `status="unavailable"` / `unknown`, never crashes the tick).
 2. `observations.derive(readings, recent_history) -> [Observation]` — factual only.
-3. `heartbeat.tick(state, observations, now, rng, brain)` — decay needs, advance activity, choose next activity, decide journal triggers.
+3. `heartbeat.tick(state, observations, now, rng, brain)` — decay needs, record arrivals, handle critical/high interruptions by core rules, decide journal triggers. Choosing the next goal/action is a separate decision transition (ADR-0026); the heartbeat applies rule direction only when a decision is overdue (`decision_grace`).
 4. Journal text comes from the configured Brain. `RuleBrain` remains the default; v0.2 may use an External Brain through the localhost-only runtime boundary defined by ADR-0025. Brain output remains advisory and existing validation still applies.
 5. Persist state, observations, journal entries, timeline events, and RNG counters in **one SQLite transaction**; then publish the snapshot over SSE.
 
@@ -217,6 +240,7 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 - Brain output is **advisory**: `core` validates it and may ignore it. A Brain cannot write state, files, or call tools.
 - Maple's identity lives in Maple's data and is passed *to* the Brain. Replacing the Brain must not change identity, state schema, or history.
 - v0.1 shipped only `RuleBrain` (`kind="rule"`). In v0.2, `RuleBrain` remains the default, while runtime may explicitly select an External Brain through a localhost-only HTTP boundary. `maplegotchi.brain` remains pure and provider execution stays in a separate companion service (ADR-0025). A non-built-in Brain claiming `kind="rule"` is still refused.
+- v0.2 adds a separate `Director` protocol (`brain/director.py`, ADR-0026): it proposes goal + action + duration + one concise reason as data; core validates, clamps or rejects, executes, and records the audit; rule direction is the always-available fallback (`docs/autonomy.md`, `docs/brain-contract.md`).
 - Phase 4 defines only `compose_journal`; behavior and reactions stay core rules. Triggers, deduplication, grounding, and the daily window are decided in core, never by a Brain. Details: `docs/journal.md` [PROPOSED].
 
 ### 3.7 Randomness and determinism
@@ -246,6 +270,7 @@ Journal entries may cite observations; observations never depend on journal text
 - Corrupt, empty, foreign, or too-new databases fail loudly and are never repaired or replaced automatically.
 - Only `maplegotchi.storage` may write files or import `sqlite3` (AST-enforced); every write path goes through the `DataDir` guard. The external monitoring DB is read through `maplegotchi.storage.external` only (D18).
 - Schema v3 adds the append-only journal (`journal_entry`, `journal_entry_observation` citing observation rows) and `journal_state`, all written in the transition's transaction (`docs/journal.md`).
+- Schema v4 (v0.2, ADR-0028) rebuilds `life_state`/`timeline_event`/`journal_entry` for activity set v2 and adds `goal`, `decision`, `action_event`; forward-only, verified in-transaction, preceded by a verified automatic `pre-migration/` copy (`docs/persistence.md`).
 - Schema v2 adds an append-only `observation` table: each heartbeat's snapshot is stored in the same transaction as the heartbeat (~0.54 MB/day measured; retention is a later phase).
 
 ### 3.9 UI truthfulness

@@ -12,7 +12,8 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **3**) |
+| Schema version | `PRAGMA user_version` (currently **9**) |
+| Pre-migration copies | `pre-migration/maple.v<N>.<UTC stamp>.<hex>.db` (ADR-0028 R2; never pruned or restored automatically) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
 `maplegotchi.storage` may not open files for writing or import `sqlite3`
@@ -74,6 +75,53 @@ journal_state              one row: the persisted ReflectionState (dedup + daily
 ```
 
 See `docs/journal.md`.
+
+Migration 4 (v0.2 autonomy, ADR-0026/0027/0028) — one transaction, foreign keys
+OFF for the table rebuilds (SQLite's documented procedure), verified before COMMIT:
+
+```
+life_state      rebuilt: activity adds 'think', location adds 'sofa'; v3 rows converted
+                (rest -> sofa, idle/walk -> rug, everything else unchanged); new columns
+                point_id, route_departed_at/from_activity/path (JSON), needs_at,
+                decision_counter, action_counter, goal_counter, action_priority,
+                active_goal_id, suspended_goal_id, suspended_action, decision_due_since
+timeline_event  rebuilt with ids and sequence preserved; adds goal_started, goal_suspended,
+                goal_resumed, goal_completed, goal_abandoned
+journal_entry   rebuilt with ids and sequence preserved; activity adds 'think'
+goal            append-only goal definitions (type, summary, source, horizon)
+decision        append-only decision audit (ADR-0026 §8): no prompt, no raw model output
+action_event    append-only action lifecycle (ADR-0028 §2)
+```
+
+`_v4_verify` refuses to commit unless the `maple` row, the life-state values and
+counters, the interaction ledger, timeline/journal counts, max ids and sequences,
+journal references and observations are unchanged and `foreign_key_check` is
+empty. Before any migration to v4+ of an existing database, `storage.db` writes a
+verified copy to `pre-migration/` (online backup API, DELETE journal,
+`integrity_check`, application_id, source `user_version`, 0600, fsync,
+non-overwriting publish); if that fails, the migration is refused and `maple.db`
+is untouched (`PreMigrationSnapshotError`). Recovery procedure: ADR-0028 R5/R6 and
+`deploy/install.md` → Rollback.
+
+Migration 5 (goals) adds `life_state.critical_since` (ALTER TABLE ADD COLUMN):
+a serious problem interrupts once per problem, not at every heartbeat
+(`docs/autonomy.md`). Like every migration from v4 on, it is preceded by a
+verified `pre-migration/` copy.
+
+Migration 6 (reader/writer, ADR-0029) adds `life_state.task_*` and two append-only
+tables: `document` (Maple's workspace: kind, title, body ≤ 4,000 chars, sources) and
+`tool_use` (provenance of every read/write step, linked to the document it wrote).
+
+Migration 7 (memory, ADR-0030) adds `memory` (never deleted; kind, text, key and
+birth are fixed by a trigger; tier/status/evidence may change) and the append-only
+`memory_event` log. A unique `key` deduplicates memories.
+
+Migration 8 (Daily Reflection, ADR-0031) adds the append-only `daily_reflection`
+table: one row per Maple day (unique `day`), written in the transaction that
+triggered it.
+
+Migration 9 (conversations, ADR-0032) adds the append-only `conversation_message`
+table (both directions; unique `(channel, external_id)` for idempotency).
 
 ## Canonical vs derived state
 
@@ -191,6 +239,11 @@ backup). Backups are out of Phase 2 scope.
   fails if core enums drift from them — the fix is a new migration.
 - Tested: fresh install, idempotence, upgrade from v1 with a living Maple to a
   synthetic v2, failure mid-migration, too-new schema.
+- A migration may declare `rebuilds_tables` (foreign keys OFF around its
+  transaction, restored afterwards) and `capture`/`verify` hooks that run inside
+  the transaction before COMMIT (`tests/storage/test_migration_v4.py`).
+- Upgrade tests write pre-v4 lives with raw SQL exactly as old releases stored
+  them (`tests/storage/legacy_support.py`).
 
 ## External databases (D18, ADR-0019)
 

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Out(BaseModel):
@@ -31,11 +32,72 @@ class NeedsOut(_Out):
     social: float
 
 
+class PositionOut(_Out):
+    x: float
+    y: float
+
+
+class PathPointOut(_Out):
+    x: float
+    y: float
+    distance: float
+    node: str | None
+
+
+class RouteOut(_Out):
+    departed_at: datetime
+    arrives_at: datetime  # the activity begins here
+    from_activity: str  # what Maple was doing before setting off
+    path: list[PathPointOut]
+
+
+class TaskOut(_Out):
+    tool: str  # reader | writer
+    target: str  # catalog id (reader) or workspace:<kind> (writer)
+    title: str
+    category: str
+
+
 class ActivityOut(_Out):
     kind: str
     location: str
-    started_at: datetime
+    started_at: datetime  # while walking: the planned start, i.e. arrival
     until: datetime
+    # Additive (ADR-0027): movement is backend truth; the UI only renders it.
+    phase: str  # walking | performing
+    point: str  # interaction point id
+    furniture: str
+    pose: str  # the point's pose; "walk" while walking
+    facing: str
+    position: PositionOut  # at generated_at
+    route: RouteOut | None
+    task: TaskOut | None  # what is being read/written (ADR-0029); null for other actions
+
+
+class InteractionPointOut(_Out):
+    id: str
+    location: str
+    furniture: str
+    x: float
+    y: float
+    facing: str
+    pose: str
+    allowed_actions: list[str]
+
+
+class FurnitureOut(_Out):
+    id: str
+    label: str
+    location: str
+
+
+class RoomOut(_Out):
+    width: int
+    height: int
+    floor_y: int
+    walk_speed: float  # logical units per second
+    furniture: list[FurnitureOut]
+    points: list[InteractionPointOut]
 
 
 class ReactionOut(_Out):
@@ -43,6 +105,21 @@ class ReactionOut(_Out):
     variant: int
     started_at: datetime
     until: datetime
+
+
+class BubbleOut(_Out):
+    # needs_attention | thinking | reading | writing | waiting_for_paolo | approval_required
+    kind: str
+    text: str
+
+
+class GoalOut(_Out):
+    id: int
+    type: str  # one of the 16 goal types (ADR-0026 §6)
+    summary: str
+    source: str  # rule | external
+    started_at: datetime
+    horizon_until: datetime
 
 
 class InteractionAvailabilityOut(_Out):
@@ -61,6 +138,11 @@ class MapleOut(_Out):
     expression: str  # at generated_at
     reaction: ReactionOut | None  # active at generated_at, else null
     interactions: list[InteractionAvailabilityOut]
+    # Additive (ADR-0026): Maple's short-term goal and how the current action began.
+    goal: GoalOut | None
+    suspended_goal: GoalOut | None  # paused by an interruption
+    action_priority: str  # critical | high | normal | low
+    bubble: BubbleOut | None  # what the speech bubble says, from real state (A8)
 
 
 class DayOut(_Out):
@@ -154,13 +236,15 @@ class SnapshotOut(_Out):
     journal: list[JournalEntryOut]
     timeline: list[TimelineEventOut]
     freshness: FreshnessOut
-    brain: BrainOut
+    brain: BrainOut  # who words the journal
+    director: BrainOut  # who proposes goals and actions (additive, ADR-0026)
 
 
 class StatusOut(_Out):
     revision: int
     freshness: FreshnessOut
     brain: BrainOut
+    director: BrainOut
 
 
 class InteractionOut(_Out):
@@ -171,6 +255,156 @@ class InteractionOut(_Out):
     reaction: ReactionOut | None  # the reaction showing now
     revision: int  # this interaction's own committed revision (current revision if rejected)
     maple: MapleOut  # state read after the commit; maple.revision >= revision
+
+
+class DirectorOut(_Out):
+    kind: str  # rule | external
+    name: str
+    version: str
+
+
+class ProposalOut(_Out):
+    goal_op: str | None
+    goal_type: str | None
+    goal_summary: str | None
+    horizon_minutes: float | None
+    abandon_reason: str | None
+    action: str | None
+    duration_minutes: float | None
+    reason: str | None  # the proposer's concise, validated reason (never model reasoning)
+
+
+class ExecutedOut(_Out):
+    by: str  # rule | external
+    reason: str
+    goal_id: int | None
+    action_id: int
+    action: str
+    point: str
+    duration_minutes: int
+
+
+class DecisionOut(_Out):
+    """One decision transition's audit (ADR-0026 §8)."""
+
+    id: int
+    revision: int
+    at: datetime
+    trigger: str
+    priority: str | None
+    director: DirectorOut
+    context_summary: str  # written by core, not by a Director
+    proposal: ProposalOut | None
+    verdict: str  # accepted | clamped | rejected | fallback | stale
+    reason_code: str | None
+    clamped: dict[str, float]  # field -> the original, out-of-range value
+    executed: ExecutedOut | None
+    latency_ms: int | None
+
+
+class LifeEventOut(_Out):
+    """One envelope for every life event, for Web, iOS and Discord (ADR-0028 §2)."""
+
+    id: str  # "<store>:<id>": timeline|action|decision|tool|memory|reflection|conversation
+    type: str  # e.g. goal_started, walking_started, arrived, decision_rejected
+    at: datetime
+    revision: int
+    goal_id: int | None
+    action_id: int | None
+    priority: str | None
+    payload: dict[str, str | int | float | None]
+
+
+class LifeEventsOut(_Out):
+    events: list[LifeEventOut]  # by revision, then decision -> timeline -> action -> tool
+    last_revision: int  # pass back as `after_revision` to continue
+
+
+class DocumentSummaryOut(_Out):
+    id: int
+    kind: str  # note | summary | reflection | research
+    title: str
+    created_at: datetime
+    chars: int
+    action_id: int
+    goal_id: int | None
+
+
+class DocumentOut(DocumentSummaryOut):
+    body: str
+    sources: list[str]  # catalog ids it drew on
+
+
+class MemoryOut(_Out):
+    id: int
+    kind: str
+    tier: str  # short_term | long_term | archive
+    status: str  # active, or candidate | accepted | rejected for preferences
+    text: str
+    key: str | None
+    source: str | None
+    importance: float
+    evidence_days: list[str]
+    created_at: datetime
+    last_seen_at: datetime
+
+
+class MemoryCandidateOut(_Out):
+    memory_id: int
+    text: str
+    reason: str
+
+
+class ReflectionOut(_Out):
+    """One Daily Reflection (ADR-0031)."""
+
+    day: str  # the Maple day (local 06:00 to 06:00)
+    created_at: datetime
+    recovered: bool  # written late, after a restart/failure/oversleep
+    summary: str
+    learned: list[str]
+    moments: list[str]
+    memory_candidates: list[MemoryCandidateOut]
+    promoted: list[int]  # at most one memory id
+    preference_candidates: list[list[str]]  # [key, text]
+    intent: GoalIntentOut
+
+
+class GoalIntentOut(_Out):
+    type: str
+    summary: str
+
+
+class ConversationIn(BaseModel):
+    """A message from Paolo, relayed by the local gateway (ADR-0032)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    message_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    channel: Literal["discord"]
+    speaker: Literal["paolo"]
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class ConversationOut(_Out):
+    reply: str
+    revision: int
+    duplicate: bool
+    replier: dict[str, str]  # {"kind": "rule|external", "name": ...}
+    fallback_code: str | None
+    activity: str
+    goal: str | None
+
+
+class ConversationMessageOut(_Out):
+    id: int
+    at: datetime
+    channel: str
+    speaker: str  # paolo | maple
+    text: str
+    reply_to: int | None
+    replier: str | None
+    fallback_code: str | None
 
 
 class HealthOut(_Out):

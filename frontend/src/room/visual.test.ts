@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { T0_MS, iso, makeSnapshot } from "../test/fixtures";
+import { T0_MS, activityAt, iso, makeSnapshot } from "../test/fixtures";
 import { MAPLE_FACES, MAPLE_POSES, REACTION_SYMBOLS } from "./assets/manifest";
 import { ANCHORS, NEUTRAL_ANCHOR } from "./layout/anchors";
 import {
@@ -14,23 +14,24 @@ import {
 
 // Backend vocabularies (backend/src/maplegotchi/core). Listed here so the test
 // fails loudly if the mapping forgets one.
-const ACTIVITIES = ["idle", "walk", "sleep", "read", "write", "observe_server", "rest"];
+const ACTIVITIES = ["idle", "walk", "sleep", "read", "write", "observe_server", "rest", "think"];
 const EXPRESSIONS = ["calm", "happy", "curious", "sleepy", "focused"];
-const LOCATIONS = ["bed", "desk", "bookshelf", "window", "terminal", "rug"];
+const LOCATIONS = ["bed", "desk", "bookshelf", "window", "terminal", "rug", "sofa"];
 const REACTIONS = ["greet_happy", "greet_sleepy", "pet_happy", "pet_sleepy"];
 const PHASES = ["morning", "afternoon", "evening", "night"];
 
 describe("activity mapping", () => {
   it.each([
     ["idle", "rug", "stand"],
-    ["walk", "window", "walk"],
+    ["walk", "rug", "walk"],
     ["sleep", "bed", "sleep"],
     ["read", "bookshelf", "read"],
     ["write", "desk", "sit_write"],
     ["observe_server", "terminal", "sit_monitor"],
-    ["rest", "rug", "rest"],
+    ["rest", "sofa", "rest"], // activity set v2: rest is on the sofa (ADR-0028)
+    ["think", "window", "think"],
   ])("%s at %s -> pose %s", (kind, location, pose) => {
-    const v = toVisual(makeSnapshot({}, { activity: { kind, location, started_at: iso(0), until: iso(60) } }), T0_MS);
+    const v = toVisual(makeSnapshot({}, { activity: activityAt(kind, location, iso(0), iso(60)) }), T0_MS);
     expect(v.pose).toBe(pose);
     expect(v.anchor).toBe(location);
     expect(v.recognised).toBe(true);
@@ -48,7 +49,7 @@ describe("activity mapping", () => {
 
   it("falls back safely for unknown activity and location", () => {
     const v = toVisual(
-      makeSnapshot({}, { activity: { kind: "juggle", location: "attic", started_at: iso(0), until: iso(60) } }),
+      makeSnapshot({}, { activity: activityAt("juggle", "attic", iso(0), iso(60)) }),
       T0_MS,
     );
     expect(v.pose).toBe("stand");
@@ -135,7 +136,7 @@ describe("room description", () => {
     const snap = makeSnapshot(
       {},
       {
-        activity: { kind: "observe_server", location: "terminal", started_at: iso(0), until: iso(60) },
+        activity: activityAt("observe_server", "terminal", iso(0), iso(60)),
         expression: "focused",
         reaction: { kind: "greet_happy", variant: 0, started_at: iso(0), until: iso(8) },
       },
@@ -149,5 +150,71 @@ describe("room description", () => {
   it("is deterministic", () => {
     const snap = makeSnapshot();
     expect(toVisual(snap, T0_MS)).toEqual(toVisual(snap, T0_MS));
+  });
+});
+
+describe("movement is backend truth (ADR-0027)", () => {
+  const walking = activityAt("write", "desk", iso(4), iso(1804), {
+    phase: "walking",
+    pose: "walk",
+    position: { x: 330, y: 500 },
+    route: {
+      departed_at: iso(0),
+      arrives_at: iso(4),
+      from_activity: "read",
+      path: [
+        { x: 330, y: 500, distance: 0, node: "bookshelf.front" },
+        { x: 330, y: 520, distance: 20, node: "lane.bookshelf" },
+        { x: 640, y: 470, distance: 400, node: "writing_desk.chair" },
+      ],
+    },
+  });
+
+  it("walks (not writes) until the backend's arrival time", () => {
+    const v = toVisual(makeSnapshot({}, { activity: walking }), T0_MS + 1000);
+    expect(v.walking).toBe(true);
+    expect(v.pose).toBe("walk");
+    expect(v.restPose).toBe("sit_write");
+    expect(v.restPosition).toEqual({ x: 640, y: 470 });
+    expect(v.route?.arrivesMs).toBe(T0_MS + 4000);
+    expect(v.activityLabel).toMatch(/on the way to the writing desk/);
+  });
+
+  it("takes the activity's pose once the backend says Maple has arrived", () => {
+    const v = toVisual(makeSnapshot({}, { activity: walking }), T0_MS + 4000);
+    expect(v.walking).toBe(false);
+    expect(v.pose).toBe("sit_write");
+    expect(v.activityLabel).toBe("writing");
+  });
+
+  it("places a performing Maple at the backend position, not a frontend anchor", () => {
+    const east = activityAt("idle", "rug", iso(0), iso(60), { point: "open_area.east", position: { x: 580, y: 550 } });
+    const v = toVisual(makeSnapshot({}, { activity: east }), T0_MS);
+    expect(v.restPosition).toEqual({ x: 580, y: 550 });
+    expect(v.route).toBeNull();
+  });
+
+  it("ignores a malformed route instead of inventing movement", () => {
+    const route = walking.route;
+    if (!route) throw new Error("fixture has a route");
+    const broken = { ...walking, route: { ...route, arrives_at: "not a date" } };
+    const v = toVisual(makeSnapshot({}, { activity: broken }), T0_MS + 1000);
+    expect(v.route).toBeNull();
+    expect(v.walking).toBe(false);
+  });
+});
+
+describe("tasks: what Maple reads and writes (ADR-0029)", () => {
+  it("names what is being read, from the backend's task", () => {
+    const reading = activityAt("read", "bookshelf", iso(0), iso(1800), {
+      task: { tool: "reader", target: "library:the_room", title: "Maple's room", category: "home" },
+    });
+    const v = toVisual(makeSnapshot({}, { activity: reading }), T0_MS + 1000);
+    expect(v.activityLabel).toBe("reading “Maple's room”");
+  });
+
+  it("falls back to the plain activity when there is no task", () => {
+    const v = toVisual(makeSnapshot({}, { activity: activityAt("read", "bookshelf") }), T0_MS);
+    expect(v.activityLabel).toBe("reading");
   });
 });

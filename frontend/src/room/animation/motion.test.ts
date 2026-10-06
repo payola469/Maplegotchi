@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ANCHORS } from "../layout/anchors";
-import { Motion, WALK_SPEED, approach } from "./motion";
+import { Motion, WALK_SPEED, approach, routeFrame } from "./motion";
 
 describe("Motion (presentation-only walking)", () => {
   it("walks to a new anchor, then takes the backend pose", () => {
@@ -59,5 +59,39 @@ describe("approach (lighting transitions)", () => {
 
   it("snaps under reduced motion", () => {
     expect(approach(0, 0.5, 0.016, true)).toBe(0.5);
+  });
+});
+
+describe("routeFrame (backend-driven walking, ADR-0027)", () => {
+  const route = {
+    departedMs: 1000,
+    arrivesMs: 3000,
+    path: [
+      { x: 0, y: 0, distance: 0 },
+      { x: 100, y: 0, distance: 100 },
+      { x: 100, y: 100, distance: 200 },
+    ],
+  };
+
+  it("follows the backend path by the backend's own timing", () => {
+    expect(routeFrame(route, 1000).position).toEqual({ x: 0, y: 0 });
+    const quarter = routeFrame(route, 1500);
+    expect(quarter.position.x).toBeCloseTo(50);
+    expect(quarter.moving).toBe(true);
+    expect(quarter.pose).toBe("walk");
+    const mid = routeFrame(route, 2500);
+    expect(mid.position).toEqual({ x: 100, y: 50 });
+  });
+
+  it("stops at the destination exactly at arrival", () => {
+    const end = routeFrame(route, 3000);
+    expect(end.moving).toBe(false);
+    expect(end.position).toEqual({ x: 100, y: 100 });
+    expect(routeFrame(route, 99999).position).toEqual({ x: 100, y: 100 });
+  });
+
+  it("faces the direction of travel", () => {
+    const back = { ...route, path: [{ x: 200, y: 0, distance: 0 }, { x: 0, y: 0, distance: 200 }] };
+    expect(routeFrame(back, 2000).facing).toBe(-1);
   });
 });
