@@ -2,6 +2,7 @@
 // events, and the owner Inspector's audit views. GET only; nothing here changes Maple.
 
 import type {
+  BrainHealthOut,
   DecisionOut,
   LifeEventsOut,
   MemoryOut,
@@ -16,6 +17,7 @@ export interface ReadApi {
   decisions(limit?: number): Promise<DecisionOut[]>;
   memory(tier?: "short_term" | "long_term" | "archive", limit?: number): Promise<MemoryOut[]>;
   reflections(limit?: number): Promise<ReflectionOut[]>;
+  brainHealth(): Promise<BrainHealthOut>;
 }
 
 export function createReadApi(fetchImpl: Fetch = fetch.bind(globalThis)): ReadApi {
@@ -38,5 +40,6 @@ export function createReadApi(fetchImpl: Fetch = fetch.bind(globalThis)): ReadAp
     memory: (tier, limit = 20) =>
       get<MemoryOut[]>(`/api/memory?limit=${limit}${tier ? `&tier=${tier}` : ""}`),
     reflections: (limit = 3) => get<ReflectionOut[]>(`/api/reflections?limit=${limit}`),
+    brainHealth: () => get<BrainHealthOut>("/api/brain-health"),
   };
 }

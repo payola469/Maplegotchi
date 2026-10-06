@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -165,4 +166,46 @@ def test_a_slow_replier_times_out_and_maple_still_answers(tmp_path: Path) -> Non
     body = c.post("/api/conversation/messages", json=message(), headers=AUTH).json()
     assert body["fallback_code"] == "timeout"
     release.set()
+    service.close()
+
+
+def latencies(tmp_path: Path) -> list[tuple[str, int | None]]:
+    conn = sqlite3.connect(tmp_path / "maple-data" / "maple.db")
+    try:
+        return conn.execute(
+            "SELECT direction, latency_ms FROM conversation_message ORDER BY id"
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def test_external_reply_latency_is_stored_with_the_reply(tmp_path: Path) -> None:
+    def slow() -> str:
+        time.sleep(0.05)
+        return "I'm reading, thanks!"
+
+    c, service = client(tmp_path, replier=FakeReplier(slow))
+    c.post("/api/conversation/messages", json=message(), headers=AUTH)
+    (incoming, in_latency), (outgoing, out_latency) = latencies(tmp_path)
+    assert (incoming, in_latency) == ("in", None)  # only Maple's reply carries a latency
+    assert outgoing == "out" and out_latency is not None and 50 <= out_latency < 5000
+    assert service.runtime.messages(limit=1)[-1].latency_ms == out_latency
+    service.close()
+
+
+def test_a_failed_attempt_stores_its_latency_too(tmp_path: Path) -> None:
+    release = threading.Event()
+    c, service = client(tmp_path, replier=FakeReplier(lambda: release.wait(5) or "late"),
+                        timeout=0.2)  # fmt: skip
+    c.post("/api/conversation/messages", json=message(), headers=AUTH)
+    release.set()
+    latency = latencies(tmp_path)[-1][1]
+    assert latency is not None and latency >= 200  # the time spent before falling back
+    service.close()
+
+
+def test_rule_replies_have_no_latency(tmp_path: Path) -> None:
+    c, service = client(tmp_path)
+    c.post("/api/conversation/messages", json=message(), headers=AUTH)
+    assert latencies(tmp_path) == [("in", None), ("out", None)]
     service.close()

@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from maplegotchi.api import views
 from maplegotchi.api.models import (
+    BrainHealthOut,
     ConversationIn,
     ConversationMessageOut,
     ConversationOut,
@@ -122,6 +123,15 @@ def create_app(
     @api.get("/health", response_model=HealthOut)
     def health() -> HealthOut:
         return HealthOut(status="ok")
+
+    @api.get("/brain-health", response_model=BrainHealthOut)
+    def brain_health() -> BrainHealthOut:
+        """Read-only Brain Health for the owner Inspector (ADR-0034).
+
+        Aggregates the stored audit and probes the companion once (2 s bound); it
+        never writes, never calls a provider, and never touches the life loop.
+        """
+        return views.brain_health(service.brain_health())
 
     @api.get("/snapshot", response_model=SnapshotOut)
     def snapshot() -> SnapshotOut:

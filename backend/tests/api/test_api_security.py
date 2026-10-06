@@ -26,6 +26,7 @@ EXPECTED_ROUTES = {
     ("GET", "/api/memory/search"),  # read-only memory search (ADR-0030)
     ("GET", "/api/reflections"),  # read-only Daily Reflections (ADR-0031)
     ("GET", "/api/conversation"),  # read-only conversation history (ADR-0032)
+    ("GET", "/api/brain-health"),  # read-only Brain Health (ADR-0034)
     ("POST", "/api/conversation/messages"),  # gateway-only, token-guarded (ADR-0032)
     ("GET", "/api/journal"),
     ("GET", "/api/timeline"),

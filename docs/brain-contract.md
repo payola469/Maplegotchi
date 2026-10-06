@@ -90,3 +90,11 @@ must use only facts from the context.
 
 Only the `reason` line is stored as text from the companion. The companion must
 not return or log hidden reasoning; Maplegotchi would not store it anyway.
+
+## `GET /health` — liveness, provider and model (ADR-0034)
+
+`200 {"status": "ok", "provider": "command" | "none", "model": "<MAPLE_BRAIN_MODEL>" | null}`.
+Nothing else: never the provider command argv, credentials or OAuth state, prompts,
+answers, or reasoning. Maplegotchi reads it only for `GET /api/brain-health` (one
+call, 2 s timeout, no redirects, ≤ 4 KB) and passes `provider`/`model` through only
+as short identifiers; anything else is shown as unknown.

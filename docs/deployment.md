@@ -79,7 +79,7 @@ owner once they are neither `current` nor `previous`.
 Code and data are separate: rollback swaps `current` back and restarts; it never
 copies, replaces, or downgrades `/data/maple/maple.db`.
 
-- Maple's schema version is `PRAGMA user_version` (currently **9**); migrations
+- Maple's schema version is `PRAGMA user_version` (currently **10**); migrations
   only move forward and run automatically at startup inside a transaction.
 - A release can open a database whose version is **≤** its own latest migration.
   A database **newer** than the code fails loudly (`SchemaTooNewError`) and is
@@ -90,6 +90,11 @@ copies, replaces, or downgrades `/data/maple/maple.db`.
 - Rollback across a migration therefore means: activate the older release **and**
   restore the pre-migration copy, accepting the loss of life lived since — an
   explicit owner decision, never automatic.
+- Schema v10 (ADR-0034) only adds the nullable `conversation_message.latency_ms`;
+  it is forward-only like every migration, so returning to a v9 (v0.2) release means
+  restoring the automatic `pre-migration/maple.v9.*.db` copy (or the owner's
+  `maple-db-snapshot` copy) and losing life since. `activate_release.sh` needs
+  `--allow-migration` for the v9 → v10 step.
 - Schema v4 (ADR-0028) is forward-only. Before it migrates, Maple itself also
   writes a verified copy to `/data/maple/pre-migration/` and refuses to migrate if
   that copy fails. Returning to a pre-v4 release is the owner-run restore R6 in

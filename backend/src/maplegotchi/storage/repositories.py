@@ -19,6 +19,7 @@ from typing import Any
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.audit import ActionEvent, DecisionRecord
+from maplegotchi.core.brain_health import CallStats
 from maplegotchi.core.conversation import Channel
 from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.daytime import require_utc
@@ -64,7 +65,14 @@ from maplegotchi.core.timeline import (
     InteractionAccepted,
     LifeEvent,
 )
-from maplegotchi.storage import audit_rows, conversation_rows, daily_rows, memory_rows, tool_rows
+from maplegotchi.storage import (
+    audit_rows,
+    brain_health_rows,
+    conversation_rows,
+    daily_rows,
+    memory_rows,
+    tool_rows,
+)
 from maplegotchi.storage.audit_rows import StoredActionEvent, StoredDecision
 from maplegotchi.storage.conversation_rows import MessageRecord, StoredMessage
 from maplegotchi.storage.daily_rows import StoredReflection
@@ -581,6 +589,14 @@ class LifeRepository:
         return conversation_rows.messages(
             self._conn, limit=limit, revision=revision, since_revision=since_revision
         )
+
+    def director_call_stats(self, start: datetime, end: datetime) -> CallStats:
+        """External Director calls from the decision audit (ADR-0034); read-only."""
+        return brain_health_rows.director_stats(self._conn, start, end)
+
+    def replier_call_stats(self, start: datetime, end: datetime) -> CallStats:
+        """External Replier attempts from the conversation rows (ADR-0034); read-only."""
+        return brain_health_rows.replier_stats(self._conn, start, end)
 
     def message_by_external_id(self, channel: Channel, external_id: str) -> StoredMessage | None:
         return conversation_rows.by_external_id(self._conn, channel, external_id)

@@ -639,27 +639,31 @@ h2 {
 }
 
 .badge--live,
-.badge--fresh {
+.badge--fresh,
+.badge--healthy {
   border-color: var(--ok);
   color: var(--ok);
   background: var(--ok-soft);
 }
 
 .badge--live::before,
-.badge--fresh::before {
+.badge--fresh::before,
+.badge--healthy::before {
   content: "● ";
 }
 
 .badge--reconnecting,
 .badge--stale,
-.badge--loading {
+.badge--loading,
+.badge--degraded {
   border-color: var(--warn);
   color: var(--warn);
   background: var(--warn-soft);
 }
 
 .badge--stale::before,
-.badge--reconnecting::before {
+.badge--reconnecting::before,
+.badge--degraded::before {
   content: "◐ ";
 }
 

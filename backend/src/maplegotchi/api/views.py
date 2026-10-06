@@ -8,8 +8,13 @@ from datetime import datetime
 
 from maplegotchi.api.models import (
     ActivityOut,
+    AiCallOut,
+    BrainDayOut,
+    BrainHealthOut,
     BrainOut,
     BubbleOut,
+    CallerHealthOut,
+    CompanionOut,
     ConversationMessageOut,
     DayOut,
     DecisionOut,
@@ -49,6 +54,7 @@ from maplegotchi.api.models import (
 from maplegotchi.core import presence
 from maplegotchi.core import room as room_model
 from maplegotchi.core.audit import DecisionRecord, Verdict
+from maplegotchi.core.brain_health import CallStats
 from maplegotchi.core.daily import DailyReflection
 from maplegotchi.core.goals import Goal
 from maplegotchi.core.interactions import Accepted, Rejected
@@ -68,6 +74,7 @@ from maplegotchi.core.timeline import (
     GoalSuspended,
     InteractionAccepted,
 )
+from maplegotchi.runtime.brain_health import BrainHealthReport, CallerLabel
 from maplegotchi.runtime.life import LifeRecords
 from maplegotchi.runtime.service import (
     SSE_KEEPALIVE_SECONDS,
@@ -754,3 +761,41 @@ def live_event(kind: str, data: Mapping[str, object]) -> dict[str, object]:
             "events": [timeline_event(e).model_dump(mode="json") for e in events],
         }
     raise ValueError(f"unknown live event kind {kind!r}")
+
+
+def _caller_health(label: CallerLabel, calls: CallStats) -> CallerHealthOut:
+    last = calls.last
+    return CallerHealthOut(
+        mode=label.mode,
+        name=label.name,
+        last_call=AiCallOut(at=last.at, ok=last.ok, code=last.code, latency_ms=last.latency_ms)
+        if last is not None
+        else None,
+        last_success_at=calls.last_success_at,
+        fallbacks_today=calls.fallbacks_today,
+        timeouts_today=calls.timeouts_today,
+    )
+
+
+def brain_health(report: BrainHealthReport) -> BrainHealthOut:
+    """Brain Health as served (ADR-0034); provider/model only from a reachable companion."""
+    companion = report.companion
+    return BrainHealthOut(
+        as_of=report.as_of,
+        status=report.status.value,
+        status_reason=report.status_reason.value,
+        provider=companion.provider if companion is not None else None,
+        model=companion.model if companion is not None else None,
+        companion=CompanionOut(
+            probed=companion is not None,
+            reachable=companion.reachable if companion is not None else None,
+            error=companion.error if companion is not None else None,
+        ),
+        journal_brain=report.journal_brain.mode,
+        director=_caller_health(report.director, report.director_calls),
+        replier=_caller_health(report.replier, report.replier_calls),
+        last_success_at=report.last_success_at,
+        today=BrainDayOut(
+            day=report.today.day.isoformat(), start=report.today.start, end=report.today.end
+        ),
+    )

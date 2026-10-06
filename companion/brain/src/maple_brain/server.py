@@ -71,6 +71,17 @@ class BrainService:
             return HTTPStatus.SERVICE_UNAVAILABLE, {"error": "no reply"}
         return HTTPStatus.OK, {"contract": REPLY_CONTRACT, "reply": answer.strip()[:MAX_REPLY]}
 
+    def health(self) -> dict[str, Any]:
+        """Liveness plus the configured provider kind and model (ADR-0034 §1).
+
+        Never the command argv, credentials, prompts, or answers.
+        """
+        return {
+            "status": "ok",
+            "provider": self.settings.provider.value,
+            "model": self.settings.model or None,
+        }
+
 
 def make_handler(service: BrainService) -> type[BaseHTTPRequestHandler]:
     routes = {"/generate": service.generate, "/decide": service.decide, "/reply": service.reply}
@@ -90,7 +101,7 @@ def make_handler(service: BrainService) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             if self.path == "/health":
-                self._send(HTTPStatus.OK, {"status": "ok", "provider": service.settings.provider})
+                self._send(HTTPStatus.OK, service.health())
             else:
                 self._send(HTTPStatus.NOT_FOUND, {"error": "not found"})
 

@@ -8,7 +8,7 @@ import type { DecisionOut, LifeEventOut, RoomOut } from "../api/types";
 import type { CreateRoomScene } from "../room/scene/RoomScene";
 import { toVisual } from "../room/visual";
 import { LIFE_EVENTS_KEPT, Store } from "../state/store";
-import { T0_MS, activityAt, iso, makeSnapshot } from "../test/fixtures";
+import { T0_MS, activityAt, iso, makeBrainHealth, makeSnapshot } from "../test/fixtures";
 import { App } from "./App";
 import { ActivityFeed, lifeEventText } from "./feed";
 import { Inspector } from "./inspector/Inspector";
@@ -133,6 +133,7 @@ function readApi(decisions: DecisionOut[] = []): ReadApi {
         key: null, source: null, importance: 0.4, evidence_days: [], created_at: iso(0),
         last_seen_at: iso(0) },
     ]),
+    brainHealth: vi.fn(async () => makeBrainHealth()),
     reflections: vi.fn(async () => [
       { day: "2026-09-30", created_at: iso(0), recovered: false, summary: "A day.", learned: [], moments: [],
         memory_candidates: [{ memory_id: 4, text: "I read Maple's room.", reason: "something I learned" }],

@@ -179,7 +179,36 @@ def test_http_plumbing_limits_and_routes() -> None:
         assert post("/decide", b"x" * (64 * 1024 + 1))[0] == 413
         assert post("/anything", body)[0] == 404
         with urllib.request.urlopen(base + "/health", timeout=5) as response:  # noqa: S310
-            assert json.loads(response.read())["status"] == "ok"
+            expected = {"status": "ok", "provider": "none", "model": None}
+            assert json.loads(response.read()) == expected
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_health_reports_provider_and_model_but_never_the_command() -> None:
+    secret_argv = ("/usr/local/bin/agy", "--token=SECRET-TOKEN", "--model", "{model}")
+    configured = settings(
+        provider=ProviderKind.COMMAND, command=secret_argv, model="gemini-3.8-flash-medium"
+    )
+    body = BrainService(configured, none_provider).health()
+    assert body == {"status": "ok", "provider": "command", "model": "gemini-3.8-flash-medium"}
+    text = json.dumps(body)
+    assert "agy" not in text and "SECRET-TOKEN" not in text and "--model" not in text
+
+
+def test_health_over_http_includes_the_model() -> None:
+    configured = settings(port=0, provider=ProviderKind.COMMAND,
+                          command=("/usr/local/bin/agy", "--print"), model="m-1")  # fmt: skip
+    server = serve(configured, none_provider)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/health"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            raw = response.read().decode()
+        assert json.loads(raw) == {"status": "ok", "provider": "command", "model": "m-1"}
+        assert "/usr/local/bin/agy" not in raw
     finally:
         server.shutdown()
         server.server_close()

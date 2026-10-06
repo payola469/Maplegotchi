@@ -14,20 +14,20 @@ step "backend: uv sync --locked";   "$UV" sync --locked
 step "backend: ruff check";         "$UV" run ruff check .
 step "backend: ruff format --check"; "$UV" run ruff format --check .
 DEPLOY_PY=(../deploy/survey ../deploy/backup ../deploy/verify)
-step "deploy tools: ruff check + format"; "$UV" run ruff check --config pyproject.toml "${DEPLOY_PY[@]}" && "$UV" run ruff format --check --config pyproject.toml "${DEPLOY_PY[@]}"
+step "deploy tools: ruff check + format"; "$UV" run ruff check --config pyproject.toml "${DEPLOY_PY[@]}"; "$UV" run ruff format --check --config pyproject.toml "${DEPLOY_PY[@]}"
 step "backend + deploy tools: mypy --strict"; "$UV" run mypy
 step "backend: import contracts";   "$UV" run lint-imports
 step "backend: pytest";             "$UV" run pytest
 
 cd "$ROOT/companion/discord"
 step "companion/discord: uv sync --locked"; "$UV" sync --locked
-step "companion/discord: ruff + format"; "$UV" run ruff check . && "$UV" run ruff format --check .
+step "companion/discord: ruff + format"; "$UV" run ruff check .; "$UV" run ruff format --check .
 step "companion/discord: mypy --strict"; "$UV" run mypy
 step "companion/discord: pytest"; "$UV" run pytest -q
 
 cd "$ROOT/companion/brain"
 step "companion/brain: uv sync --locked"; "$UV" sync --locked
-step "companion/brain: ruff + format"; "$UV" run ruff check . && "$UV" run ruff format --check .
+step "companion/brain: ruff + format"; "$UV" run ruff check .; "$UV" run ruff format --check .
 step "companion/brain: mypy --strict"; "$UV" run mypy
 step "companion/brain: pytest"; "$UV" run pytest -q
 

@@ -38,7 +38,7 @@ install -o root -g maple-brain-svc -m 0640 deploy/brain/maple-brain.env /etc/map
 install -o root -g root -m 0644 deploy/brain/maple-brain.service /etc/systemd/system/
 systemd-analyze verify /etc/systemd/system/maple-brain.service
 systemctl daemon-reload && systemctl enable --now maple-brain
-curl -s http://127.0.0.1:8471/health
+curl -s http://127.0.0.1:8471/health   # {"status":"ok","provider":"command","model":"…"} (ADR-0034)
 ```
 
 ## Provider configuration

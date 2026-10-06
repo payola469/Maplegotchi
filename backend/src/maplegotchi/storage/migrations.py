@@ -697,6 +697,13 @@ CREATE TRIGGER conversation_message_append_only_delete BEFORE DELETE ON conversa
 BEGIN SELECT RAISE(ABORT, 'conversations are append-only'); END;
 """
 
+# Schema v10 (ADR-0034): how long an external reply attempt took. Additive and nullable:
+# rule replies and every pre-v10 row stay NULL.
+_V10_REPLY_LATENCY = """
+ALTER TABLE conversation_message ADD COLUMN latency_ms INTEGER
+    CHECK (latency_ms BETWEEN 0 AND 600000);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "initial life state", _V1_INITIAL),
     Migration(2, "factual observations", _V2_OBSERVATIONS),
@@ -714,6 +721,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(7, "memory: short-term, long-term, archive", _V7_MEMORY),
     Migration(8, "daily reflection", _V8_DAILY),
     Migration(9, "conversations with Paolo", _V9_CONVERSATION),
+    Migration(10, "brain health: reply latency", _V10_REPLY_LATENCY),
 )
 
 
