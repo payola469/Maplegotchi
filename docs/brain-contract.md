@@ -85,8 +85,10 @@ Used only when `MAPLE_REPLIER=antigravity`. Request: `{"contract": "maple.reply.
 `priority`, `expression`, `needs`, `server`, `memories` (≤ 5), `conversation` (≤ 6 recent
 turns), and `message` (`text`, `language`: `en|th`). Response: exactly
 `{"contract": "maple.reply.v1", "reply": "<1-1500 printable chars>"}`. Anything else,
-a timeout, or an error → Maple's rule reply (recorded with a fallback code). The reply
-must use only facts from the context.
+a timeout, or an error → Maple's rule reply (recorded with a fallback code). As with
+the Director, a call stuck past its deadline is never stacked: while it is still
+running, later messages get the rule reply at once (`timeout`) without reaching the
+companion. The reply must use only facts from the context.
 
 Only the `reason` line is stored as text from the companion. The companion must
 not return or log hidden reasoning; Maplegotchi would not store it anyway.

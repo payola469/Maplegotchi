@@ -215,6 +215,8 @@ class MapleService:
         self._replier_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="maple-replier"
         )
+        # The last replier call that outlived its deadline and may still be running.
+        self._replier_stuck: concurrent.futures.Future[str] | None = None
         self._loop_task: asyncio.Task[None] | None = None
         self._loop_error: str | None = None
         self._stop = asyncio.Event()
@@ -447,12 +449,18 @@ class MapleService:
             return rule_reply(context), "rule", "rule_replier", None, None
         code: str | None
         started = time.perf_counter()
+        stuck = self._replier_stuck
+        if stuck is not None and not stuck.done():
+            # A previous call is still stuck past its deadline: do not queue behind it.
+            latency = int((time.perf_counter() - started) * 1000)
+            return rule_reply(context), "rule", "rule_replier", "timeout", latency
+        future = self._replier_pool.submit(replier.reply, context)
         try:
-            text = self._replier_pool.submit(replier.reply, context).result(
-                timeout=self.director_timeout_seconds
-            )
+            text = future.result(timeout=self.director_timeout_seconds)
             code = "invalid_reply" if reply_problems(text) else None
         except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            if not future.done() and not future.cancel():
+                self._replier_stuck = future  # started; may still be running
             text, code = "", "timeout"
         except Exception:  # transport, status, contract: no usable reply
             text, code = "", "transport_error"

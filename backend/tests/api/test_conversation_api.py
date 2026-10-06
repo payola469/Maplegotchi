@@ -209,3 +209,67 @@ def test_rule_replies_have_no_latency(tmp_path: Path) -> None:
     c.post("/api/conversation/messages", json=message(), headers=AUTH)
     assert latencies(tmp_path) == [("in", None), ("out", None)]
     service.close()
+
+
+class StuckOnceReplier:
+    """The first call hangs until released; later calls answer at once."""
+
+    kind = "external"
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.finished = threading.Event()
+        self.calls = 0
+
+    def reply(self, context: ReplyContext) -> str:
+        self.calls += 1
+        if self.calls == 1:
+            self.started.set()
+            self.release.wait(5)
+            self.finished.set()
+            return "late"
+        return "I'm back, thanks for waiting!"
+
+
+def audit(tmp_path: Path) -> list[tuple[str | None, str | None, int | None]]:
+    conn = sqlite3.connect(tmp_path / "maple-data" / "maple.db")
+    try:
+        return conn.execute(
+            "SELECT replier_kind, fallback_code, latency_ms FROM conversation_message"
+            " WHERE direction = 'out' ORDER BY id"
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def test_a_stuck_replier_call_is_never_stacked(tmp_path: Path) -> None:
+    replier = StuckOnceReplier()
+    c, service = client(tmp_path, replier=replier, timeout=1.0)
+    first = c.post("/api/conversation/messages", json=message("1"), headers=AUTH).json()
+    assert first["fallback_code"] == "timeout"
+    assert replier.started.is_set() and not replier.finished.is_set()  # still running
+
+    started = time.perf_counter()
+    second = c.post("/api/conversation/messages", json=message("2"), headers=AUTH).json()
+    assert time.perf_counter() - started < 1.0  # no wait for a deadline behind the stuck call
+    assert second["fallback_code"] == "timeout"
+    assert second["reply"].startswith("Right now I'm")
+    assert second["replier"] == {"kind": "rule", "name": "rule_replier"}
+
+    replier.release.set()
+    assert replier.finished.wait(5)
+    service._replier_pool.submit(lambda: None).result(timeout=5)  # drain the worker
+    assert replier.calls == 1  # the second message never reached the provider
+
+    third = c.post("/api/conversation/messages", json=message("3"), headers=AUTH).json()
+    assert third["reply"] == "I'm back, thanks for waiting!" and third["fallback_code"] is None
+    assert third["replier"] == {"kind": "external", "name": "fake"}
+    assert replier.calls == 2
+
+    (k1, f1, l1), (k2, f2, l2), (k3, f3, l3) = audit(tmp_path)
+    assert (k1, f1) == ("rule", "timeout") and l1 is not None and l1 >= 1000
+    assert (k2, f2) == ("rule", "timeout") and l2 is not None and l2 < 1000
+    assert (k3, f3) == ("external", None) and l3 is not None and l3 < 5000
+    service.close()
