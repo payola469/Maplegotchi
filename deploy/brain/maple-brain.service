@@ -1,0 +1,74 @@
+# /etc/systemd/system/maple-brain.service — root:root 0644. Installed by the owner.
+# The Maple Brain companion (ADR-0025, ADR-0033): 127.0.0.1:8471 only. Runs the
+# configured provider CLI (argv, no shell) for /generate, /decide and /reply.
+# No access to Maple's data or config; outbound network for the provider only.
+#   systemd-analyze verify /etc/systemd/system/maple-brain.service
+#   systemd-analyze security maple-brain.service
+
+[Unit]
+Description=maple-brain (Brain companion for Maple)
+Documentation=file:///opt/maple-brain/current/deploy/brain/README.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=maple-brain-svc
+Group=maple-brain-svc
+SupplementaryGroups=
+EnvironmentFile=/etc/maple-brain/maple-brain.env
+# The provider's own login/OAuth state lives here (never in the repository).
+StateDirectory=maple-brain
+StateDirectoryMode=0700
+Environment=HOME=/var/lib/maple-brain
+Environment=XDG_CONFIG_HOME=/var/lib/maple-brain/config
+Environment=XDG_CACHE_HOME=/var/lib/maple-brain/cache
+ExecStart=/opt/maple-brain/current/venv/bin/python -I -m maple_brain
+WorkingDirectory=/var/lib/maple-brain
+UMask=0077
+Restart=on-failure
+RestartSec=15
+
+# ---- privileges: none
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+KeyringMode=private
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap @module @clock
+SystemCallErrorNumber=EPERM
+# MemoryDenyWriteExecute is deliberately NOT set: JIT-based provider CLIs need it (ADR-0033).
+
+# ---- filesystem: read-only OS; only the state directory is writable
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+InaccessiblePaths=-/data -/etc/maplegotchi -/etc/maple-discord -/run/docker.sock -/var/run/docker.sock
+
+# ---- network: listens on 127.0.0.1:8471 only (enforced in config); outbound for the provider
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# ---- resources
+MemoryHigh=768M
+MemoryMax=1G
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

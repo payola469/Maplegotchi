@@ -189,3 +189,12 @@ of the shared life events, and a separate owner Inspector (`docs/frontend.md`).
   short-term `conversation` memory, and both join the life-event stream. A retried
   Discord message id returns the stored reply.
 
+## Brain companion packaging (A10, ADR-0033)
+
+- `companion/brain` (`maple-brain`) is the version-controlled companion behind
+  `MAPLE_BRAIN_URL`: `/generate`, `/decide`, `/reply`, `/health`, loopback only.
+- The provider is configured, never hard-coded: `MAPLE_BRAIN_PROVIDER=none` (the
+  default; Maple uses its rule fallbacks) or `command` with `MAPLE_BRAIN_COMMAND` (JSON
+  argv, absolute path, no shell) and `MAPLE_BRAIN_MODEL`. Auto-approve flags are refused.
+- `deploy/brain/` holds the hardened unit (`maple-brain-svc`, no access to Maple's data
+  or configuration), the env template and the install/update/rollback procedure.

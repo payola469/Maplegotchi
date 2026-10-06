@@ -3,7 +3,7 @@
 Maplegotchi never runs a model, a provider CLI, or a shell. It talks to a
 separate **Maple Brain companion** over loopback HTTP (`MAPLE_BRAIN_URL`,
 default `http://127.0.0.1:8471`). The companion owns provider execution and its
-own security boundary (Phase 10: `companion/`, `deploy/companion/`).
+own security boundary: `companion/brain` and `deploy/brain/` (ADR-0033).
 
 Both endpoints are advisory: whatever comes back is parsed and validated by core
 and may be ignored. A failing, slow, or misbehaving companion never stops Maple.

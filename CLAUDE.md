@@ -3,7 +3,7 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
-> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector), A9 Discord conversations (schema v9, `companion/discord`) implemented; later autonomy phases follow in order, one commit each. Not deployed.
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector), A9 Discord conversations (schema v9, `companion/discord`), A10 Brain companion packaging (`companion/brain`, ADR-0033) implemented and awaiting owner review. Not deployed.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -46,6 +46,7 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 | D29 | 2026-10-05 | **Memory** is Maple's data (maple.db `memory` + append-only `memory_event`), never provider-owned: `short_term` (~36 h) → `archive` (searchable, never injected) unless explicitly promoted to `long_term`; preferences go candidate → accepted only with evidence on 3 distinct days or explicit confirmation; Directors/writer get ≤ 5 relevant memories. | 0030 |
 | D30 | 2026-10-06 | **Daily Reflection** once per Maple day (06:00→06:00 local) when the night's sleep begins, or recovered at the first awake transition after a missed day: summary, learned, moments, memory candidates (only the strongest, importance ≥ 0.6, promoted), preference candidates (evidence only), tomorrow intent. Never changes needs; influences via memory, preferences and intent (rule direction lean + Director `intent`). | 0031 |
 | D31 | 2026-10-06 | **Discord conversations** (supersedes D3's "no chat" for v0.2): a separate `maple-discord` service/account holds the bot token and relays Paolo's `#maple-chat` messages to the one token-guarded, idempotent `POST /api/conversation/messages` (no browser Origin, 8 KB body); a message is social (+6 social, +2 mood, diminishing) and high-priority (interrupts normal/low to listen; never wakes Maple); replies come from real context (rule, or validated `/reply` with fallback) outside the lock; both directions stored append-only; slash commands read-only. | 0032 |
+| D32 | 2026-10-06 | **Brain companion in the repository**: `companion/brain` (`maple-brain`, stdlib-only) serves `/generate`, `/decide` (`maple.decision.v1`), `/reply` (`maple.reply.v1`), `/health` on loopback only (127.0.0.1:8471); the provider is configuration (`MAPLE_BRAIN_PROVIDER=none|command`, JSON argv with an absolute path, no shell, stdin prompt, minimal env, scratch cwd, timeout, output cap; auto-approve/permission-bypass flags refused); unit `deploy/brain/maple-brain.service` runs as `maple-brain-svc` with no capabilities, `/data`, `/etc/maplegotchi`, `/etc/maple-discord` inaccessible, provider login only in its `StateDirectory`; no secrets in the repo. | 0033 |
 | D27 | 2026-10-05 | Activity set v2 adds `think` (window/plant corner) with bounded durations; one life-event envelope over the timeline (goal-level kinds only), new append-only `action_event` and `decision` tables, and the existing SSE hub. Schema v4 is forward-only, one transaction with in-transaction verification, preceded by a verified automatic pre-migration snapshot plus the owner's `maple-db-snapshot` copy; returning to a pre-v4 release is an owner-run v3 restore (loses life since). | 0028 |
 
 ---
@@ -160,6 +161,7 @@ Maplegotchi/
 │       └── ui/                       # Preact DOM: App, panels, interaction bar
 ├── scripts/build_release.sh          # P7: bundle for one commit (git archive + built frontend + SHA256SUMS)
 ├── companion/discord/                # v0.2 A9: maple-discord gateway (own uv project, own account)
+├── companion/brain/                  # v0.2 A10: maple-brain companion (/generate /decide /reply; stdlib only)
 └── deploy/                           # Phase 7 (docs/deployment.md)
     ├── systemd/maplegotchi.service   # hardened unit (User=maple-svc, /data namespace)
     ├── etc/maplegotchi/maplegotchi.env   # MAPLE_* env template (the only config file)
@@ -167,6 +169,7 @@ Maplegotchi/
     ├── install/                      # owner-run: install_release.sh, setup_host.sh, activate_release.sh
     ├── backup/                       # maple_db_snapshot.py (backup helper) + patch plan
     ├── tailscale/serve.md            # Tailscale Serve setup; Funnel explicitly off
+    ├── brain/                        # v0.2 A10: maple-brain unit, env template, install/update
     ├── discord/                      # v0.2 A9: maple-discord unit, env template, install
     ├── survey/        (P3)           # read-only survey script + procedure; findings.md (Stage A)
     ├── verify/                       # check_boundaries.py (owner, no sudo), sandbox_probe.sh (nsenter)
