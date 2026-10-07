@@ -12,7 +12,7 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 | Location | `MAPLE_DATA_DIR/maple.db`; production `/data/maple/maple.db` (FIXED, S1 §4.1 #3: `/data/maple` is Maple's only writable area) |
 | Side files | `maple.db-wal`, `maple.db-shm` (WAL mode), transient `maple.db.birth-<hex>` during first birth |
 | Identity | `PRAGMA application_id = 0x4D41504C` ("MAPL") |
-| Schema version | `PRAGMA user_version` (currently **9**) |
+| Schema version | `PRAGMA user_version` (currently **10**) |
 | Pre-migration copies | `pre-migration/maple.v<N>.<UTC stamp>.<hex>.db` (ADR-0028 R2; never pruned or restored automatically) |
 
 All writes go through `storage/datadir.py` (see *Path guard*). Code outside
@@ -122,6 +122,14 @@ triggered it.
 
 Migration 9 (conversations, ADR-0032) adds the append-only `conversation_message`
 table (both directions; unique `(channel, external_id)` for idempotency).
+
+Migration 10 (Brain Health, ADR-0034) adds nullable `conversation_message.latency_ms`
+(`ALTER TABLE ADD COLUMN`, `CHECK 0..600000`): the wall time of the external replier
+attempt behind Maple's reply, including attempts that fell back. Rule replies and
+every pre-v10 row are `NULL`; no existing value changes. Like every migration from v4
+on it is preceded by a verified `pre-migration/` copy; a v9 release refuses a v10
+database (`SchemaTooNewError`), so going back means restoring that copy
+(`deploy/install.md` → Rollback), which loses life since the upgrade.
 
 ## Canonical vs derived state
 

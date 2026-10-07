@@ -25,6 +25,7 @@ from maplegotchi.brain.interface import Brain
 from maplegotchi.brain.rule_brain import RuleBrain
 from maplegotchi.core.attention import ServerAttention, assess_server_attention, behavior_inputs
 from maplegotchi.core.behavior import BehaviorInputs
+from maplegotchi.core.brain_health import CallStats, MapleDay, maple_today
 from maplegotchi.core.conversation import (
     Channel,
     IncomingMessage,
@@ -585,6 +586,7 @@ class LifeRuntime:
         replier_kind: str,
         replier_name: str,
         fallback_code: str | None,
+        latency_ms: int | None = None,
     ) -> int:
         """Store Maple's reply to a message; changes no state. Returns the revision."""
         with self._lock:
@@ -603,6 +605,7 @@ class LifeRuntime:
                     replier_kind=replier_kind,
                     replier_name=replier_name,
                     fallback_code=fallback_code,
+                    latency_ms=latency_ms,
                 ),
             )
             self._revision = revision
@@ -622,6 +625,18 @@ class LifeRuntime:
             memories=[m.text for m in relevant_memories(repo, state, now)],
             conversation=[(m.speaker.value, m.text) for m in repo.messages(limit=6)],
         )
+
+    def brain_call_stats(self) -> tuple[MapleDay, CallStats, CallStats]:
+        """Today's Maple day and the stored Director and Replier call stats (ADR-0034).
+
+        Reads only; nothing here calls a Brain or the companion.
+        """
+        today = maple_today(self._clock.now(), self._params.utc_offset)
+        with self._lock:
+            repo = self._repository()
+            director = repo.director_call_stats(today.start, today.end)
+            replier = repo.replier_call_stats(today.start, today.end)
+        return today, director, replier
 
     def messages(self, *, limit: int) -> list[StoredMessage]:
         with self._lock:

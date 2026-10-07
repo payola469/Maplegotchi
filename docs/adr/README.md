@@ -38,6 +38,7 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0031](0031-daily-reflection.md) | Daily Reflection: day summary, memory candidates, tomorrow intent (D30) |
 | [0032](0032-discord-conversation.md) | Discord conversations with the same Maple (D31) |
 | [0033](0033-brain-companion-packaging.md) | The Maple Brain companion, version-controlled and reproducible (D32) |
+| [0034](0034-brain-health-observability.md) | Brain Health / Observability v1: companion model, reply latency (schema v10), read-only `/api/brain-health` (D33) |
 
 ## Template
 

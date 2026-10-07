@@ -2,11 +2,20 @@
 // room UI. It shows exactly what the backend recorded: the current goal and
 // action, where Maple is going and why, recent decisions with their verdicts,
 // the action history, memory candidates, interruptions and rejections, and who
-// the Brain/Director are. Read-only; it fetches GET endpoints only.
+// the Brain/Director are, and Brain Health (ADR-0034). Read-only; it fetches GET
+// endpoints only.
 
 import { useEffect, useState } from "preact/hooks";
 import type { ReadApi } from "../../api/read";
-import type { DecisionOut, LifeEventOut, MemoryOut, ReflectionOut, SnapshotOut } from "../../api/types";
+import type {
+  BrainHealthOut,
+  CallerHealthOut,
+  DecisionOut,
+  LifeEventOut,
+  MemoryOut,
+  ReflectionOut,
+  SnapshotOut,
+} from "../../api/types";
 import { formatClock } from "../../state/presentation";
 
 interface Audit {
@@ -63,6 +72,126 @@ function Row({ label, children }: { label: string; children: preact.ComponentChi
   );
 }
 
+// ---------------------------------------------------------------- Brain Health (ADR-0034)
+
+const UNKNOWN = "Unknown";
+const STATUS_WORDS: Record<string, string> = {
+  healthy: "Healthy",
+  degraded: "Degraded",
+  offline: "Offline",
+  unknown: UNKNOWN,
+};
+const REASON_WORDS: Record<string, string> = {
+  latest_call_ok: "the latest AI call succeeded",
+  latest_call_failed: "the latest AI call fell back",
+  companion_unreachable: "the brain companion did not answer",
+  no_calls_yet: "no AI calls recorded yet",
+  not_configured: "every mode is rule; no companion in use",
+};
+
+interface BrainHealthState {
+  health: BrainHealthOut | null;
+  error: string | null;
+}
+
+function useBrainHealth(api: ReadApi, revision: number): BrainHealthState {
+  const [state, setState] = useState<BrainHealthState>({ health: null, error: null });
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .brainHealth()
+      .then((health) => {
+        if (!cancelled) setState({ health, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setState({ health: null, error: String(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, revision]);
+  return state;
+}
+
+/** "gemini-3.8-flash-medium" -> "Gemini 3.8 Flash Medium": spacing and capitals only. */
+export function modelLabel(model: string | null): string {
+  if (!model) return UNKNOWN;
+  return model
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function latencyLabel(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return UNKNOWN;
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+function modeLabel(caller: CallerHealthOut): string {
+  return caller.mode === "external" ? "External" : caller.mode === "rule" ? "Rule" : UNKNOWN;
+}
+
+function lastCallLabel(caller: CallerHealthOut): string {
+  const call = caller.last_call;
+  if (!call) return "none yet";
+  const outcome = call.ok ? "" : ` — fell back (${call.code ?? "unknown"})`;
+  return `${latencyLabel(call.latency_ms)} at ${formatClock(call.at)}${outcome}`;
+}
+
+export function BrainHealthCard({ health, error }: BrainHealthState) {
+  const status = health ? (STATUS_WORDS[health.status] ?? UNKNOWN) : UNKNOWN;
+  const badge = health && health.status in STATUS_WORDS ? health.status : "unknown";
+  return (
+    <section class="card" data-testid="brain-health">
+      <h2>Brain Health</h2>
+      {error ? (
+        <p class="banner banner--warn" role="alert">
+          Brain Health could not be loaded: {error}
+        </p>
+      ) : null}
+      <dl>
+        <Row label="Status">
+          <span class={`badge badge--${badge}`} data-testid="brain-health-status">
+            {status}
+          </span>
+          {health ? <span class="muted"> {REASON_WORDS[health.status_reason] ?? health.status_reason}</span> : null}
+        </Row>
+        <Row label="Provider">{health?.provider ?? UNKNOWN}</Row>
+        <Row label="Model">
+          <span title={health?.model ?? undefined}>{modelLabel(health?.model ?? null)}</span>
+        </Row>
+        <Row label="Last success">{health?.last_success_at ? formatClock(health.last_success_at) : health ? "none yet" : UNKNOWN}</Row>
+      </dl>
+      {health ? (
+        <>
+          <h3>Director</h3>
+          <dl data-testid="brain-health-director">
+            <Row label="Mode">
+              {modeLabel(health.director)} <span class="muted">({health.director.name})</span>
+            </Row>
+            <Row label="Last decision">{lastCallLabel(health.director)}</Row>
+            <Row label="Fallbacks today">{health.director.fallbacks_today}</Row>
+            <Row label="Timeouts today">{health.director.timeouts_today}</Row>
+          </dl>
+          <h3>Replier</h3>
+          <dl data-testid="brain-health-replier">
+            <Row label="Mode">
+              {modeLabel(health.replier)} <span class="muted">({health.replier.name})</span>
+            </Row>
+            <Row label="Last reply">{lastCallLabel(health.replier)}</Row>
+            <Row label="Fallbacks today">{health.replier.fallbacks_today}</Row>
+            <Row label="Timeouts today">{health.replier.timeouts_today}</Row>
+          </dl>
+          <p class="muted">
+            "Today" is Maple's day {health.today.day} (06:00 to 06:00 local). Timeouts include transport errors.
+          </p>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 export function Inspector({
   snapshot,
   lifeEvents,
@@ -75,6 +204,7 @@ export function Inspector({
   onClose: () => void;
 }) {
   const audit = useAudit(api, snapshot.revision);
+  const brainHealth = useBrainHealth(api, snapshot.revision);
   const maple = snapshot.maple;
   const activity = maple.activity;
   const latest = audit.decisions[audit.decisions.length - 1] ?? null;
@@ -131,6 +261,8 @@ export function Inspector({
           </Row>
         </dl>
       </section>
+
+      <BrainHealthCard health={brainHealth.health} error={brainHealth.error} />
 
       <section class="card">
         <h2>Recent decisions</h2>

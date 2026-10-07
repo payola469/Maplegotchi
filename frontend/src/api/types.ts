@@ -333,3 +333,34 @@ export interface ReflectionOut {
   preference_candidates: string[][];
   intent: { type: string; summary: string };
 }
+
+// GET /api/brain-health (ADR-0034): read-only; unknown values are null, never guessed.
+export interface AiCallOut {
+  at: string;
+  ok: boolean;
+  code: string | null;
+  latency_ms: number | null;
+}
+
+export interface CallerHealthOut {
+  mode: string; // rule | external
+  name: string;
+  last_call: AiCallOut | null;
+  last_success_at: string | null;
+  fallbacks_today: number;
+  timeouts_today: number; // timeouts or transport errors
+}
+
+export interface BrainHealthOut {
+  as_of: string;
+  status: string; // healthy | degraded | offline | unknown
+  status_reason: string;
+  provider: string | null;
+  model: string | null;
+  companion: { probed: boolean; reachable: boolean | null; error: string | null };
+  journal_brain: string;
+  director: CallerHealthOut;
+  replier: CallerHealthOut;
+  last_success_at: string | null;
+  today: { day: string; start: string; end: string };
+}

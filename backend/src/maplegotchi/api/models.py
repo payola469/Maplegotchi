@@ -411,5 +411,49 @@ class HealthOut(_Out):
     status: str
 
 
+class AiCallOut(_Out):
+    at: datetime
+    ok: bool  # a usable answer (decision accepted/clamped; reply not a fallback)
+    code: str | None  # decision reason_code or reply fallback_code
+    latency_ms: int | None
+
+
+class CallerHealthOut(_Out):
+    mode: str  # rule | external
+    name: str
+    last_call: AiCallOut | None  # latest external call (stale decisions excluded)
+    last_success_at: datetime | None
+    fallbacks_today: int
+    timeouts_today: int  # timeouts or transport errors
+
+
+class CompanionOut(_Out):
+    probed: bool  # false when no external mode is configured
+    reachable: bool | None
+    error: str | None  # timeout | unreachable | http_status | invalid_response
+
+
+class BrainDayOut(_Out):
+    day: str  # the Maple day (local 06:00 to 06:00), YYYY-MM-DD
+    start: datetime
+    end: datetime
+
+
+class BrainHealthOut(_Out):
+    """Read-only Brain Health (ADR-0034). Unknown values are null, never guessed."""
+
+    as_of: datetime
+    status: str  # healthy | degraded | offline | unknown
+    status_reason: str
+    provider: str | None
+    model: str | None
+    companion: CompanionOut
+    journal_brain: str  # rule | external
+    director: CallerHealthOut
+    replier: CallerHealthOut
+    last_success_at: datetime | None
+    today: BrainDayOut
+
+
 class ErrorOut(_Out):
     detail: str

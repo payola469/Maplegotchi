@@ -430,11 +430,19 @@ session = one character", no terminals):
   decision's reason, recent decisions with verdicts and codes, action history,
   interruptions and rejections, memory candidates and the last reflection's
   intent, and the Brain/Director identity. GET endpoints only (`api/read.ts`).
+- **Brain Health** (Inspector card, ADR-0034; never in the living room): `GET
+  /api/brain-health` on open and on each new revision — status badge (Healthy /
+  Degraded / Offline / Unknown), provider and model as reported by the companion
+  (model id shown with spaces and capitals only), last success, and per Director /
+  Replier: mode, last call latency and time (with its fallback code if it fell back),
+  fallbacks and timeouts in the current Maple day. Anything unavailable reads
+  `Unknown`; nothing is inferred. Quota/credits are out of scope.
 
 ## Tests (`pnpm test`)
 
 | File | Covers |
 |---|---|
+| `ui/inspector/brainhealth.test.tsx` | Brain Health card: healthy, degraded (fallback code), offline (provider/model Unknown, never guessed), unknown (no calls; endpoint failure; unrecognised status), latency/model formatting, fetched by the Inspector |
 | `room/visual.test.ts` | all activities, locations, expressions and reactions; expiry at `until`; unknown fallbacks; day/night; room text |
 | `room/maple/sprites.test.ts` | pixel grids rectangular and in-palette; frame parts fit; every pose × expression composes a full frame with hair, headphones, hoodie and glasses and feet on the bottom row; expressions distinct while awake; sleep falls back to the closed-eye face; dedicated lying sleep frame (head left on the origin, quilt to the right, no shoes); two walk frames; atlas covers every frame once; a distinct bubble glyph per symbol; responsive scale exact on desktop, slightly larger (never smaller) on small rooms, snapped to whole canvas pixels |
 | `room/animation/motion.test.ts` | walk, speed, mid-walk redirect, snap, eased lighting |

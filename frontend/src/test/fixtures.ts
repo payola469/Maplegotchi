@@ -1,6 +1,14 @@
 // Test-only snapshot builders shaped exactly like the backend DTOs.
 
-import type { ActivityOut, InteractionOut, MapleOut, ObservationOut, SnapshotOut } from "../api/types";
+import type {
+  ActivityOut,
+  BrainHealthOut,
+  CallerHealthOut,
+  InteractionOut,
+  MapleOut,
+  ObservationOut,
+  SnapshotOut,
+} from "../api/types";
 
 export const T0 = "2026-09-30T10:00:00.000Z";
 export const T0_MS = Date.parse(T0);
@@ -145,6 +153,46 @@ export function makeInteraction(overrides: Partial<InteractionOut> = {}, maple: 
     reaction: null,
     revision: 11,
     maple: makeMaple({ revision: 11, ...maple }),
+    ...overrides,
+  };
+}
+
+function makeCaller(overrides: Partial<CallerHealthOut> = {}): CallerHealthOut {
+  return {
+    mode: "external",
+    name: "antigravity",
+    last_call: { at: iso(-60), ok: true, code: null, latency_ms: 20200 },
+    last_success_at: iso(-60),
+    fallbacks_today: 2,
+    timeouts_today: 2,
+    ...overrides,
+  };
+}
+
+/** A healthy GET /api/brain-health response (ADR-0034), shaped like the backend DTO. */
+export function makeBrainHealth(
+  overrides: Partial<BrainHealthOut> = {},
+  director: Partial<CallerHealthOut> = {},
+  replier: Partial<CallerHealthOut> = {},
+): BrainHealthOut {
+  return {
+    as_of: T0,
+    status: "healthy",
+    status_reason: "latest_call_ok",
+    provider: "command",
+    model: "gemini-3.8-flash-medium",
+    companion: { probed: true, reachable: true, error: null },
+    journal_brain: "external",
+    director: makeCaller(director),
+    replier: makeCaller({
+      last_call: { at: iso(-30), ok: true, code: null, latency_ms: 14700 },
+      last_success_at: iso(-30),
+      fallbacks_today: 1,
+      timeouts_today: 0,
+      ...replier,
+    }),
+    last_success_at: iso(-30),
+    today: { day: "2026-09-30", start: "2026-09-29T23:00:00Z", end: "2026-09-30T23:00:00Z" },
     ...overrides,
   };
 }

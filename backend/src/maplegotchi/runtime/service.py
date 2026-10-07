@@ -46,6 +46,13 @@ from maplegotchi.core.proposal import DecisionContext, DirectorLabel
 from maplegotchi.core.reflection import ReflectionState, server_summary
 from maplegotchi.core.state import Expression, InteractionKind, MapleState, Reaction
 from maplegotchi.runtime.brain_factory import build_brain, build_director, build_replier
+from maplegotchi.runtime.brain_health import (
+    BrainHealthReport,
+    CallerLabel,
+    CompanionProbe,
+    build_report,
+    probe_companion,
+)
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
@@ -190,6 +197,7 @@ class MapleService:
         director: Director | None = None,
         director_timeout_seconds: float = 15.0,
         replier: Replier | None = None,
+        companion_probe: CompanionProbe | None = None,
     ) -> None:
         self.runtime = runtime
         self.senses = senses
@@ -203,9 +211,12 @@ class MapleService:
         )
         self._director_call: concurrent.futures.Future[object | None] | None = None
         self.replier = replier
+        self.companion_probe = companion_probe  # Brain Health only (ADR-0034)
         self._replier_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="maple-replier"
         )
+        # The last replier call that outlived its deadline and may still be running.
+        self._replier_stuck: concurrent.futures.Future[str] | None = None
         self._loop_task: asyncio.Task[None] | None = None
         self._loop_error: str | None = None
         self._stop = asyncio.Event()
@@ -241,6 +252,7 @@ class MapleService:
             director=build_director(settings),
             director_timeout_seconds=settings.director_timeout_seconds,
             replier=build_replier(settings),
+            companion_probe=lambda: probe_companion(settings.brain_url),
         )
 
     # ------------------------------------------------------------ reads
@@ -418,30 +430,67 @@ class MapleService:
             return ConversationResult(
                 received.existing_reply, received.revision, True, "rule", "stored", None
             )
-        text, kind, name, code = self._reply(received.context)
+        text, kind, name, code, latency = self._reply(received.context)
         revision = self.runtime.record_reply_committed(
-            received.message_id, text, replier_kind=kind, replier_name=name, fallback_code=code
+            received.message_id,
+            text,
+            replier_kind=kind,
+            replier_name=name,
+            fallback_code=code,
+            latency_ms=latency,
         )
         self._publish_written(revision, events=False, journal=False)
         return ConversationResult(text, revision, received.duplicate, kind, name, code)
 
-    def _reply(self, context: ReplyContext) -> tuple[str, str, str, str | None]:
+    def _reply(self, context: ReplyContext) -> tuple[str, str, str, str | None, int | None]:
+        """(text, replier kind, name, fallback code, latency ms of the external attempt)."""
         replier = self.replier
         if replier is None:
-            return rule_reply(context), "rule", "rule_replier", None
+            return rule_reply(context), "rule", "rule_replier", None, None
         code: str | None
+        started = time.perf_counter()
+        stuck = self._replier_stuck
+        if stuck is not None and not stuck.done():
+            # A previous call is still stuck past its deadline: do not queue behind it.
+            # This request never reaches the provider, so it is `busy`, not a timeout.
+            latency = int((time.perf_counter() - started) * 1000)
+            return rule_reply(context), "rule", "rule_replier", "busy", latency
+        future = self._replier_pool.submit(replier.reply, context)
         try:
-            text = self._replier_pool.submit(replier.reply, context).result(
-                timeout=self.director_timeout_seconds
-            )
+            text = future.result(timeout=self.director_timeout_seconds)
             code = "invalid_reply" if reply_problems(text) else None
         except (concurrent.futures.TimeoutError, httpx2.TimeoutException):
+            if not future.done() and not future.cancel():
+                self._replier_stuck = future  # started; may still be running
             text, code = "", "timeout"
         except Exception:  # transport, status, contract: no usable reply
             text, code = "", "transport_error"
+        latency = int((time.perf_counter() - started) * 1000)
         if code is not None:
-            return rule_reply(context), "rule", "rule_replier", code
-        return text.strip(), replier.kind, replier.name, None
+            return rule_reply(context), "rule", "rule_replier", code, latency
+        return text.strip(), replier.kind, replier.name, None, latency
+
+    def brain_health(self) -> BrainHealthReport:
+        """Read-only Brain Health (ADR-0034): stored audit + one bounded companion probe.
+
+        Never holds the writer lock while probing; never calls a provider.
+        """
+        today, director_calls, replier_calls = self.runtime.brain_call_stats()
+        brain = self.runtime.brain
+        director = self.director_label
+        replier = self.replier
+        return build_report(
+            as_of=self.clock.now(),
+            today=today,
+            journal_brain=CallerLabel(brain.kind.value, brain.name),
+            director=CallerLabel(director.kind, director.name),
+            replier=CallerLabel(replier.kind, replier.name)
+            if replier is not None
+            else CallerLabel("rule", "rule_replier"),
+            director_calls=director_calls,
+            replier_calls=replier_calls,
+            probe=self.companion_probe,
+        )
 
     def step(self) -> None:
         """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""

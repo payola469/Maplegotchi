@@ -39,6 +39,7 @@ no rows or domain objects are returned.
 | GET | `/api/memory/search?q=…&limit=1..100` | `MemoryOut[]` | keyword search across every tier, archive included |
 | GET | `/api/reflections?limit=1..100` | `ReflectionOut[]` | Daily Reflections, most recent days, oldest first (ADR-0031) |
 | GET | `/api/conversation?limit=1..100` | `ConversationMessageOut[]` | recent conversation with Paolo, oldest first |
+| GET | `/api/brain-health` | `BrainHealthOut` | owner Inspector only (ADR-0034): status, provider/model, Director/Replier last call, latency, fallbacks/timeouts today; read-only, probes the companion once (2 s bound) |
 | POST | `/api/conversation/messages` | `ConversationOut` | **gateway only** (ADR-0032): `Authorization: Bearer <MAPLE_GATEWAY_TOKEN>`, no `Origin`, body `{message_id, channel: "discord", speaker: "paolo", text ≤ 2000}` (≤ 8 KB); 404 when no token is configured; idempotent by `message_id` |
 | GET | `/api/life-events?after_revision=N&limit=1..500` | `LifeEventsOut` | every life event after revision N, whole revisions only; continue from `last_revision` |
 | GET | `/api/observations/latest` | `ObservationOut[]` | the snapshot stored with the latest observed heartbeat |
@@ -291,3 +292,44 @@ Three append-only stores, one envelope:
   originals, and what was executed. No prompt, raw model output, or model
   reasoning is stored or served.
 
+
+## Brain Health (`GET /api/brain-health`, ADR-0034)
+
+Read-only. Aggregates the stored decision audit and conversation rows; no table,
+log, background poller or write endpoint of its own. When any of `MAPLE_BRAIN`,
+`MAPLE_DIRECTOR`, `MAPLE_REPLIER` is `antigravity`, the request makes one
+`GET <MAPLE_BRAIN_URL>/health` (2 s timeout, no redirects, ≤ 4 KB) outside the
+writer lock; it never calls `/generate`, `/decide` or `/reply`.
+
+```json
+{
+  "as_of": "…Z",
+  "status": "healthy | degraded | offline | unknown",
+  "status_reason": "latest_call_ok | latest_call_failed | companion_unreachable | no_calls_yet | not_configured",
+  "provider": "command",              // from the companion only; null if unknown
+  "model": "gemini-3.8-flash-medium", // from the companion only; null if unknown
+  "companion": {"probed": true, "reachable": true, "error": null},
+  "journal_brain": "external",
+  "director": {"mode": "external", "name": "antigravity",
+               "last_call": {"at": "…Z", "ok": true, "code": null, "latency_ms": 20200},
+               "last_success_at": "…Z", "fallbacks_today": 2, "timeouts_today": 2},
+  "replier":  {"mode": "external", "name": "antigravity", "last_call": {…}, …},
+  "last_success_at": "…Z",
+  "today": {"day": "2026-10-06", "start": "2026-10-05T23:00:00Z", "end": "2026-10-06T23:00:00Z"}
+}
+```
+
+- **Director calls**: `decision` rows with `director_kind = external`; `ok` =
+  verdict `accepted`/`clamped`; fallbacks = `fallback`/`rejected`; `stale` rows
+  are ignored. **Replier calls**: outgoing messages with `replier_kind = external`
+  (ok) or a `fallback_code` (fallback). `timeouts_today` counts `timeout` and
+  `transport_error` codes; `busy` (skipped while an earlier call is still stuck; it
+  never reached the provider) is a fallback but not a timeout.
+- **Today** is the Maple day (local 06:00 → 06:00 at the core `utc_offset`).
+- **Status**: `offline` if the companion's health cannot be reached; else
+  `healthy`/`degraded` by the latest call of the callers that are external now
+  (ties count the failure); `unknown` with `no_calls_yet` or `not_configured`
+  (every mode `rule`: the companion is not probed). The journal Brain's failures are
+  not recorded anywhere, so it does not affect status in v1.
+- Provider and model pass through only as short identifiers; never the command
+  argv, credentials, prompts, answers or reasoning.

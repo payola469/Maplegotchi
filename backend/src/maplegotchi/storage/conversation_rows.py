@@ -1,4 +1,4 @@
-"""Rows for conversations with Paolo (schema v9, ADR-0032); append-only."""
+"""Rows for conversations with Paolo (schema v9, ADR-0032; v10 latency, ADR-0034)."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ class StoredMessage:
     replier_kind: str | None
     replier_name: str | None
     fallback_code: str | None
+    latency_ms: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class MessageRecord:
     replier_kind: str | None = None
     replier_name: str | None = None
     fallback_code: str | None = None
+    latency_ms: int | None = None  # external reply attempts only (ADR-0034)
 
 
 def _ts(value: datetime) -> str:
@@ -52,8 +54,8 @@ def _ts(value: datetime) -> str:
 def insert_message(conn: sqlite3.Connection, revision: int, m: MessageRecord) -> int:
     cursor = conn.execute(
         "INSERT INTO conversation_message (maple_id, revision, at, channel, direction, speaker,"
-        " external_id, reply_to, text, replier_kind, replier_name, fallback_code)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " external_id, reply_to, text, replier_kind, replier_name, fallback_code,"
+        " latency_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             MAPLE_ID,
             revision,
@@ -67,6 +69,7 @@ def insert_message(conn: sqlite3.Connection, revision: int, m: MessageRecord) ->
             m.replier_kind,
             m.replier_name,
             m.fallback_code,
+            m.latency_ms,
         ),
     )
     if cursor.lastrowid is None:  # pragma: no cover - sqlite always reports the rowid
@@ -76,17 +79,17 @@ def insert_message(conn: sqlite3.Connection, revision: int, m: MessageRecord) ->
 
 _SQL = (
     "SELECT id, revision, at, channel, speaker, text, external_id, reply_to, replier_kind,"
-    " replier_name, fallback_code FROM conversation_message"
+    " replier_name, fallback_code, latency_ms FROM conversation_message"
 )
 
 
 def _decode(row: Any) -> StoredMessage:
     (row_id, rev, at, channel, speaker, text, external_id, reply_to, kind, name,
-     code) = row  # fmt: skip
+     code, latency) = row  # fmt: skip
     value = datetime.fromisoformat(at)
     require_utc(value)
     return StoredMessage(row_id, rev, value, Channel(channel), Speaker(speaker), text,
-                         external_id, reply_to, kind, name, code)  # fmt: skip
+                         external_id, reply_to, kind, name, code, latency)  # fmt: skip
 
 
 def messages(

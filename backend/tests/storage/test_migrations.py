@@ -107,8 +107,8 @@ def names(conn: sqlite3.Connection, kind: str) -> set[str]:
 
 def test_real_migrations_are_well_ordered() -> None:
     validate_migrations(MIGRATIONS)
-    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    assert LATEST == 9
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert LATEST == 10
 
 
 @pytest.mark.parametrize("versions", [[2], [0, 1], [1, 1], [1, 3], [2, 1], [1, 2, 4]])
