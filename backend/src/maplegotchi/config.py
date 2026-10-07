@@ -112,8 +112,8 @@ class Settings:
                 raise SettingsError("production origins must be https (Tailscale Serve)")
             if self.senses is not SensesKind.PAOLO_CORE:
                 raise SettingsError("production refuses fake senses")
-        if not 1.0 <= self.director_timeout_seconds <= 30.0:
-            raise SettingsError("MAPLE_DIRECTOR_TIMEOUT_SECONDS must be within 1-30")
+        if not 1.0 <= self.director_timeout_seconds <= 60.0:
+            raise SettingsError("MAPLE_DIRECTOR_TIMEOUT_SECONDS must be within 1-60")
         if self.gateway_token is not None and (
             len(self.gateway_token) < MIN_GATEWAY_TOKEN or not self.gateway_token.isprintable()
         ):

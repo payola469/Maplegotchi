@@ -47,7 +47,7 @@ Constraints carried over unchanged:
   wired independently by `runtime`; one object may implement both, but neither
   protocol depends on the other.
 - Configuration [PROPOSED]: `MAPLE_DIRECTOR = rule | antigravity` (default
-  `rule`), `MAPLE_DIRECTOR_TIMEOUT_SECONDS` (default 15, allowed 1–30). The
+  `rule`), `MAPLE_DIRECTOR_TIMEOUT_SECONDS` (default 15, allowed 1–60). The
   Director uses the same loopback-only `MAPLE_BRAIN_URL` validation as ADR-0025.
 - As with the journal Brain, a non-built-in Director claiming `kind="rule"` is
   refused at startup.
