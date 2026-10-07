@@ -213,8 +213,9 @@ def test_settings_select_the_director(tmp_path: Path) -> None:
     with pytest.raises(SettingsError):
         Settings(data_dir=tmp_path, director=DirectorMode.ANTIGRAVITY,
                  brain_url="http://example.com:8471")  # fmt: skip
+    assert Settings(data_dir=tmp_path, director_timeout_seconds=60).director_timeout_seconds == 60
     with pytest.raises(SettingsError):
-        Settings(data_dir=tmp_path, director_timeout_seconds=60)
+        Settings(data_dir=tmp_path, director_timeout_seconds=61)
 
 
 class FakeResponse:

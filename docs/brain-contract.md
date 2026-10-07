@@ -18,7 +18,7 @@ Response: `{"response": "<text>"}` whose text is a JSON array of
 ## `POST /decide` — goal and next action (`maple.decision.v1`, ADR-0026)
 
 Used only when `MAPLE_DIRECTOR=antigravity`. Timeout: `MAPLE_DIRECTOR_TIMEOUT_SECONDS`
-(default 15, allowed 1–30), enforced as a hard deadline by the service.
+(default 15, allowed 1–60), enforced as a hard deadline by the service.
 
 Request (built by `core/proposal.py:build_context`; no seed, paths, config,
 journal text, or raw observation rows):
