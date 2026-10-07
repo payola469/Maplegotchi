@@ -66,7 +66,7 @@ class GatewaySettings:
     channel_id: int  # the #maple-chat channel
     owner_id: int  # Paolo's Discord user id: only his messages are conversations
     maple_api_url: str = "http://127.0.0.1:8470"
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 50.0
 
     def __post_init__(self) -> None:
         if len(self.gateway_token) < 32:
