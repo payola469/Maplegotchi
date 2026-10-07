@@ -13,6 +13,7 @@ from discord import app_commands
 
 from maple_discord.config import GatewaySettings
 from maple_discord.handlers import (
+    COMMANDS,
     OWNER_ONLY,
     ChatMessage,
     answer,
@@ -22,15 +23,6 @@ from maple_discord.handlers import (
     split_for_discord,
 )
 from maple_discord.maple_client import MapleClient
-
-COMMANDS = {
-    "status": "What Maple is doing and how it feels",
-    "goal": "Maple's current short-term goal",
-    "journal": "Maple's latest journal lines",
-    "server": "What Maple sees on paolo-core",
-    "memory": "Things Maple remembers",
-    "help": "What you can do here",
-}
 
 
 class MapleBot(discord.Client):

@@ -90,7 +90,11 @@ the Director, a call stuck past its deadline is never stacked: while it is still
 running, later messages get the rule reply at once without reaching the companion,
 recorded `busy` (a fallback, not a timeout: only the call that actually exceeded its
 deadline is `timeout`). Reply fallback codes are `timeout`, `transport_error`,
-`invalid_reply` and `busy`. The reply must use only facts from the context.
+`invalid_reply` and `busy`. Anything about Maple, her room, the server or past
+conversation must come only from the context; ordinary general knowledge and simple
+reasoning (e.g. `1 + 1 = 2`) are allowed; external or live information is not. The
+context is background: the reply answers Paolo's message first and mentions Maple's
+state only when relevant (ADR-0032 amendment 2026-10-07).
 
 Only the `reason` line is stored as text from the companion. The companion must
 not return or log hidden reasoning; Maplegotchi would not store it anyway.

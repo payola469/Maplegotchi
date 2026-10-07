@@ -39,8 +39,10 @@
    short-term `conversation` memory. No prompt, raw response, or model reasoning is
    stored. Conversations join the life-event stream (`conversation_received`,
    `conversation_replied`).
-6. **Slash commands** (`/status`, `/goal`, `/journal`, `/server`, `/memory`, `/help`) are
-   read-only: the gateway calls GET endpoints. No mutation/admin commands exist; any
+6. **Slash commands** (`/status`, `/needs`, `/goal`, `/journal`, `/server`, `/memory`,
+   `/brain`, `/help`) are read-only and answer only Paolo: the gateway calls GET endpoints
+   (`/needs` reads `/api/snapshot`, `/brain` reads `/api/brain-health` and shows only its
+   status, provider, model and per-caller summary). No mutation/admin commands exist; any
    future one needs its own ADR and approval rules.
 7. **Failure isolation**: Discord or gateway outages do not touch Maple; Maple outages
    produce a short "Maple can't be reached" reply from the gateway; replier failures
@@ -51,3 +53,21 @@
 One new append-only table; forward-only; verified pre-migration copy first; ADR-0028
 R1-R8 apply. Disabling the channel: unset `MAPLE_GATEWAY_TOKEN` (endpoint disappears)
 and stop `maple-discord`.
+
+## Amendment 2026-10-07 (owner-requested): reply voice and `/needs`, `/brain`
+
+- **Replies answer the message first.** Maple's state (activity, task, goal, mood,
+  needs, memories, server, history) is background: mentioned only when Paolo asks about
+  it or it matters. No repeated greeting (only when Paolo greets). The rule replier
+  stays deterministic and narrow: grounded answers about activity, goal, feelings and
+  the server; small-integer arithmetic (`1+1=?` → `1 + 1 = 2`); otherwise a brief honest
+  "not sure" or acknowledgement, never a status dump. Thai rule replies use natural
+  casual sentences without forced particles.
+- **External replies** (companion `reply_prompt`): claims about Maple, her room or the
+  server come only from the supplied facts; ordinary general knowledge and simple
+  reasoning are allowed; tools, commands, workspace files, and external/live
+  information stay forbidden; no reasoning is shown. Maple speaks as a young woman, in
+  the first person, not as an assistant; Thai avoids habitual จ้ะ/จ๊ะ/นะจ๊ะ/เลยจ้ะ.
+  The Director prompt is unchanged (facts only).
+- **`/needs`** and **`/brain`** join the read-only, owner-only slash commands (§6). No
+  write, endpoint, schema or authentication change.

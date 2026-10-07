@@ -5,7 +5,8 @@
   Maple stops to listen, but never wakes Maple and never overrides an urgent response.
 - `build_reply_context`: the frozen `maple.reply.v1` context, built from real state
   and records only.
-- `rule_reply`: an answer from those facts only (English, or Thai for Thai messages).
+- `rule_reply`: a short deterministic answer to what Paolo said (English, or Thai for
+  Thai messages): Maple's state only when asked about, from those facts only.
 - `reply_problems`: the checks any reply (e.g. from an external replier) must pass.
 """
 
@@ -162,16 +163,18 @@ ACTIVITY_EN = {
     Activity.IDLE: "pottering about",
     Activity.SLEEP: "sleeping",
 }
+# Whole Thai sentences: natural word order, no particle forced onto each one.
 ACTIVITY_TH = {
-    Activity.READ: "อ่านหนังสือ",
-    Activity.WRITE: "เขียนบันทึก",
-    Activity.OBSERVE_SERVER: "ดูแลเซิร์ฟเวอร์",
-    Activity.THINK: "นั่งคิดอยู่ริมหน้าต่าง",
-    Activity.REST: "พักผ่อนบนโซฟา",
-    Activity.WALK: "เดินเล่นในห้อง",
-    Activity.IDLE: "อยู่เฉย ๆ",
-    Activity.SLEEP: "นอนหลับ",
+    Activity.READ: "ตอนนี้กำลังอ่านหนังสืออยู่",
+    Activity.WRITE: "ตอนนี้กำลังเขียนบันทึกอยู่",
+    Activity.OBSERVE_SERVER: "ตอนนี้กำลังดูเซิร์ฟเวอร์อยู่",
+    Activity.THINK: "ตอนนี้นั่งคิดอะไรเพลิน ๆ อยู่ริมหน้าต่าง",
+    Activity.REST: "ตอนนี้นอนพักอยู่บนโซฟา",
+    Activity.WALK: "ตอนนี้เดินเล่นอยู่ในห้อง",
+    Activity.IDLE: "ตอนนี้ว่าง ๆ ไม่ได้ทำอะไรเป็นพิเศษ",
+    Activity.SLEEP: "ตอนนี้กำลังนอนอยู่",
 }
+TASK_TH = {Activity.READ: "ตอนนี้กำลังอ่าน “{}” อยู่", Activity.WRITE: "ตอนนี้กำลังเขียน “{}” อยู่"}
 
 
 def build_reply_context(
@@ -213,45 +216,123 @@ def build_reply_context(
     return ReplyContext(_freeze(data))
 
 
-def _feeling(needs: Mapping[str, Any], thai: bool) -> str:
-    energy, mood = int(needs["energy"]), int(needs["mood"])
-    if thai:
-        tired = "ค่อนข้างเหนื่อย" if energy < 30 else "มีแรงดี"
-        happy = "อารมณ์ดี" if mood >= 60 else "อารมณ์เรื่อย ๆ"
-        return f"ตอนนี้{tired}และ{happy}"
-    tired = "a bit tired" if energy < 30 else "fairly rested"
-    happy = "in a good mood" if mood >= 60 else "in a calm mood"
-    return f"I'm {tired} and {happy}"
+# What a message is about, for the rule replier. Narrow keyword rules on purpose:
+# the rule replier answers about Maple from the facts, does a little arithmetic, and
+# otherwise says honestly and briefly that it has no answer; it is not a chatbot.
+TIMES, DIVIDE = "×", "÷"  # noqa: RUF001 (the multiplication and division signs)
+_ARITHMETIC = re.compile(
+    r"\s*(-?\d{1,9})\s*([-+*/x×÷])\s*(-?\d{1,9})\s*(?:=|เท่ากับ|ได้)?\s*"  # noqa: RUF001
+    r"(?:เท่าไหร่|เท่าไร|อะไร)?\s*(?:\?|？)*\s*"  # noqa: RUF001
+)
+_SERVER = re.compile(r"\bserver\b|เซิร์ฟเวอร์|เซิฟ")
+_DOING = re.compile(r"\bwhat\b.*\b(doing|up to)\b|\bwhat'?s up\b|ทำอะไร|ทําอะไร")
+_GOAL = re.compile(r"\bgoals?\b|\bplans?\b|เป้าหมาย|ตั้งใจ|แผน")
+_FEELING = re.compile(
+    r"\bhow are you\b|\bhow'?re you\b|\bfeel(ing)?\b|\btired\b"
+    r"|สบายดี|เป็นไง|เป็นยังไง|เหนื่อย|โอเคไหม|โอเคมั้ย"
+)
+_THANKS = re.compile(r"\bthanks?\b|\bthank you\b|\bty\b|ขอบคุณ|ขอบใจ")
+_GREETING = re.compile(r"^\s*(hi|hello|hey|yo|good (morning|afternoon|evening))\b|สวัสดี|หวัดดี|ดีจ้า")
+_QUESTION = re.compile(
+    r"\?|？|^\s*(what|who|why|when|where|how|which|do|does|did|are|is|can|could|will|would)\b"  # noqa: RUF001
+    r"|ไหม|มั้ย|อะไร|ยังไง|อย่างไร|เท่าไหร่|เท่าไร|ทำไม|ที่ไหน|เมื่อไหร่|ใคร|หรือเปล่า|รึเปล่า|ป่าว"
+)
 
 
-def rule_reply(context: ReplyContext) -> str:
-    """A truthful reply from the context's facts only. Deterministic."""
-    c = context.data
-    text = str(c["message"]["text"]).lower()
-    thai = c["message"]["language"] == "th"
-    activity = Activity(c["activity"])
-    task = c["task"]
-    goal = c["goal"]
+def _arithmetic(text: str, thai: bool) -> str | None:
+    """`a op b` with small integers, e.g. "1+1=?" or "6 x 7 เท่ากับเท่าไหร่"."""
+    m = _ARITHMETIC.fullmatch(text)
+    if m is None:
+        return None
+    a, op, b = int(m[1]), m[2], int(m[3])
+    times, divide = op in ("*", "x", TIMES), op in ("/", DIVIDE)
+    shown = TIMES if times else DIVIDE if divide else op
+    if not (times or divide):
+        value = str(a + b if op == "+" else a - b)
+    elif times:
+        value = str(a * b)
+    elif b == 0:
+        return "หารด้วยศูนย์ไม่ได้นะ" if thai else "You can't divide by zero."
+    elif a % b == 0:
+        value = str(a // b)
+    else:
+        value = f"{a / b:.6g}"
+    return f"{a} {shown} {b} = {value}"
+
+
+def _doing(c: Mapping[str, Any], thai: bool) -> str:
+    activity, task, goal = Activity(c["activity"]), c["task"], c["goal"]
     if thai:
-        doing = ACTIVITY_TH[activity]
-        if task is not None:
-            doing += f" ({task['title']})"
-        now_line = f"ตอนนี้ฉันกำลัง{doing}อยู่"
-        goal_line = f" เป้าหมายตอนนี้คือ: {goal['summary']}" if goal else ""
-        if "เซิร์ฟเวอร์" in text or "server" in text:
-            return f"เรื่องเซิร์ฟเวอร์: {c['server']} {now_line}"
-        if "สบายดี" in text or "เป็นไง" in text or "เหนื่อย" in text:
-            return f"{_feeling(c['needs'], True)} {now_line}"
-        return f"{now_line}{goal_line}"
+        if task is not None and activity in TASK_TH:
+            line = TASK_TH[activity].format(task["title"])
+        else:
+            line = ACTIVITY_TH[activity]
+            if task is not None:
+                line += f" (“{task['title']}”)"
+        return line + (f" ตั้งใจไว้ว่า {goal['summary']}" if goal else "")
     doing = ACTIVITY_EN[activity]
     if task is not None:
         doing += f" “{task['title']}”"
-    now_line = f"Right now I'm {doing}."
     goal_line = f" My goal at the moment: {goal['summary']}." if goal else ""
-    if "server" in text:
-        return f"About the server: {c['server']}. {now_line}"
-    if "how are you" in text or "feeling" in text or "tired" in text:
-        return f"{_feeling(c['needs'], False)}. {now_line}"
-    if "what" in text and ("doing" in text or "up to" in text):
-        return f"{now_line}{goal_line}"
-    return f"Thanks for the message, Paolo! {now_line}{goal_line}"
+    return f"Right now I'm {doing}.{goal_line}"
+
+
+def _goal(c: Mapping[str, Any], thai: bool) -> str:
+    goal = c["goal"]
+    if thai:
+        return f"ตอนนี้ตั้งใจไว้ว่า {goal['summary']}" if goal else "ตอนนี้ยังไม่ได้ตั้งเป้าอะไรเป็นพิเศษ"
+    return (
+        f"My goal at the moment: {goal['summary']}." if goal else "I don't have a goal right now."
+    )
+
+
+def _feeling(needs: Mapping[str, Any], thai: bool) -> str:
+    tired, happy = int(needs["energy"]) < 30, int(needs["mood"]) >= 60
+    if thai:
+        body = "ค่อนข้างเหนื่อยนิดหน่อย" if tired else "ยังมีแรงดีอยู่"
+        mood = "อารมณ์ดีด้วย" if happy else "อารมณ์ก็เรื่อย ๆ"
+        return f"{body} {mood}"
+    body = "a bit tired" if tired else "fairly rested"
+    mood = "in a good mood" if happy else "in a calm mood"
+    return f"I'm {body} and {mood}."
+
+
+def _server(c: Mapping[str, Any], thai: bool) -> str:
+    if thai:
+        return f"จากที่ฉันเห็น เซิร์ฟเวอร์ตอนนี้: {c['server']}"
+    return f"From what I can see, the server: {c['server']}."
+
+
+def rule_reply(context: ReplyContext) -> str:
+    """A short, truthful reply to what Paolo said. Deterministic.
+
+    Maple's state is mentioned only when the message asks about it; anything about
+    Maple or the server comes from the context's facts only. Paolo is greeted back
+    only when Paolo greeted.
+    """
+    c = context.data
+    raw = str(c["message"]["text"])
+    text = raw.lower()
+    thai = c["message"]["language"] == "th"
+    maths = _arithmetic(raw, thai)
+    if maths is not None:
+        return maths
+    if _SERVER.search(text):
+        answer = _server(c, thai)
+    elif _DOING.search(text):
+        answer = _doing(c, thai)
+    elif _GOAL.search(text):
+        answer = _goal(c, thai)
+    elif _FEELING.search(text):
+        answer = _feeling(c["needs"], thai)
+    elif _THANKS.search(text):
+        answer = "ยินดีเลย" if thai else "Anytime."
+    elif _GREETING.search(text):
+        return "หวัดดี" if thai else "Hi, Paolo."
+    elif _QUESTION.search(text):
+        answer = "อันนี้ไม่แน่ใจเหมือนกัน" if thai else "I'm not sure about that one."
+    else:
+        answer = "อืม ฟังอยู่นะ" if thai else "I hear you."
+    if _GREETING.search(text):
+        return f"{'หวัดดี' if thai else 'Hi!'} {answer}"
+    return answer

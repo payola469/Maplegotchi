@@ -11,12 +11,15 @@ import pytest
 
 from maple_discord.config import GatewayConfigError, GatewaySettings, settings_from_env
 from maple_discord.handlers import (
+    COMMANDS,
     HELP,
     UNREACHABLE,
     ChatMessage,
     answer,
     command,
+    format_brain,
     format_goal,
+    format_needs,
     format_status,
     is_conversation,
     may_use_commands,
@@ -157,12 +160,14 @@ async def test_commands_are_read_only_gets() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         methods.append((request.method, request.url.path))
+        if request.url.path == "/api/brain-health":
+            return httpx.Response(200, json=BRAIN_HEALTH)
         if request.url.path == "/api/snapshot":
             return httpx.Response(200, json=SNAPSHOT)
         return httpx.Response(200, json=[{"text": "A line."}])
 
     client = maple(handler)
-    for name in ("status", "goal", "journal", "server", "memory", "help"):
+    for name in ("status", "needs", "goal", "journal", "server", "memory", "brain", "help"):
         await command(name, client)
     assert {m for m, _ in methods} == {"GET"}
     assert await command("help", client) == HELP
@@ -183,3 +188,114 @@ def test_long_replies_are_split_for_discord() -> None:
     assert all(len(c) <= 2000 for c in chunks) and "".join(chunks).count("line") == 900
     assert split_for_discord("x" * 4500) == ["x" * 2000, "x" * 2000, "x" * 500]
     assert split_for_discord("  ") == []
+
+
+# ---------------------------------------------------------------- /needs and /brain
+
+BRAIN_HEALTH: dict[str, Any] = {
+    "as_of": "2026-10-07T03:00:00Z",
+    "status": "degraded",
+    "status_reason": "latest_call_failed",
+    "provider": "command",
+    "model": "gemini-3.8-flash-medium",
+    "companion": {"probed": True, "reachable": True, "error": None},
+    "journal_brain": "external",
+    "director": {
+        "mode": "external",
+        "name": "antigravity",
+        "last_call": {"at": "2026-10-07T02:58:00Z", "ok": True, "code": None,
+                      "latency_ms": 20200},
+        "last_success_at": "2026-10-07T02:58:00Z",
+        "fallbacks_today": 0,
+        "timeouts_today": 0,
+    },
+    "replier": {
+        "mode": "external",
+        "name": "antigravity",
+        "last_call": {"at": "2026-10-07T02:59:00Z", "ok": False, "code": "busy",
+                      "latency_ms": 0},
+        "last_success_at": None,
+        "fallbacks_today": 2,
+        "timeouts_today": 1,
+    },
+    "last_success_at": "2026-10-07T02:58:00Z",
+    "today": {"day": "2026-10-07", "start": "2026-10-06T23:00:00Z",
+              "end": "2026-10-07T23:00:00Z"},
+}  # fmt: skip
+
+
+def test_needs_come_from_the_snapshot() -> None:
+    assert format_needs(SNAPSHOT) == "Mood 70 · Energy 61 · Social 55 · Curiosity 48"
+
+
+def test_brain_is_compact_and_from_brain_health() -> None:
+    assert format_brain(BRAIN_HEALTH).splitlines() == [
+        "Brain: degraded (latest_call_failed)",
+        "Provider command · model gemini-3.8-flash-medium",
+        "Director: external (antigravity) — last call ok, 20.2 s, 02:58 UTC",
+        "Replier: external (antigravity) — last call fell back (busy), 0.0 s, 02:59 UTC"
+        " · today 2 fallback(s), 1 timeout(s)",
+    ]
+
+
+def test_brain_when_offline_or_all_rule() -> None:
+    offline = {**BRAIN_HEALTH, "status": "offline", "status_reason": "companion_unreachable",
+               "provider": None, "model": None,
+               "companion": {"probed": True, "reachable": False, "error": "timeout"},
+               "director": {**BRAIN_HEALTH["director"], "last_call": None,
+                            "fallbacks_today": 0, "timeouts_today": 0}}  # fmt: skip
+    text = format_brain(offline)
+    assert text.splitlines()[:2] == [
+        "Brain: offline (companion_unreachable)",
+        "Companion unreachable (timeout)",
+    ]
+    assert "Director: external (antigravity) — no calls yet" in text
+    rule = {"status": "unknown", "status_reason": "not_configured", "provider": None,
+            "model": None, "companion": {"probed": False, "reachable": None, "error": None},
+            "director": {"mode": "rule", "name": "rule_director"},
+            "replier": {"mode": "rule", "name": "rule_replier"}}  # fmt: skip
+    assert format_brain(rule) == "Brain: unknown (not_configured)\nDirector: rule\nReplier: rule"
+
+
+def test_brain_shows_only_allowlisted_fields() -> None:
+    leaky = {
+        **BRAIN_HEALTH,
+        "command": ["/usr/bin/gemini", "--api-key", "sk-SECRET"],
+        "prompt": "You are Maple... SECRET PROMPT",
+        "token": "tok-SECRET",
+        "raw_output": "SECRET OUTPUT",
+        "reasoning": "SECRET THOUGHTS",
+        "director": {**BRAIN_HEALTH["director"], "argv": "sk-SECRET"},
+        "model": "x" * 500,
+    }
+    text = format_brain(leaky)
+    assert "SECRET" not in text and "/usr/bin" not in text
+    assert "x" * 49 not in text  # identifiers are capped
+
+
+async def test_needs_and_brain_are_get_only_and_reach_the_right_endpoints() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path))
+        assert request.headers.get("authorization") is None  # reads carry no gateway token
+        if request.url.path == "/api/brain-health":
+            return httpx.Response(200, json=BRAIN_HEALTH)
+        return httpx.Response(200, json=SNAPSHOT)
+
+    client = maple(handler)
+    assert await command("needs", client) == format_needs(SNAPSHOT)
+    assert await command("brain", client) == format_brain(BRAIN_HEALTH)
+    assert seen == [("GET", "/api/snapshot"), ("GET", "/api/brain-health")]
+
+
+async def test_brain_when_maple_is_unreachable() -> None:
+    assert await command("brain", maple(lambda r: httpx.Response(503))) == UNREACHABLE
+
+
+def test_help_lists_needs_and_brain() -> None:
+    assert "/needs" in HELP and "/brain" in HELP
+    assert set(COMMANDS) == {"status", "needs", "goal", "journal", "server", "memory", "brain",
+                             "help"}  # fmt: skip
+    for name in COMMANDS:
+        assert f"/{name} " in HELP

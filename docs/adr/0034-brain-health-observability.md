@@ -66,7 +66,10 @@ single place to see whether the AI path works.
    loop, Director, fallback, goal, memory, reflection, movement, provider selection or
    the Discord companion.
 6. **UI.** A *Brain Health* card in the owner Inspector only (never the living room).
-   Unavailable values show `Unknown`, never a guess.
+   Unavailable values show `Unknown`, never a guess. Amended 2026-10-07 (owner request):
+   the owner-only Discord `/brain` command also reads `GET /api/brain-health` and shows
+   status, provider, model and each caller's mode, latest call and today's counts, and
+   nothing else (ADR-0032 amendment).
 
 ## Consequences
 
