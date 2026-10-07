@@ -86,19 +86,80 @@ def context_for(state: MapleState, text: str) -> ReplyContext:
     )  # fmt: skip
 
 
+STATUS_WORDS = ("reading", "Maple's room", "Learn about the room", "mood", "อ่าน", "อารมณ์")
+FORCED_PARTICLES = ("จ้ะ", "จ๊ะ", "นะจ๊ะ", "เลยจ้ะ")
+
+
 def test_rule_replies_use_the_real_context() -> None:
     s = reading_with_goal()
     en = rule_reply(context_for(s, "What are you doing?"))
     assert (
         en == "Right now I'm reading “Maple's room”. My goal at the moment: Learn about the room."
     )
-    th = rule_reply(context_for(s, "วันนี้ทำอะไรอยู่"))
-    assert th.startswith("ตอนนี้ฉันกำลังอ่านหนังสือ (Maple's room)อยู่")
-    assert "Learn about the room" in th
     server = rule_reply(context_for(s, "How is the server?"))
-    assert server.startswith("About the server: nothing notable")
-    idle = rule_reply(context_for(make_state(at=NOON), "hello"))
+    assert server == "From what I can see, the server: nothing notable in the latest observations."
+    idle = rule_reply(context_for(make_state(at=NOON), "what are you up to?"))
     assert "pottering about" in idle and "reading" not in idle  # never invents an activity
+
+
+def test_thai_activity_question_is_grounded_and_not_a_greeting() -> None:
+    th = rule_reply(context_for(reading_with_goal(), "ตอนนี้ทำอะไรอยู่?"))
+    assert th == "ตอนนี้กำลังอ่าน “Maple's room” อยู่ ตั้งใจไว้ว่า Learn about the room"
+    assert "สวัสดี" not in th and "Paolo" not in th
+    assert not any(p in th for p in FORCED_PARTICLES)
+    idle = rule_reply(context_for(make_state(at=NOON), "ทำอะไรอยู่"))
+    assert idle == "ตอนนี้ว่าง ๆ ไม่ได้ทำอะไรเป็นพิเศษ"  # never invents an activity
+
+
+def test_thai_server_question_stays_on_the_server_facts() -> None:
+    th = rule_reply(context_for(reading_with_goal(), "เซิร์ฟเวอร์เป็นไงบ้าง"))
+    assert th == "จากที่ฉันเห็น เซิร์ฟเวอร์ตอนนี้: nothing notable in the latest observations"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("อายุเท่าไหร่", "อันนี้ไม่แน่ใจเหมือนกัน"), ("How old are you?", "I'm not sure about that one."),
+     ("วันนี้ฝนตกหนักมาก", "อืม ฟังอยู่นะ"), ("I had a long day.", "I hear you."),
+     ("ขอบคุณนะ", "ยินดีเลย"), ("thanks!", "Anytime.")],
+)  # fmt: skip
+def test_unrelated_messages_get_no_status_dump(text: str, expected: str) -> None:
+    reply = rule_reply(context_for(reading_with_goal(), text))
+    assert reply == expected
+    assert not any(word in reply for word in STATUS_WORDS)
+
+
+def test_greeting_only_when_paolo_greets() -> None:
+    s = reading_with_goal()
+    assert rule_reply(context_for(s, "สวัสดี")) == "หวัดดี"
+    assert rule_reply(context_for(s, "hello")) == "Hi, Paolo."
+    both = rule_reply(context_for(s, "หวัดดี ทำอะไรอยู่"))
+    assert both.startswith("หวัดดี ตอนนี้กำลังอ่าน")
+    for text in ("ตอนนี้ทำอะไรอยู่?", "อายุเท่าไหร่", "What are you doing?", "1+1=?"):
+        reply = rule_reply(context_for(s, text))
+        assert not reply.startswith(("หวัดดี", "สวัสดี", "Hi", "Hello", "Thanks for"))
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("1+1=?", "1 + 1 = 2"), ("12 - 20", "12 - 20 = -8"), ("6 x 7 เท่ากับเท่าไหร่", "6 × 7 = 42"),  # noqa: RUF001
+     ("9*9", "9 × 9 = 81"), ("10/4=?", "10 ÷ 4 = 2.5"), ("8 / 2", "8 ÷ 2 = 4"),  # noqa: RUF001
+     ("1/0", "You can't divide by zero."), ("1/0 เท่ากับเท่าไหร่", "หารด้วยศูนย์ไม่ได้นะ")],
+)  # fmt: skip
+def test_simple_arithmetic_is_answered_deterministically(text: str, expected: str) -> None:
+    assert rule_reply(context_for(reading_with_goal(), text)) == expected
+
+
+def test_feelings_come_from_the_needs_only() -> None:
+    s = reading_with_goal()
+    assert rule_reply(context_for(s, "how are you?")).startswith("I'm ")
+    th = rule_reply(context_for(s, "สบายดีไหม"))
+    assert "อ่าน" not in th and not any(p in th for p in FORCED_PARTICLES)
+
+
+def test_rule_replies_are_deterministic() -> None:
+    s = reading_with_goal()
+    for text in ("ตอนนี้ทำอะไรอยู่?", "อายุเท่าไหร่", "1+1=?", "hello", "server?"):
+        assert rule_reply(context_for(s, text)) == rule_reply(context_for(s, text))
 
 
 def test_reply_context_is_frozen_and_minimal() -> None:

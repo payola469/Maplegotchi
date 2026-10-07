@@ -65,3 +65,7 @@ class MapleClient:
     async def memory(self, limit: int = 8) -> list[dict[str, Any]]:
         data: list[dict[str, Any]] = await self._get(f"/api/memory?tier=long_term&limit={limit}")
         return data
+
+    async def brain_health(self) -> dict[str, Any]:
+        data: dict[str, Any] = await self._get("/api/brain-health")
+        return data

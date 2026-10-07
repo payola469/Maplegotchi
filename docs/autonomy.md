@@ -175,7 +175,7 @@ of the shared life events, and a separate owner Inspector (`docs/frontend.md`).
 - `companion/discord` (`maple-discord`, its own account and unit) holds the bot
   token, accepts only Paolo's messages in `#maple-chat`, and relays them to
   `POST /api/conversation/messages` with the shared gateway token. Slash commands
-  (`/status`, `/goal`, `/journal`, `/server`, `/memory`, `/help`) call GET endpoints only
+  (`/status`, `/needs`, `/goal`, `/journal`, `/server`, `/memory`, `/brain`, `/help`) call GET endpoints only
   and answer only Paolo.
 - `core/conversation.py`: a message raises social (+6) and mood (+2), halved per other
   message in 10 minutes; it is a high-priority `owner_message` signal: Maple stops to
