@@ -452,8 +452,9 @@ class MapleService:
         stuck = self._replier_stuck
         if stuck is not None and not stuck.done():
             # A previous call is still stuck past its deadline: do not queue behind it.
+            # This request never reaches the provider, so it is `busy`, not a timeout.
             latency = int((time.perf_counter() - started) * 1000)
-            return rule_reply(context), "rule", "rule_replier", "timeout", latency
+            return rule_reply(context), "rule", "rule_replier", "busy", latency
         future = self._replier_pool.submit(replier.reply, context)
         try:
             text = future.result(timeout=self.director_timeout_seconds)

@@ -38,7 +38,11 @@ single place to see whether the AI path works.
      fallback) are not AI calls.
    - *Replier calls* = outgoing `conversation_message` rows with `replier_kind =
      'external'` (success) or a non-null `fallback_code` (fallback; `timeout` and
-     `transport_error` also count as timeouts/transport errors).
+     `transport_error` also count as timeouts/transport errors). `busy` — a message
+     answered by the rule reply at once because an earlier external call is still
+     running past its deadline — never reached the provider: it counts as a fallback
+     (and can make the status `degraded`) but not as a timeout. Only the call that
+     actually exceeded its deadline is `timeout`.
    - The journal Brain's failures are not recorded anywhere (a failing Brain costs only
      the words), so v1 reports its mode but does not use it for status.
    - **"Today"** is the current **Maple day** (local 06:00 → 06:00 at the core

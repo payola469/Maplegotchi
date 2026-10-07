@@ -254,7 +254,7 @@ def test_a_stuck_replier_call_is_never_stacked(tmp_path: Path) -> None:
     started = time.perf_counter()
     second = c.post("/api/conversation/messages", json=message("2"), headers=AUTH).json()
     assert time.perf_counter() - started < 1.0  # no wait for a deadline behind the stuck call
-    assert second["fallback_code"] == "timeout"
+    assert second["fallback_code"] == "busy"  # skipped, not timed out
     assert second["reply"].startswith("Right now I'm")
     assert second["replier"] == {"kind": "rule", "name": "rule_replier"}
 
@@ -270,6 +270,6 @@ def test_a_stuck_replier_call_is_never_stacked(tmp_path: Path) -> None:
 
     (k1, f1, l1), (k2, f2, l2), (k3, f3, l3) = audit(tmp_path)
     assert (k1, f1) == ("rule", "timeout") and l1 is not None and l1 >= 1000
-    assert (k2, f2) == ("rule", "timeout") and l2 is not None and l2 < 1000
+    assert (k2, f2) == ("rule", "busy") and l2 is not None and l2 < 100
     assert (k3, f3) == ("external", None) and l3 is not None and l3 < 5000
     service.close()

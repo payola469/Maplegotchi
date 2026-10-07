@@ -24,7 +24,13 @@ from maplegotchi.runtime.brain_health import (
 from maplegotchi.runtime.clock import FakeClock
 from maplegotchi.runtime.service import MapleService, fake_senses
 from tests.api.support import make_settings
-from tests.api.test_conversation_api import AUTH, TOKEN, FakeReplier, message
+from tests.api.test_conversation_api import (
+    AUTH,
+    TOKEN,
+    FakeReplier,
+    StuckOnceReplier,
+    message,
+)
 from tests.persistence_support import BIRTH, PARAMS, make_data_dir, open_runtime
 
 GOOD = {
@@ -194,6 +200,28 @@ def test_replier_history_and_the_latest_call_across_callers(tmp_path: Path) -> N
     assert body["status"] == "healthy"
     assert body["replier"]["last_success_at"] == body["replier"]["last_call"]["at"]
     assert body["last_success_at"] == body["replier"]["last_success_at"]
+    service.close()
+
+
+def test_a_busy_reply_is_a_fallback_but_not_a_timeout(tmp_path: Path) -> None:
+    replier = StuckOnceReplier()
+    c, service = setup(tmp_path, replier=replier, probe=Probe())
+    c.post("/api/conversation/messages", json=message("1"), headers=AUTH)  # times out
+    assert replier.started.is_set() and not replier.finished.is_set()  # still stuck
+    c.post("/api/conversation/messages", json=message("2"), headers=AUTH)  # skipped: busy
+    body = health(c)
+    assert body["status"] == "degraded"
+    assert body["replier"]["last_call"]["ok"] is False
+    assert body["replier"]["last_call"]["code"] == "busy"
+    assert (body["replier"]["fallbacks_today"], body["replier"]["timeouts_today"]) == (2, 1)
+
+    replier.release.set()
+    assert replier.finished.wait(5)
+    service._replier_pool.submit(lambda: None).result(timeout=5)  # drain the worker
+    c.post("/api/conversation/messages", json=message("3"), headers=AUTH)  # recovered
+    body = health(c)
+    assert body["status"] == "healthy"
+    assert (body["replier"]["fallbacks_today"], body["replier"]["timeouts_today"]) == (2, 1)
     service.close()
 
 

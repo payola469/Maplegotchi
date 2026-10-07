@@ -16,6 +16,8 @@ from maplegotchi.core.daily import day_window, reflection_day
 DIRECTOR_SUCCESS_VERDICTS = ("accepted", "clamped")
 DIRECTOR_FALLBACK_VERDICTS = ("fallback", "rejected")
 TIMEOUT_CODES = ("timeout", "transport_error")
+# A reply skipped because an earlier call is still stuck (`busy`) never reached the
+# provider: it is a fallback, but not a timeout or transport error.
 
 
 class HealthStatus(StrEnum):

@@ -323,7 +323,8 @@ writer lock; it never calls `/generate`, `/decide` or `/reply`.
   verdict `accepted`/`clamped`; fallbacks = `fallback`/`rejected`; `stale` rows
   are ignored. **Replier calls**: outgoing messages with `replier_kind = external`
   (ok) or a `fallback_code` (fallback). `timeouts_today` counts `timeout` and
-  `transport_error` codes.
+  `transport_error` codes; `busy` (skipped while an earlier call is still stuck; it
+  never reached the provider) is a fallback but not a timeout.
 - **Today** is the Maple day (local 06:00 → 06:00 at the core `utc_offset`).
 - **Status**: `offline` if the companion's health cannot be reached; else
   `healthy`/`degraded` by the latest call of the callers that are external now

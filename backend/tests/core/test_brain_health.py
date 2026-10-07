@@ -8,6 +8,7 @@ import pytest
 
 from maplegotchi.core.brain_health import (
     NO_CALLS,
+    TIMEOUT_CODES,
     AiCall,
     CallStats,
     HealthStatus,
@@ -100,3 +101,15 @@ def test_on_an_exact_tie_the_failure_is_the_latest_call() -> None:
     ok, failed = stats(ok=True), stats(ok=False, code="timeout")
     assert latest_call(ok, failed) == failed.last
     assert latest_call(failed, ok) == failed.last
+
+
+def test_busy_is_a_fallback_but_not_a_timeout() -> None:
+    assert "busy" not in TIMEOUT_CODES
+    later = T + timedelta(minutes=1)
+    result = assess(
+        configured=True,
+        reachable=True,
+        director=stats(ok=True),
+        replier=stats(ok=False, at=later, code="busy"),
+    )
+    assert result == (HealthStatus.DEGRADED, StatusReason.LATEST_CALL_FAILED)
