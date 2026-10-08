@@ -2,12 +2,15 @@
 
 > **DRAFT · PROPOSED · FOR HUMAN REVIEW. NOT IMPLEMENTED.**
 > - The current renderer is procedural and uses a 1000×600 front-view room (`docs/frontend.md`). This contract describes a *future* asset system.
-> - **PROVISIONAL until technical validation (ADR-0046, not yet written):**
+> - **Accepted rule set (2026-10-08):** the RULE items of this contract, face overlays (B6), art file locations (B7) and the direction vocabulary (B9) are accepted as **ADR-0041** (CLAUDE.md D40). The asset pipeline and art are still **not implemented**.
+> - **PROVISIONAL until technical validation** (the art/PixiJS spike; locked values recorded later by an owner decision under ADR-0041):
 >   - tile size **16 px**;
 >   - Maple frame **32×48**;
->   - feet point **(16, 47)**.
+>   - sprite feet anchor **(16, 47)**;
+>   - `FEET_IN_TILE` **(8, 13)** at T=16 (ADR-0035);
+>   - face overlay sizes.
 
-- **Status:** DRAFT for owner review. Values marked **PROVISIONAL** become binding only when ADR-0046 (art technical lock) is accepted, after the technical spike. Values marked **RULE** are binding for production assets now.
+- **Status:** DRAFT for owner review. Values marked **PROVISIONAL** become binding only after the technical spike, through a recorded owner decision under ADR-0041. Values marked **RULE** are accepted (ADR-0041) and binding for production assets now.
 - **Date:** 2026-10-08
 - **Audience:** the separate Maple Art chat or artist, and the engineers who integrate the assets. The document is self-contained, so you do not need the codebase to use it.
 - **Related:** `docs/architecture/maple-future-architecture.md` §6 (Room), §9 (visual architecture), §11 (representations).
@@ -117,6 +120,11 @@ Rules that apply to every anchor:
 
 - **Character directions are ordered `down, left, right, up`.** This order is used everywhere: sheet rows, metadata arrays, file lists.
 - **Object orientations are ordered `south, east, west, north`.** `south` faces the camera.
+- **Two vocabularies by role (B9, ADR-0035):**
+  - *character direction* `down/left/right/up` covers Maple's facing, interaction-point facing and sheet rows;
+  - *object orientation* `south/east/west/north` covers furniture rotation and catalog metadata.
+  - **Fixed mapping:** `down = south`, `up = north`, `left = west`, `right = east`.
+  - Never mix them. An interaction point's facing is always a character direction.
 - **Mirroring:** `right` may be produced by mirroring `left` only if the metadata declares `"mirror": {"right": "left"}`. For Maple, asymmetric details such as a hair part or a skirt fold are expected, so drawn `right` frames are preferred. Objects may declare mirrored orientations such as `east` from `west`.
 - Interaction points state the direction Maple faces while using them (§C.4).
 
@@ -198,7 +206,14 @@ How the y-sort in layer 5 works:
 | `react_pet` | down (required) | 4, `once` | happy |
 
 - **Fallback chain:** a missing key falls back in a fixed order, for example `sit_type_up → sit_write_up → sit_idle_up → idle_up`. New activities can therefore ship before their art exists.
-- **Expressions (calm, happy, curious, sleepy, focused)** are PROVISIONAL. They are either a 2-frame face overlay part per direction (`--face_<expr>`) or carried by emote icons in `fx`. The choice is made at the lock (OD in §F).
+- **Expressions: face overlays (RULE, B6, ADR-0041).**
+  - Maple's **five fixed expressions** (`calm`, `happy`, `curious`, `sleepy`, `focused`) are drawn as **separate face overlay sprites**.
+  - **Body animation sheets are not duplicated per expression.** Body frames have a neutral face area.
+  - The engine composites the face at a **per-frame face anchor** given in the metadata, so faces stay aligned during head movement, sitting and animation.
+  - The `up` (back) direction needs no face. Sleep may use a fixed closed-eye face. Blink may be an optional small overlay animation.
+  - The backend decides the expression; the renderer never invents one.
+  - **Face pixel dimensions are PROVISIONAL** until the spike verifies readability at the proposed Maple scale.
+  - File pattern: `char.maple--face_<expression>.png`, with rows `down, left, right` and an optional blink column.
 
 ### B.12 Export format (RULE)
 
@@ -207,7 +222,7 @@ How the y-sort in layer 5 works:
 - No premultiplied alpha.
 - Deliver at **1× only.** Never upscale. The engine scales by integers. *(This replaces an older note in the repository that asked for 2× PNGs.)*
 - Maximum single file: 2048 px in either dimension. Maximum single frame: 512 × 512.
-- Optional: the source `.aseprite` file alongside, under `art/source/` (storage location is OD-19).
+- Source `.aseprite` files are **not** delivered into the main repository (B7). They live in the separate private art repository or the deliberate Drive folder (§B.14).
 
 ### B.13 Naming convention (RULE)
 
@@ -242,16 +257,15 @@ Further rules:
 - `--` separates fields. A single `_` is used inside names.
 - **IDs are never reused.** A retired asset keeps its ID, marked `"deprecated": true, "replaced_by": "<id>"`.
 
-### B.14 Directory structure (RULE, location of `art/` is OD-19)
+### B.14 Directory structure (RULE, B7 / ADR-0041)
+
+**Main Maplegotchi repository**, plain Git with **no LFS**:
 
 ```
 art/
 ├── README.md                 (points to this contract)
-├── palette/                  maple-master.png (1px per colour), maple-master.gpl, maple-master.hex
-├── style/                    style bible, references (not shipped)
-├── concept/                  concept art (not shipped)
-├── source/                   .aseprite sources (optional, OD-19)
-└── export/                   production deliveries — the only input to the asset pipeline
+├── palette/                  production palette definitions only, e.g. maple-master.{png,gpl,hex} — validator/build input (B15)
+└── export/                   production-ready PNGs + their meta.json ONLY — the only input to the asset pipeline
     ├── char/maple/           char.maple--idle.png … char.maple.meta.json
     ├── furniture/<id>/       PNGs + <id>.meta.json
     ├── decor/<id>/
@@ -261,7 +275,25 @@ art/
     └── audio/ (future: sfx/, amb/, mus/)
 ```
 
-The build pipeline packs `art/export/**` into `frontend/public/assets/atlas/<pack>.{png,json}`. Those files are **generated and never edited by hand**.
+**`art/palette/**` (B15, ADR-0041):**
+- plain Git, no LFS;
+- production palette definitions used by the art validator and build pipeline, and nothing else;
+- not runtime content and not concept or mood-board material;
+- excluded from the release bundle unless the build needs it at runtime.
+
+**Outside the main repository**, in a separate private art repository or a deliberate Drive folder:
+- `.aseprite` working sources;
+- mood boards and concept art;
+- visual exploration;
+- the style bible and style reference material.
+
+Their history stays separate from runtime and release history.
+
+**Pipeline rules:**
+- The build pipeline reads **only** `art/export/**` and packs it into `frontend/public/assets/atlas/<pack>.{png,json}`.
+- Generated atlases are build artifacts, **never edited by hand**.
+- Raw `art/export` is marked `export-ignore` if the release pipeline packs it into `frontend/dist`.
+- **LFS pointer files must never enter production asset inputs.** The validator rejects any non-PNG or pointer file under `art/export/**`.
 
 ### B.15 Versioning and compatibility (RULE)
 
@@ -442,6 +474,9 @@ Every asset declares a `fallback`. The pipeline ships generic placeholders: `pla
             "ms": [900,900], "loop": "loop"}},
  "fallbacks": {"sit_type": "sit_write", "sit_write": "sit_idle", "sit_idle": "idle",
                "stand_read": "idle", "stand_think": "idle", "sit_read": "sit_idle", "sit_rest": "sit_idle"},
+ "faces": {"file_pattern": "char.maple--face_<expression>.png", "rows": ["down","left","right"],
+           "expressions": ["calm","happy","curious","sleepy","focused"], "sleep_face": "closed",
+           "anchors": "per animation frame, e.g. animations.walk.face_anchor[row][frame] = [x, y]"},  // B6; sizes PROVISIONAL
  "collision": {"tiles": 1}}
 ```
 
@@ -599,14 +634,15 @@ Related archetypes, all following the same rules:
 
 - Visual style bible: palette candidates, ramps, outline and shading rules, key light.
 - Maple character concept and turnaround (down/left/right/up), with pose concepts for every B.11 key.
-- Room mood and concept art for Bedroom, Living Room, Library, Work Studio, Creation Room, System Room, Central Hall and Future Space.
+- Room mood and concept art for **all 8 rooms**: Bedroom, Living Room, Library, Work Studio, Creation Room, System Room, Central Hall and Future Space. Concept work may cover all 8 now (B2).
+- **Production art follows the phased rollout (B2, ADR-0040).** The 5 open rooms (Central Hall, Bedroom, Living Room, Library, Work Studio), Maple's core set and the face overlays come first. They are required by the default-switch gate. Closed placeholders (Creation Room, System Room, Future Space) need no production art yet.
 - Furniture concept art in the `south` orientation, with interaction spots and slots marked (A.6).
 - Lighting references: day, evening, night, lamp, monitor glow, System Room alert.
 - Environment references: Digital Nature / Quiet City Edge backdrops, materials (wood, fabric, metal, screens, plants).
 - Creation and project archetype concepts (B, C-bis Ex.7).
 - Placeholder or programmer-art sprites that follow Part B, used for engine development and expected to be replaced.
 
-### D.2 WAIT FOR TECHNICAL LOCK (ADR-0046)
+### D.2 WAIT FOR TECHNICAL LOCK (spike → owner decision under ADR-0041)
 
 - Final sprite-sheet dimensions and canvas sizes (Maple 32×48 is provisional).
 - Exact tile size T (16 is provisional).
@@ -616,10 +652,11 @@ Related archetypes, all following the same rules:
 - Exact frame counts and timings per animation.
 - Final door, window and wall dimensions (2T openings and 3T walls are provisional).
 - Production export sizes and the final palette freeze.
-- The expression method (face overlay part vs emote icons).
+- Face overlay pixel dimensions and per-frame face anchor values. The *method* is decided: face overlays (B6). Only sizes and readability wait.
+- `FEET_IN_TILE` (provisional (8, 13) at T=16; proportional if T changes).
 - The floor autotile/blob layout.
 
-**Lock procedure.** The engineering spike renders placeholder assets made per this contract in a PixiJS prototype: integer zoom 2×/3×/4×, y-sort, occupant overlays, multiply and additive lighting, camera modes. The owner then accepts ADR-0046, which changes every PROVISIONAL item in §F to LOCKED.
+**Lock procedure.** The engineering spike renders placeholder assets made per this contract in a PixiJS prototype: integer zoom 2×/3×/4×, y-sort, occupant overlays, multiply and additive lighting, camera modes. The spike validates together T, the Maple frame, the feet anchor, `FEET_IN_TILE`, face readability, grounding near walls, doors and furniture, and depth sorting at 1×–3×. The owner then records the locked values (an owner decision under ADR-0041), which changes the PROVISIONAL items in §F to LOCKED.
 
 ---
 
@@ -652,6 +689,8 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | E21 | Looks correct at 1×, 2× and 3× in the preview (the spike's viewer) | manual |
 | E22 | The tile sheet tiles seamlessly in 4 directions | ⚙ (seam diff) / manual |
 | E23 | Animation timing is present (`ms` per frame, `loop`) | ⚙ |
+| E24 | Only PNG and `meta.json` files under `art/export/**`; no LFS pointer files; no `.aseprite` or concept files (B7) | ⚙ |
+| E25 | Face overlays exist for all five expressions in `down/left/right`; per-frame face anchors present for every body frame that shows a face (B6) | ⚙ |
 
 ---
 
@@ -662,6 +701,10 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | Perspective 3/4 top-down oblique, key light top-left | RULE | — |
 | Tile size T | PROVISIONAL | 16 px |
 | Maple canvas / anchor | PROVISIONAL | 32×48 / (16, 47) |
+| `FEET_IN_TILE` (tile → feet pixel, shared backend/renderer constant) | PROVISIONAL | (8, 13) at T=16; proportional if T changes |
+| Direction vocabulary (character `down/left/right/up`, object `south/east/west/north`, fixed mapping) | RULE (B9) | — |
+| Art file locations (`art/export/**` plain Git, no LFS; sources/concept outside the repo) | RULE (B7) | — |
+| Master palette location (`art/palette/**`, plain Git, no LFS; validator/build input only; not shipped unless needed at runtime) | RULE (B15) | — |
 | Direction order `down, left, right, up` | RULE | — |
 | Orientation order `south, east, west, north` | RULE | — |
 | Sheet layout (rows = directions, columns = frames, no gutters) | RULE | — |
@@ -673,7 +716,11 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | Door opening | PROVISIONAL | 2T |
 | Window size | PROVISIONAL | 2T × 2T |
 | Frame counts per animation | PROVISIONAL | §B.11 table |
-| Expression method | OPEN | face overlay vs emote icons |
-| Floor autotile layout | OPEN | locked at spike |
+| Expression method | RULE (B6) | face overlays, per-frame face anchors |
+| Face overlay dimensions | PROVISIONAL | set by the spike (readability) |
+| Floor autotile layout | PROVISIONAL | not yet set; locked at the spike |
 | Atlas page size | RULE (pipeline) | ≤ 2048² |
-| Integer zoom levels | RULE (engine) | 1×–6× |
+| Integer-only zoom (no fractional world scaling) | RULE (engine) | — |
+| Exact zoom steps | PROVISIONAL | engine range 1×–6×; set by the spike |
+| Texture-memory budget | PROVISIONAL | set by the spike |
+| Room dimensions, door positions | UNDECIDED | Room Final Design Spec / technical art spike (B15) |
