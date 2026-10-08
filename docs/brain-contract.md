@@ -15,6 +15,22 @@ Response: `{"response": "<text>"}` whose text is a JSON array of
 `{"trigger_index": int, "text": str, "importance": "low|normal|high",
 "template_id": str}`. Drafts are validated by `core.journal.accept_drafts`.
 
+Used only when `MAPLE_BRAIN=antigravity`.
+
+> **Current limitation (documented, not fixed).** Unlike `/decide` and `/reply`, this call is made **inside** Maple's single-writer lock (`LifeRuntime._write_journal`).
+> - The Maple-side timeout is a fixed 30 s (`ExternalHttpBrain` default). The companion's own timeout is 25 s.
+> - The call does not refuse redirects and does not cap the response size.
+> - On failure Maple simply has no journal wording for that transition; the triggers stay pending.
+
+## Timeouts (current)
+
+| Call | Maple side | Companion side | Lock |
+|---|---|---|---|
+| `/generate` | 30 s (fixed) | 25 s (`MAPLE_BRAIN_GENERATE_TIMEOUT_SECONDS`) | **inside** the writer lock |
+| `/decide` | `MAPLE_DIRECTOR_TIMEOUT_SECONDS` (default 15, 1–60) | 12 s (`MAPLE_BRAIN_DECIDE_TIMEOUT_SECONDS`) | outside |
+| `/reply` | same setting as `/decide` | 12 s (`MAPLE_BRAIN_REPLY_TIMEOUT_SECONDS`) | outside |
+| `/health` | 2 s | — | outside (read-only report) |
+
 ## `POST /decide` — goal and next action (`maple.decision.v1`, ADR-0026)
 
 Used only when `MAPLE_DIRECTOR=antigravity`. Timeout: `MAPLE_DIRECTOR_TIMEOUT_SECONDS`

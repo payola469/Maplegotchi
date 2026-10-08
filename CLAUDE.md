@@ -3,8 +3,57 @@
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**
-> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector), A9 Discord conversations (schema v9, `companion/discord`), A10 Brain companion packaging (`companion/brain`, ADR-0033) implemented. **A10 approved by the owner (2026-10-06); the branch is prepared for owner review (`docs/v0.2-review.md`); no further feature phase is authorized.** Not pushed, not deployed.
-> **Brain Health / Observability v1 (owner-requested 2026-10-06, branch `feat/brain-health-v1`, ADR-0034):** companion `/health` reports the model, reply latency (schema v10), read-only `GET /api/brain-health`, Inspector card. Implemented; not pushed, not deployed.
+> **v0.2 autonomy program (owner-approved 2026-10-05, branch `feat/v0.2-maple-autonomy`, ADR-0026..0028):** A1 room + movement + schema v4, A2 goals + priority + interruption (schema v5), A3 decision/action audit + life-event model, A4 AI Director (`maple.decision.v1`, rule fallback), A5 real reader/writer (schema v6), A6 memory (schema v7), A7 Daily Reflection (schema v8), A8 room UX (bubble, furniture hotspots, live feed, owner Inspector), A9 Discord conversations (schema v9, `companion/discord`), A10 Brain companion packaging (`companion/brain`, ADR-0033) implemented. **A10 approved by the owner (2026-10-06); the branch is prepared for owner review (`docs/v0.2-review.md`); no further feature phase is authorized.**
+> **Brain Health / Observability v1 (owner-requested 2026-10-06, branch `feat/brain-health-v1`, ADR-0034):** companion `/health` reports the model, reply latency (schema v10), read-only `GET /api/brain-health`, Inspector card. Implemented.
+> **Repository state (verified 2026-10-08).**
+> - Branch: `feat/v0.2-maple-autonomy`, `feat/brain-health-v1`, and `feat/discord-chat-polish` (Discord `/status`/`/needs`/`/goal`/`/server`/`/memory`/`/brain`, ADR-0032 amendment 2026-10-07) are merged into **`v0.2-development`**, which is pushed. `main` is still v0.1 (`1fb50d3`).
+> - Schema: **v10**.
+> - Services: three, all in the repo — `maplegotchi`, `maple-brain` (`companion/brain`), and `maple-discord` (`companion/discord`).
+> - Roadmap: `docs/roadmap/maple-roadmap.md` is the product roadmap.
+> - Future architecture: `docs/architecture/maple-future-architecture.md` and `maple-art-production-contract.md` are **DRAFT / PROPOSED / FOR HUMAN REVIEW** only. Nothing in them is implemented or FIXED, and their art values (tile 16 px, Maple frame 32×48, feet point (16, 47)) are PROVISIONAL.
+>
+> **VERIFIED CURRENT RUNTIME — paolo-core (owner-supplied live evidence, recorded 2026-10-08):**
+> - **Deployed and active:** `maplegotchi`, `maple-brain` and `maple-discord` are all deployed and `active`.
+> - **Releases:** all three `current` symlinks point to release **`160ed4fb9f2534a4609d826d9c4535cc7863ae3d`** (merge "polish Maple chat and add Discord status commands"):
+>   - `/opt/maplegotchi/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d`
+>   - `/opt/maple-brain/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d`
+>   - `/opt/maple-discord/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d`
+>
+>   The only later commit on `v0.2-development` (`5be58c0`) adds `docs/roadmap/maple-roadmap.md`. The deployed code is therefore the current branch code.
+> - **Production database:** `PRAGMA user_version = 10` (schema v10).
+> - **Listeners:** loopback only — `127.0.0.1:8470` (Maple) and `127.0.0.1:8471` (Brain companion). Discord has no listener.
+> - **Service activation times (local, +07):**
+>   - `maplegotchi`: Wed 2026-10-07 17:33:45
+>   - `maple-brain`: Wed 2026-10-07 17:37:12
+>   - `maple-discord`: Wed 2026-10-07 18:22:18
+> - **systemd hardening loaded on the live `maplegotchi.service`:**
+>   - `User=maple-svc`, `Group=maple-svc`
+>   - `ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `ProtectProc=invisible`, `RestrictNamespaces=yes`, `RestrictAddressFamilies=AF_INET AF_UNIX`
+>   - `IPAddressDeny=::/0 0.0.0.0/0`, `IPAddressAllow=127.0.0.0/8 ::1/128`
+>   - `MemoryHigh=402653184` (384 MiB), `MemoryMax=536870912` (512 MiB), `TasksMax=64`
+>   - `systemd-analyze security`: **"Overall exposure level for maplegotchi.service: 1.1 OK"**
+> - **AI configuration:** `MAPLE_BRAIN=antigravity`, `MAPLE_DIRECTOR=antigravity`, `MAPLE_REPLIER=antigravity`.
+>   - `maple-brain` runs as `maple-brain-svc`, and port 8471 belongs to the `maple_brain` process.
+>   - Brain `/health` returns `status=ok`, `provider=command`, `model=gemini-3.8-flash-medium`.
+> - **Backup creation:** `paolo-core-backup.timer` is active, scheduled daily at 03:30. The latest observed run, on 2026-10-08, finished with status 0/SUCCESS:
+>   - SQLite integrity checks passed for `n8n.sqlite`, `grafana.db` and `metrics.db`;
+>   - the Maple DB snapshot was staged, so the Maple backup block (`deploy/backup/`) is active;
+>   - restic snapshot `8b7bea38` was saved;
+>   - the service logged `BACKUP COMPLETED`.
+>
+>   A direct restic snapshot listing as user `paolo` failed because of repository permissions. That is an access restriction, **not** a backup failure.
+> - **Tailscale:** Serve is tailnet-only and `/` proxies to `http://127.0.0.1:8470`. Funnel status also reports tailnet-only, so Maple is not publicly exposed.
+>
+> **HISTORICAL AUTHORIZATION / TEST EVIDENCE — still UNVERIFIED:**
+> - **Status line:** the line at the top of this block ("Stage C … and Phase 8 NOT authorized", 2026-09-30) is kept as the historical record. No later Stage C authorization record is in the repository.
+> - **Phase 8:** no authorization and no 72-hour trial are recorded.
+> - **Inside-service runtime boundary probe:** not re-run for this release.
+>   - `deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh` exist in the repository but are **not present in the deployed release**.
+>   - The hardening controls are verified as *loaded* (above).
+>   - The resulting namespace/runtime behaviour has **not** been re-verified end to end: writes only to `/data/maple`, hidden `/data` siblings and homes, inaccessible Docker socket, process credentials.
+> - **Restore:** no restore test from the restic backup is recorded.
+>
+> **Known open technical issue (documented, not fixed; active in production):** the journal Brain (`/generate`) is called inside the single-writer lock with a 30 s timeout. Production runs `MAPLE_BRAIN=antigravity`, so this applies to the live service. See `docs/security-model.md` → Known limitations.
 > Do not start the next phase until the owner approves it.
 > Items marked **[FIXED]** are owner decisions — do not change them without owner approval.
 > Items marked **[PROPOSED]** are implementation details that may still be adjusted.
@@ -114,7 +163,10 @@ Maplegotchi/
 ├── docs/
 │   ├── architecture.md
 │   ├── security-model.md
-│   └── adr/                          # ADR per FIXED decision
+│   ├── adr/                          # ADR per FIXED decision
+│   ├── roadmap/maple-roadmap.md      # product/capability roadmap (Room, Workspace, System Investigator)
+│   └── architecture/                 # DRAFT / PROPOSED / FOR HUMAN REVIEW — not implemented:
+│                                     #   maple-future-architecture.md, maple-art-production-contract.md
 ├── backend/
 │   ├── pyproject.toml  uv.lock
 │   ├── src/maplegotchi/
@@ -208,8 +260,8 @@ All state mutations go through **one serialized writer** (`runtime/life`), so he
 **Heartbeat tick** (every `heartbeat_interval_s`, default **300**):
 1. Collect `SensorReading`s and `get_service_health()` (per-source timeout; failure → `status="unavailable"` / `unknown`, never crashes the tick).
 2. `observations.derive(readings, recent_history) -> [Observation]` — factual only.
-3. `heartbeat.tick(state, observations, now, rng, brain)` — decay needs, record arrivals, handle critical/high interruptions by core rules, decide journal triggers. Choosing the next goal/action is a separate decision transition (ADR-0026); the heartbeat applies rule direction only when a decision is overdue (`decision_grace`).
-4. Journal text comes from the configured Brain. `RuleBrain` remains the default; v0.2 may use an External Brain through the localhost-only runtime boundary defined by ADR-0025. Brain output remains advisory and existing validation still applies.
+3. `core.heartbeat.heartbeat(state, now, inputs, params)` (no Brain parameter; observations reach it as `BehaviorInputs`, the RNG via `state`) — decay needs, record arrivals, handle critical/high interruptions by core rules, decide journal triggers. Choosing the next goal/action is a separate decision transition (ADR-0026); the heartbeat applies rule direction only when a decision is overdue (`decision_grace`).
+4. Journal text comes from the configured Brain. `RuleBrain` remains the default; v0.2 may use an External Brain through the localhost-only runtime boundary defined by ADR-0025. Brain output remains advisory and existing validation still applies. *Current limitation (not fixed):* the runtime words the journal in `LifeRuntime._write_journal` **inside** the writer lock, so an external journal Brain (30 s timeout) can delay transitions. Director/Replier calls run outside the lock.
 5. Persist state, observations, journal entries, timeline events, and RNG counters in **one SQLite transaction**; then publish the snapshot over SSE.
 
 **Missed ticks:** the gap is recorded on the timeline; catch-up is bounded (capped decay, no mass replay). Maple is never "killed" by downtime.
@@ -321,7 +373,10 @@ Journal entries may cite observations; observations never depend on journal text
 - Settings/policy load once at startup into frozen models; no code path writes them.
 - Interaction endpoints: closed-enum actions, no body text, JSON `POST` only, `Origin`/`Host` check against the configured tailnet hostname, backend-enforced persisted cooldowns and global limit.
 - App-layer security headers (minimal set): `Content-Security-Policy` (self only), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` / `frame-ancestors 'none'`, `Permissions-Policy` (deny all), `Cache-Control: no-store` on API responses.
-- No secrets in the repo; v0.1 needs none.
+- No secrets in the repo. v0.1 needs none. v0.2's optional secrets live only on the host:
+  - the gateway token: `MAPLE_GATEWAY_TOKEN`, plus `/etc/maple-discord/maple-gateway-token`;
+  - the Discord bot token: a systemd credential;
+  - the Brain provider login: `maple-brain`'s `StateDirectory`.
 
 ### 4.5 Network exposure
 - uvicorn binds `127.0.0.1:<port>` only (non-loopback binds are a settings error) and serves both `/api/*` and the built frontend (same origin). There is no CORS middleware; mutations require an allowlisted `Origin`.

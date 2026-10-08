@@ -9,10 +9,13 @@ until `core.journal.accept_drafts` validates it.
 A Brain never decides whether Maple writes, what an entry refers to, or anything
 about Maple's behavior or state.
 
-External brains (`BrainKind.EXTERNAL`) are defined by this same protocol but are
-not implemented, and the runtime refuses to wire any Brain other than the
-built-in RuleBrain in v0.1 (D6: an ordinary heartbeat never invokes an external
-Brain).
+External brains (`BrainKind.EXTERNAL`) use this same protocol. Since v0.2
+(ADR-0025) the runtime may wire one when explicitly configured
+(`MAPLE_BRAIN=antigravity` selects `runtime/external_brain.py:ExternalHttpBrain`,
+which calls the loopback companion's `/generate`); the default is the built-in
+RuleBrain. Only the built-in RuleBrain may claim `kind=rule`
+(`runtime/life.py:require_supported_brain`). This package stays pure: transport
+lives in `runtime`, never here.
 """
 
 from __future__ import annotations

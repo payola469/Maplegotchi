@@ -1,12 +1,14 @@
-// Presentation-only movement between anchors. When the backend's location
-// changes, Maple walks there visually, then takes the backend's pose. A new
-// target mid-walk redirects from the current position. The walk never changes
-// any logical state; reduced motion snaps straight to the target.
+// Room motion helpers. Since v0.2 (ADR-0027) walking is backend state:
+// `routeFrame` interpolates the backend's route (departed_at -> arrives_at along
+// its path) on the estimated server clock. `Motion` is the older presentation-only
+// walker between points; RoomScene now always calls it with snap = true, so it
+// only places Maple at the backend position (it does not walk on its own).
+// Nothing here changes logical state; reduced motion snaps straight to the target.
 
 import type { Point } from "../layout/anchors";
 import type { Pose } from "../visual";
 
-export const WALK_SPEED = 220; // logical units per second
+export const WALK_SPEED = 220; // logical units per second (fallback walker only; backend routes set real travel time)
 
 export interface MotionFrame {
   position: Point;

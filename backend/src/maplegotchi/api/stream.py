@@ -2,7 +2,7 @@
 
 Wire format per event:
     id: <boot>-<seq>
-    event: <snapshot|heartbeat|observations|interaction|journal|timeline>
+    event: <snapshot|heartbeat|observations|interaction|movement|life|journal|timeline>
     data: <one line of JSON>
 
 - On connect (no/foreign/malformed Last-Event-ID) and whenever the client has

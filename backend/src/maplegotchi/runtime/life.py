@@ -8,8 +8,16 @@ revision, so nothing is lost or half-applied.
 
 Journal entries are part of the same transition: core detects triggers, the
 Brain words them, core validates the drafts, and the entries, the journal
-state, and the transition commit together. v0.1 accepts only the built-in
-RuleBrain; any other Brain is refused (D6, D10).
+state, and the transition commit together. The built-in RuleBrain is the
+default; since v0.2 an external Brain (`BrainKind.EXTERNAL`, ADR-0025) is also
+accepted, while any other class claiming `kind=rule` is refused
+(`require_supported_brain`).
+
+Known limitation (documented, not yet fixed): the journal Brain is called from
+`_write_journal` *inside* the writer lock. With an external Brain
+(`ExternalHttpBrain`, 30 s default timeout) a slow companion can delay every
+transition by up to that timeout. Director and Replier calls, by contrast, run
+outside the lock (ADR-0026, ADR-0032).
 """
 
 from __future__ import annotations

@@ -1,18 +1,32 @@
 # API, live state, and owner interactions (Phase 5)
 
-Status: implemented and approved (2026-09-30). Choices here are **[PROPOSED]**
-unless they follow directly from a FIXED decision (noted inline).
+Status: Phase 5 implemented and approved (2026-09-30); extended additively in v0.2
+(ADR-0026..0034) on branch `v0.2-development`, current schema v10. Choices here are
+**[PROPOSED]** unless they follow directly from a FIXED decision (noted inline).
 
 ## Layers
 
 ```
 HTTP (FastAPI routes, api/app.py)          thin: parse, call the service, map to DTOs
-  └─ MapleService (runtime/service.py)     assembly + freshness; rules come from core
-       ├─ LifeRuntime (runtime/life.py)    the single writer (Phase 2): heartbeats + Greet/Pet
+  └─ MapleService (runtime/service.py)     assembly + freshness; rules come from core;
+       │                                   life loop: settle → decide → heartbeat (every 5 s poll)
+       ├─ LifeRuntime (runtime/life.py)    the single writer: heartbeats, Greet/Pet, arrivals,
+       │                                   decisions, conversation messages/replies
+       ├─ Director / Replier clients       external calls OUTSIDE the writer lock, deadline,
+       │   (runtime/external_*.py)         never stacked, result re-validated (ADR-0026/0032)
+       ├─ journal Brain                    called INSIDE the writer lock (see note below)
        ├─ Senses (runtime/senses.py)       read outside the writer lock
        ├─ EventHub (runtime/events.py)     bounded live-event buffer for SSE
        └─ Clock (runtime/clock.py)         the only source of "now"
 ```
+
+> **Known limitation (documented, not yet fixed):** when `MAPLE_BRAIN=antigravity`,
+> the journal Brain (`runtime/external_brain.py:ExternalHttpBrain`, `/generate`) is
+> called from `LifeRuntime._write_journal` while the writer lock is held. Its timeout
+> is a fixed 30 s class default, and it has no redirect refusal or response-size cap
+> (the Director and Replier clients have both). A slow companion can therefore delay
+> every transition, including API mutations, by up to that timeout. With the default
+> `MAPLE_BRAIN=rule` this does not apply.
 
 Routes never compute Maple rules. Expression, active reaction, cooldown
 availability (`core.interactions.check_limits`), server summary
@@ -50,9 +64,17 @@ no rows or domain objects are returned.
 | POST | `/api/interactions/pet` | `InteractionOut` | 200 accepted / 429 rejected |
 | GET | `/api/docs`, `/api/openapi.json` | | **development mode only** |
 
-There is no other mutating route: no generic action or command endpoint, no
-free text, no admin/debug surface. A test compares the app's full route table
-against this list.
+The only mutating routes are:
+- Greet and Pet, which require a trusted `Origin` and take no body text;
+- `POST /api/conversation/messages`, which is gateway-token only, forbids a browser `Origin`, and takes bounded text (ADR-0032).
+
+There is no generic action or command endpoint, and no admin or debug surface. A
+test (`tests/api/test_api_security.py::test_route_table_is_exactly_the_approved_surface`)
+compares the app's full route table against this list.
+
+Future owner mutation routes are **PROPOSED, not implemented**. They include
+room-editor saves and approvals (`docs/architecture/maple-future-architecture.md`
+§6.10–6.11), and they would need an owner-authentication decision and an ADR first.
 
 ## Snapshot contract (`GET /api/snapshot`)
 
@@ -193,7 +215,12 @@ The client can therefore distinguish:
 - **Bind:** loopback only (`127.0.0.1`, `::1`, `localhost`); anything else is a
   settings error (D5, D13). Tailscale Serve is Phase 7.
 - **Bodies:** a declared `Content-Length` over 1024 bytes, or a chunked body
-  without a length, is refused with 413 before routing.
+  without a length, is refused with 413 before routing. The one exception is
+  `POST /api/conversation/messages`, which allows up to 8192 bytes.
+- **Gateway route:** `POST /api/conversation/messages` is not a browser route.
+  - It returns 404 when `MAPLE_GATEWAY_TOKEN` is unset.
+  - It returns 403 if any `Origin` header is present.
+  - Otherwise it returns 401 unless `Authorization: Bearer <token>` matches (constant-time compare).
 - **Headers on every response:** CSP (`default-src 'self'`, `frame-ancestors
   'none'`, …), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `X-Frame-Options: DENY`, COOP/CORP `same-origin`, a restrictive
@@ -261,7 +288,9 @@ the flags above override them.
 
 ## Life events: one model for Web, iOS and Discord (ADR-0028 §2)
 
-Three append-only stores, one envelope:
+Seven append-only stores share one envelope. ADR-0028 introduced the first three
+(timeline, action, decision); ADR-0029..0032 added tool, memory, reflection and
+conversation:
 
 | Store | Types |
 |---|---|
@@ -284,9 +313,10 @@ Three append-only stores, one envelope:
   conversation, then row id.
 - The snapshot's `maple.activity.task` (`tool`, `target`, `title`, `category`) says what
   Maple is reading or writing; null for other activities.
-- Live: the SSE `life` event carries the envelopes of one commit. Catch-up or
-  polling (iOS, Discord gateway): `GET /api/life-events?after_revision=<last seen>`;
-  a page never ends part-way through a revision.
+- Live: the SSE `life` event carries the envelopes of one commit.
+- Catch-up or polling: `GET /api/life-events?after_revision=<last seen>`. A page never ends part-way through a revision. The web UI uses it for its initial feed.
+  - The current Discord gateway does not poll it. It calls `/api/snapshot`, `/api/journal`, `/api/memory` and `/api/brain-health` for its read-only slash commands, and `POST /api/conversation/messages` for messages.
+  - An iOS client does not exist yet.
 - `DecisionOut` holds core's `context_summary`, the proposal (with the
   proposer's single concise `reason`), the verdict and reason code, clamped
   originals, and what was executed. No prompt, raw model output, or model

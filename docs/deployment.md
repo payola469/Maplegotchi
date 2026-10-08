@@ -4,6 +4,26 @@ How Maplegotchi runs in production. Facts about the host come from the Stage A
 survey (`deploy/survey/findings.md`); decisions are ADR-0020 … ADR-0024. The
 owner-run procedure is `deploy/install.md`.
 
+This file describes the designed and contract-tested production boundary.
+
+**Verified current runtime (2026-10-08):**
+- `maplegotchi`, `maple-brain` and `maple-discord` are active on paolo-core.
+- Each `current` points to release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`.
+- The database is at schema v10.
+- The listeners are `127.0.0.1:8470` and `127.0.0.1:8471` (`maple_brain`, running as `maple-brain-svc`) only.
+- The unit hardening listed below is **loaded** on the live `maplegotchi.service`, and `systemd-analyze security` reports "1.1 OK". Full property list: `docs/architecture.md` → Deployment state.
+- Tailscale Serve is tailnet-only (`/` → `http://127.0.0.1:8470`), and Funnel status reports tailnet-only.
+- The nightly backup works. The latest observed run, on 2026-10-08, finished 0/SUCCESS, staged the Maple DB snapshot and saved restic snapshot `8b7bea38`.
+
+**Not verified for this release:**
+- **The inside-service runtime probe.** `deploy/verify/check_boundaries.py` and `sandbox_probe.sh` are not present in the deployed release and were not re-run. The namespace and runtime behaviour described below is designed, contract-tested, and backed by the loaded properties, but has not been re-verified end to end.
+- **A restore test.**
+
+See `docs/architecture.md` → Deployment state. The v0.2 companions have their own
+units and runbooks: `maple-brain` (`deploy/brain/`, ADR-0033) and `maple-discord`
+(`deploy/discord/`, ADR-0032). The order for upgrading from v0.1 is in
+`docs/v0.2-review.md` §6.
+
 ```
  tailnet browser ──HTTPS──► tailscaled (Serve, :443, Funnel OFF)
                                  │ http

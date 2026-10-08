@@ -157,11 +157,36 @@ invariants and triggers forbidding UPDATE/DELETE.
 
 Storage growth (measured): 15 observations per heartbeat (8 host with one mount
 + 7 services) × 288 heartbeats/day = 4 320 rows/day ≈ 124 bytes/row incl. index
-≈ **0.54 MB/day ≈ 196 MB/year**. Retention (e.g. downsampling old rows) is a
-later phase; nothing is deleted now.
+≈ **0.54 MB/day ≈ 196 MB/year**. That measurement predates the Stage A map.
+
+The production map (D20) has 5 services, so production writes 8 + 5 = 13 rows per
+heartbeat, about 0.46 MB/day at the same row size. Retention (e.g. downsampling old
+rows) is a later phase; nothing is deleted now, so the table grows without bound.
+A retention ADR is proposed in `docs/architecture/maple-future-architecture.md` §15
+(PROPOSED).
 
 ## paolo-core survey
 
 `deploy/survey/README.md` and `deploy/survey/survey_paolo_core.py` — a
 read-only, stdlib-only survey (no commands, no writes) plus optional
-owner-run read-only commands and a findings template. Not yet run.
+owner-run read-only commands and a findings template. **Run on 2026-09-30
+(Phase 7 Stage A)**; results are in `deploy/survey/findings.md` and led to
+the production service map (D20, ADR-0021), the D-Bus transport (D21) and the
+psutil host-metric choice.
+
+## What Maple does not observe today
+
+These gaps are documented and intentional for v0.1/v0.2:
+- **Not collected:**
+  - swap, network interfaces and I/O, disk I/O;
+  - GPU;
+  - `/data` disk usage (only `/` is configured, and `/data` is hidden by the unit's tmpfs);
+  - per-process data (psutil `Process` is unused, and the unit sets `ProtectProc=invisible`);
+  - logs or journald (no journal access, and the account has no `systemd-journal` group);
+  - Docker state (no Docker socket).
+- **metrics.db:** it records more than Maple reads (swap, GPU, data disk, uptime), but Maple reads only `MAX(ts)`.
+- **monitor-v2:** `/data/monitor-v2` exists on paolo-core but is hidden from Maple.
+
+A read-only System Investigator that would widen this is **DRAFT / PROPOSED / FOR
+HUMAN REVIEW** only (`docs/architecture/maple-future-architecture.md` §8). It needs
+its own ADRs and amendments to D12, D20 and D21 before any change.

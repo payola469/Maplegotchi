@@ -3,9 +3,10 @@
 The room is a **view** of the backend. It has no behaviour engine: activity,
 location, needs, expression, reactions, interaction availability, cooldowns,
 server health, day phase and journal text all come from the API
-(`docs/api.md`). The UI maps those values to pictures and words, and times
-purely presentational things (walking, lighting fades, the end of a reaction
-bubble, countdown text).
+(`docs/api.md`), as do Maple's position and walking route since v0.2 (ADR-0027).
+The UI maps those values to pictures and words, and times purely presentational
+things: animating along the backend's route, lighting fades, the end of a reaction
+bubble, and countdown text.
 
 Stack: TypeScript, Vite, Preact for DOM, PixiJS 8 for the room canvas only
 (ADR 0002).
@@ -19,8 +20,8 @@ frontend/src/
 │                 interactions.ts (Greet/Pet flow), presentation.ts (formatting helpers)
 ├── room/
 │   ├── visual.ts         THE mapping: snapshot -> VisualState (pure, total, tested)
-│   ├── layout/anchors.ts room size, named anchors, furniture boxes
-│   ├── animation/motion.ts walking between anchors, eased values
+│   ├── layout/anchors.ts room size, fallback anchors, furniture boxes (frontend-only geometry)
+│   ├── animation/motion.ts routeFrame (backend route interpolation), snap/fallback Motion, eased values
 │   ├── objects/furniture.ts vector furniture (temporary art)
 │   ├── maple/            pixel Maple: pixels.ts (art), sprites.ts (mapping), atlas.ts, figure.ts
 │   ├── assets/manifest.ts asset list + replacement contract
@@ -37,9 +38,11 @@ with a dynamic import so the panels appear before the canvas is ready.
 
 ## Scene structure
 
-`RoomScene` creates one `Application` (logical 1000 × 600, auto-density, resolution
-≤ 2) and never recreates it; snapshots call `update(visual)`. Layers, back to
-front:
+`RoomScene` creates one `Application` (logical 1000 × 600, `antialias: true`,
+auto-density, resolution ≤ 2) and never recreates it; snapshots call
+`update(visual)`. The canvas keeps that render size and is scaled by CSS to the
+container width (a non-integer scale; no camera, zoom, or pan). There is no depth
+sorting: Maple is always drawn above all furniture. Layers, back to front:
 
 1. walls and floor:
    - cream wall with a pixel dot pattern, ceiling shade and a garland;
@@ -74,16 +77,26 @@ children and textures. The canvas is `aria-hidden`; a DOM text summary
 ## Anchors
 
 Logical units; `(x, y)` is where Maple's feet go. Names are the backend's
-logical locations.
+logical locations. Since v0.2 (ADR-0027) the backend is the source of Maple's
+position: interaction points come from `GET /api/room` (`core/room.py`), and each
+snapshot carries `activity.position` and `activity.route`. The anchors below
+(`layout/anchors.ts`) are only **fallbacks** for a snapshot that lacks a position
+or route; each equals the backend's canonical point for that location.
 
-| Location | Anchor (x, y) | Furniture there |
+| Location | Fallback anchor (x, y) | Furniture there (backend point id) |
 |---|---|---|
-| `bed` | (150, 455) | bed |
-| `bookshelf` | (330, 500) | bookshelf |
-| `window` | (500, 470) | window, lamp |
-| `desk` | (640, 470) | desk + chair |
-| `terminal` | (840, 470) | computer desk + monitor |
-| `rug` | (480, 545) | rug (neutral fallback anchor) |
+| `bed` | (150, 455) | bed (`bed.side`) |
+| `sofa` | (150, 560) | sofa (`sofa.seat`) |
+| `bookshelf` | (330, 500) | bookshelf (`bookshelf.front`) |
+| `window` | (500, 470) | Window / Plant Corner (`window.view`) |
+| `desk` | (640, 470) | Writing Desk + chair (`writing_desk.chair`) |
+| `terminal` | (840, 470) | Computer Desk + monitor (`computer_desk.chair`) |
+| `rug` | (480, 545) | Open Area (`open_area.center`; the backend also uses `open_area.west` (400, 550) and `open_area.east` (580, 550)); neutral fallback anchor |
+
+Known duplication (current state, not yet removed):
+- Room size (`ROOM_WIDTH`, `ROOM_HEIGHT`, `FLOOR_Y`), the fallback anchors, and the furniture labels are repeated in the frontend.
+- The furniture boxes (`FURNITURE`) exist **only** in the frontend; the backend has no furniture geometry.
+- `GET /api/room` is used only by `ui/room/RoomOverlay.tsx` (hotspots and the SVG `viewBox`); the Pixi scene uses the frontend constants.
 
 ## Mapping (`room/visual.ts`)
 
@@ -91,16 +104,22 @@ logical locations.
 unknown values fall back and set `recognised = false`. The DOM then adds
 "Some of Maple's state is new to this display."
 
-| Backend activity | Pose | Typical location (backend decides) |
+| Backend activity | Pose | Location (activity set v2, ADR-0028; the backend decides) |
 |---|---|---|
-| `idle` | stand (breathing) | rug / window |
-| `walk` | walk | any |
+| `idle` | stand (breathing) | rug (Open Area) |
+| `walk` | walk | rug (Open Area) |
 | `sleep` | sleep (lying on the bed, "z z", sleepy face) | bed |
 | `read` | read (book prop) | bookshelf |
-| `write` | sit_write (pen prop) | desk |
-| `observe_server` | sit_monitor | terminal |
-| `rest` | rest (sitting) | rug |
+| `write` | sit_write (pen prop) | desk (Writing Desk) |
+| `observe_server` | sit_monitor | terminal (Computer Desk) |
+| `rest` | rest (sitting) | sofa |
+| `think` | think (drawn with the `stand` frame) | window (Window / Plant Corner) |
 | unknown | stand | — |
+
+How the frontend picks pose and facing:
+- **Pose** comes from `activity.kind` via `ACTIVITY_POSE`. The backend's `activity.pose` field is not read.
+- **Walking:** while the backend phase is `walking`, the walk pose is shown.
+- **Facing** is horizontal only, taken from the x-direction of the current route segment (or of the last movement). The backend's `facing` values `front` and `back` are not used by the renderer.
 
 Expressions `calm`, `happy`, `curious`, `sleepy` and `focused` are drawn as-is;
 an unknown expression is drawn as `calm`.
@@ -138,10 +157,15 @@ Under reduced motion they snap.
 
 ## Animation rules
 
-- **Walking is presentation only.** When the anchor changes, Maple walks at
-  220 units/s in the walk pose, then takes the backend pose. A new target
-  mid-walk redirects from the current position. Logical state is never
-  changed by the walk.
+- **Walking follows the backend (v0.2, ADR-0027).**
+  - Movement is backend state. A snapshot's `activity.route` (`departed_at`, `arrives_at`, `path`) is interpolated along the path by `routeFrame`.
+  - The clock is the estimated server time (`Date.now()` plus the snapshot's clock offset).
+  - Speed and travel time are fixed by the backend (`WALK_SPEED = 120` units/s in `core/room.py`).
+  - From `arrives_at` the backend pose applies.
+  - Rerouting is a backend decision; the next snapshot carries the new route.
+- **Otherwise Maple snaps** to the backend position (`restPosition`): the route's last point, else `activity.position`, else the fallback anchor.
+  - The older presentation-only `Motion` walker (220 units/s between anchors) still exists in `animation/motion.ts`.
+  - `RoomScene.update` always calls it with `snap = true`, so in practice it never walks on its own.
 - **The first placement snaps** (no walk across the room on page load).
 - **Idle loops are small:** breathing, a walk bob, sleep rise and fall, a
   small sit and read motion.
@@ -322,7 +346,16 @@ hidden, and every grid track uses `minmax(0, …)`. Verified at 1440 × 1000,
 
 ## Assets and how to replace them
 
-All v0.1 art is **original** and drawn in code, with no image files:
+> **Current state only.** A future tile-based, multi-room asset system and an art
+> handoff contract are **DRAFT / PROPOSED / FOR HUMAN REVIEW, not implemented**:
+> `docs/architecture/maple-future-architecture.md` §9 and
+> `docs/architecture/maple-art-production-contract.md`. Their numbers (tile 16 px,
+> Maple frame 32×48, feet point (16, 47), 1× delivery) are **PROVISIONAL** until
+> technical validation and do not apply to the current renderer described here.
+
+All art is **original** and drawn in code, with no image files.
+`frontend/public/` holds only `favicon.svg`, and no furniture `texture` is set in
+the manifest.
 - the furniture is pixel-style vector drawing (`room/objects/furniture.ts`);
 - Maple is pixel art stored as text grids (`room/maple/`).
 
@@ -351,7 +384,8 @@ All v0.1 art is **original** and drawn in code, with no image files:
     - origin between the feet;
     - poses: `stand`, `walk` (two leg frames, alternating while walking),
       `sleep`, `read` (open book), `sit_write` (pencil), `sit_monitor`
-      (typing, teal screen light), `rest` (mug);
+      (typing, teal screen light), `rest` (mug); `think` (v0.2) reuses the
+      `stand` frame;
     - seated frames keep the feet on the bottom row;
     - `sleep` is its own lying-down frame (40 × 18): the head on the pillow
       and a green quilt over the body. Its origin (under the head, on the
@@ -445,7 +479,8 @@ session = one character", no terminals):
 | `ui/inspector/brainhealth.test.tsx` | Brain Health card: healthy, degraded (fallback code), offline (provider/model Unknown, never guessed), unknown (no calls; endpoint failure; unrecognised status), latency/model formatting, fetched by the Inspector |
 | `room/visual.test.ts` | all activities, locations, expressions and reactions; expiry at `until`; unknown fallbacks; day/night; room text |
 | `room/maple/sprites.test.ts` | pixel grids rectangular and in-palette; frame parts fit; every pose × expression composes a full frame with hair, headphones, hoodie and glasses and feet on the bottom row; expressions distinct while awake; sleep falls back to the closed-eye face; dedicated lying sleep frame (head left on the origin, quilt to the right, no shoes); two walk frames; atlas covers every frame once; a distinct bubble glyph per symbol; responsive scale exact on desktop, slightly larger (never smaller) on small rooms, snapped to whole canvas pixels |
-| `room/animation/motion.test.ts` | walk, speed, mid-walk redirect, snap, eased lighting |
+| `room/animation/motion.test.ts` | backend route interpolation (`routeFrame`), the fallback walker (speed, mid-walk redirect, snap), eased lighting |
+| `ui/roomux.test.tsx` | v0.2 room UX: furniture hotspots from `/api/room`, speech bubble, Inspector |
 | `api/sse.test.ts`, `api/client.test.ts` | SSE parsing (chunking, CRLF, comments), `Last-Event-ID`, close; 200/429/403/network |
 | `state/store.test.ts` | revision monotonicity, server-clock estimate |
 | `state/live.test.ts` | coalescing, in-flight events, resync frame, late old snapshot, reconnect with backoff and last id, stale detection, offline, stop |

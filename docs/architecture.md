@@ -14,8 +14,78 @@ built; this file collects longer-form notes as each phase lands.
 | 4. Journal + reflection + Brain | Complete (see `journal.md`) |
 | 5. API + live state + owner interactions | Complete (see `api.md`) — milestone M1 |
 | 6. Maple Room UI | Complete, approved (see `frontend.md`) — milestone M2 |
-| 7. paolo-core deploy | Stage A (read-only survey) complete — `deploy/survey/findings.md`; Stage B (local preparation) complete, awaiting review — `deployment.md`; Stage C (owner-run install) not started |
-| 8. Trial run | Not started |
+| 7. paolo-core deploy | Stage A (read-only survey) complete — `deploy/survey/findings.md`; Stage B (local preparation) complete — `deployment.md`; Stage C (owner-run install):
+- the services **are installed and active** on paolo-core at release `160ed4f…` (verified current runtime, see "Deployment state" below);
+- verified on the live service: the systemd hardening is loaded, Tailscale Serve and Funnel are tailnet-only, and nightly backup creation works (including the Maple DB snapshot);
+- still not recorded: the Stage C authorization, the inside-service boundary probe, and a restore test |
+| 8. Trial run | Not recorded as authorized or started |
+
+### v0.2 (branch `v0.2-development`, pushed; schema v10)
+
+| Work | Status |
+|---|---|
+| v0.2 autonomy A1–A10 (ADR-0026..0033) | Implemented, merged into `v0.2-development` (`docs/v0.2-review.md`, `docs/autonomy.md`) |
+| Brain Health / Observability v1 (ADR-0034) | Implemented, merged |
+| Discord chat polish + read-only status commands (ADR-0032 amendment 2026-10-07) | Implemented, merged |
+| Room / Workspace / System Investigator roadmap | `docs/roadmap/maple-roadmap.md` (product roadmap). Architecture in `docs/architecture/` is **DRAFT / PROPOSED / FOR HUMAN REVIEW**; nothing is implemented. |
+
+### Service relationships (current code)
+
+```
+browser ──Tailscale Serve──► maplegotchi (maple-svc, 127.0.0.1:8470) ◄── maple-discord (maple-discord-svc)
+                                   │  loopback HTTP, only if MAPLE_BRAIN /       GETs for slash commands;
+                                   │  MAPLE_DIRECTOR / MAPLE_REPLIER=antigravity POST /api/conversation/messages
+                                   ▼                                             (gateway token)
+                             maple-brain (maple-brain-svc, 127.0.0.1:8471) ──► provider CLI (outbound)
+```
+
+How the services connect:
+- Maple calls the Brain companion only:
+  - `/decide` and `/reply` outside the writer lock, with a deadline, never stacked, and re-validated afterwards;
+  - `/generate` (the journal) inside the lock — a known limitation, not fixed;
+  - `/health` for `GET /api/brain-health`.
+- Maple never calls Discord. The Brain companion never calls Maple.
+- Details are in `docs/security-model.md` → "Services and trust relationships".
+
+## Deployment state (recorded 2026-10-08)
+
+### VERIFIED CURRENT RUNTIME — paolo-core (owner-supplied live evidence)
+
+| Item | Verified value |
+|---|---|
+| Services | `maplegotchi` **active**, `maple-brain` **active**, `maple-discord` **active** |
+| Main release (`current`) | `/opt/maplegotchi/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d` |
+| Brain release (`current`) | `/opt/maple-brain/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d` |
+| Discord release (`current`) | `/opt/maple-discord/releases/160ed4fb9f2534a4609d826d9c4535cc7863ae3d` |
+| Production database | `PRAGMA user_version = 10` (schema v10) |
+| Listeners | `127.0.0.1:8470` (Maple), `127.0.0.1:8471` (Brain companion); loopback only. `maple-discord` listens on nothing. |
+| Activation (local +07) | `maplegotchi` Wed 2026-10-07 17:33:45; `maple-brain` Wed 2026-10-07 17:37:12; `maple-discord` Wed 2026-10-07 18:22:18 |
+| `maplegotchi.service` hardening (loaded properties) | `User=maple-svc`, `Group=maple-svc`; `ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `ProtectProc=invisible`, `RestrictNamespaces=yes`, `RestrictAddressFamilies=AF_INET AF_UNIX`; `IPAddressDeny=::/0 0.0.0.0/0`, `IPAddressAllow=127.0.0.0/8 ::1/128`; `MemoryHigh=402653184` (384 MiB), `MemoryMax=536870912` (512 MiB), `TasksMax=64` |
+| `systemd-analyze security` | "Overall exposure level for maplegotchi.service: **1.1 OK**" |
+| AI switches (Maple env) | `MAPLE_BRAIN=antigravity`, `MAPLE_DIRECTOR=antigravity`, `MAPLE_REPLIER=antigravity` |
+| Brain companion | runs as `maple-brain-svc`; port 8471 belongs to the `maple_brain` process; `/health` → `status=ok`, `provider=command`, `model=gemini-3.8-flash-medium` |
+| Backup creation | `paolo-core-backup.timer` active, daily at 03:30. Latest observed run (2026-10-08) finished 0/SUCCESS: integrity checks passed for `n8n.sqlite`, `grafana.db` and `metrics.db`; the Maple DB snapshot was staged; restic snapshot `8b7bea38` saved; `BACKUP COMPLETED` logged. |
+| Tailscale | Serve: tailnet-only, `/` → `http://127.0.0.1:8470`. Funnel status: tailnet-only (no public exposure). |
+
+- All three `current` symlinks point to the same release, commit `160ed4f`: "merge: polish Maple chat and add Discord status commands".
+- The only later commit on `v0.2-development`, `5be58c0`, adds `docs/roadmap/maple-roadmap.md`. The deployed code is therefore the current branch code.
+- The documentation-only changes made on 2026-10-08 are not in the deployed release. They change no behaviour.
+
+### HISTORICAL AUTHORIZATION / TEST EVIDENCE — still UNVERIFIED
+
+The runtime evidence above shows what is running and configured. It does not prove any of the following:
+
+| Item | Status |
+|---|---|
+| Stage C owner authorization | The repository's last record (`CLAUDE.md`, 2026-09-30) says "not authorized". No later authorization record exists. Kept as historical wording. |
+| Phase 8 (72 h trial) | No authorization or trial recorded |
+| Inside-service runtime boundary probe | **Not re-run for this release.** `deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh` exist in the repository but are not present in the deployed release. The hardening controls are verified as *loaded*; the resulting namespace and runtime behaviour has **not** been re-verified end to end. That behaviour covers: writes only to `/data/maple`, `/data` siblings and homes hidden, Docker socket inaccessible, process credentials (caps, no_new_privs, seccomp), and the listening sockets as seen from inside the service. |
+| Restore verification | **Unverified.** No restore from restic (including `maple.db` at schema v10) has been tested. |
+
+Notes on this evidence:
+- Backup *creation* is verified. A direct `restic snapshots` listing as user `paolo` failed because of repository permissions; that is an access restriction, not a backup failure.
+- With `MAPLE_BRAIN=antigravity` in production, the known journal-Brain-inside-the-writer-lock limitation (`docs/security-model.md` → Known limitations) applies to the live service.
+- Background from repository documents: before v0.2, paolo-core ran a schema-v3 Maplegotchi with a hand-made Brain bridge on 127.0.0.1:8471 (`docs/v0.2-review.md` §6, ADR-0033 context, `deploy/brain/README.md`). Port 8471 now belongs to the packaged `maple_brain` process.
 
 ## Core (Phase 1)
 

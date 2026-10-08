@@ -65,7 +65,7 @@ an expired goal completed) → plan → `check_plan` (core's legality rules) →
 |---|---|---|
 | server attention ≥ 0.8 (failed service, disk ≥ 95 %, temp ≥ 85 °C) | critical | yes, once per problem (`critical_since`); not another critical response |
 | energy ≤ 10 | high | yes (the existing forced-sleep rule; even a critical response) |
-| owner message (reserved for real chat) | high | interrupts normal/low |
+| owner message (Discord conversation, ADR-0032; never wakes a sleeping Maple) | high | interrupts normal/low |
 | server attention 0.3–0.8, curiosity ≥ 75, social < 30 | normal | never; offered to the next decision |
 | mood < 35 | low | never |
 
