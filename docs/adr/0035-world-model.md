@@ -78,7 +78,10 @@ Rooms, doors and object placements are versioned **data** that core validates, n
 These are set during implementation and changed only together with the pinned simulation digest:
 - `ms_per_step`;
 - the turn penalty;
-- the room sizes and door positions of the initial house. These are **intentionally undecided** until the Room Final Design Spec (confirmed with B15). The technical art spike (2026-10-09) did **not** decide them; it only locked the wall, door and window conventions they must use (ADR-0041 L7–L10).
+- the room sizes and door positions of the initial house. These were intentionally left open for the Room Final Design Spec (confirmed with B15). The technical art spike (2026-10-09) did **not** decide them; it only locked the wall, door and window conventions they must use (ADR-0041 L7–L10).
+  - **Update 2026-10-09:** they are now defined by the **Room Final Design Spec** (`docs/architecture/maple-room-final-design-spec.md`): a 44×26 grid, 8 regions and 7 doors in a star around the Central Hall.
+  - Their status is **SPEC, owner-approved in principle, not implemented**, and **not** an ADR-level lock. They bind R1b once R1a/R1b are authorized. Changes before then need an owner decision.
+  - The spec also records owner decision O1: the placeholder rooms are interior and windowless.
 - Spike evidence for `ms_per_step` (M05): 300 ms gives 1 px per 60 Hz frame with 11 % zero-advance frames; 250 ms gives mostly 1 px, occasionally 2. Either is acceptable; the choice is made in R1a with the simulation digest.
 
 ## Deferred
