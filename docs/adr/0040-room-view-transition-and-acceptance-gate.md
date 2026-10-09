@@ -1,7 +1,7 @@
 # ADR-0040: Room view transition, initial room set, and the default-switch acceptance gate
 
-- **Status:** Accepted — FIXED design (CLAUDE.md D39). **NOT IMPLEMENTED.** Implementation is not yet authorized. Zoom levels, widths and budgets inherit the PROVISIONAL art/rendering values of ADR-0041.
-- **Date:** 2026-10-08
+- **Status:** Accepted — FIXED design (CLAUDE.md D39). **NOT IMPLEMENTED.** Implementation is not yet authorized. **Amended 2026-10-09:** zoom levels, camera rules and rendering budgets are now **LOCKED** by ADR-0041 (L13–L21) after the technical spike (`docs/spikes/2026-10-room-art-spike.md`). The default zoom per form factor and the phase tint colours stay undecided.
+- **Date:** 2026-10-08 (amended 2026-10-09)
 - **Decided by:** owner, Maple Room review decisions **B1** (default view), **B2** (initial rooms), **B14** (acceptance gate), and **B13** (baseline A13), together with **B10** (staging).
 - **Extends:** D2 / ADR-0002 (PixiJS renders only the room). **Related:** ADR-0035, ADR-0037, ADR-0041, M2 (the approved Phase 6 room).
 
@@ -36,7 +36,15 @@ The current 1000×600 room (Phase 6, milestone M2) works and is approved. The ne
   - emissive pixels (screens, LEDs) that stay bright at night.
 
   Nothing is baked into base art.
-- **The renderer only draws** (ADR-0036 §6). Camera modes (Overview, Follow, Focus) are presentation: integer zoom, snapped translation, reduced-motion snapping. Final zoom steps are validated by the spike (ADR-0041).
+- **LOCKED (ADR-0041 L16):** the multiply tint covers a **non-overlapping partition of the grid**; overlapping per-room rectangles double-multiply shared walls (spike M12). Emissive is drawn after the multiply and additive layers. **Tint colours and light strengths stay undecided (Q4).** They must keep Maple's night contrast ≥ 1.5.
+- **The renderer only draws** (ADR-0036 §6). Camera modes (Overview, Follow, Focus) are presentation: integer zoom, snapped translation, reduced-motion snapping.
+- **LOCKED (ADR-0041 L13–L15):**
+  - device-pixel backing with integer device zoom `Zd = max(1, ⌊L·DPR + 0.25⌋)` over the apparent levels **L1–L4**;
+  - **Overview** = largest L that fits the house, else a DOM room list;
+  - **Follow** = 25 % dead-zone, clamped;
+  - **Focus** = largest L ≤ 4 that fits the room;
+  - reduced motion snaps.
+- **UNDECIDED (Q4):** the default level per form factor, including the default Follow zoom.
 
 ### 4. Acceptance gate for making the new Room the default (B14)
 The new 3/4 Room becomes the default **only after all of the following are true**:
@@ -61,7 +69,16 @@ The new 3/4 Room becomes the default **only after all of the following are true*
    - no unresolvable action loops;
    - no unexpected recovery relocations;
    - no renderer crashes.
-5. **Rendering quality:** pixel-perfect at the agreed integer zoom levels, and verified at desktop, tablet and phone widths (1440, 820 and 390 px, as for M2) with no horizontal scroll and within the texture-memory budget.
+5. **Rendering quality:**
+   - pixel-perfect at the locked zoom levels L1–L4 (ADR-0041 L13/L14), including fractional DPR;
+   - verified at desktop, tablet and phone widths (1440, 820 and 390 px, as for M2) with no horizontal scroll;
+   - **on real tablet and phone devices.** The spike's mobile evidence was EMULATED, so real-device QA is part of this criterion.
+   - Production art meets the **locked budgets** (ADR-0041 L20/L21):
+     - texture memory ≤ 32 MiB resident;
+     - ≤ 40 draw calls per frame;
+     - CPU render p95 ≤ 4 ms on desktop and ≤ 8 ms in 4×-throttled phone emulation;
+     - 0 frames > 33 ms in 60 s on desktop;
+     - 10-minute soak heap growth < 5 MB.
 6. **Production art is complete** for:
    - the 5 open rooms;
    - Maple's required core animation set (idle and walk in 4 directions, `sit_write`, `sit_monitor`, `stand_read`, `stand_think`, `sit_rest`, `lie_sleep`);
