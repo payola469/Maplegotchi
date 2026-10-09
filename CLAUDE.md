@@ -79,9 +79,19 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 >   A direct restic snapshot listing as user `paolo` failed because of repository permissions. That is an access restriction, **not** a backup failure.
 > - **Tailscale:** Serve is tailnet-only and `/` proxies to `http://127.0.0.1:8470`. Funnel status also reports tailnet-only, so Maple is not publicly exposed.
 >
+> **STAGE C AUTHORIZATION — owner decision 2026-10-09 (documentation/status clarification only):**
+> - The Stage C install of release **`160ed4fb9f2534a4609d826d9c4535cc7863ae3d`** on paolo-core is **retroactively authorized** by the owner.
+> - **Stage C is NOT complete.** It stays open until (1) the inside-service boundary probe passes and (2) the restore test passes. **M3 (`v0.1.0-rc`) is not claimed.**
+> - No production behaviour was changed and nothing was deployed by this decision.
+>
+> **PHASE 8 STATUS — owner decision 2026-10-09 (documentation/status clarification only):**
+> - Phase 8 (72-hour trial) is **not authorized** and **not started**.
+> - It is **deferred until Stage C is closed**. Stage C is closed only after the inside-service boundary probe passes and the restore test passes.
+> - Phase 8 currently blocks **neither R1a nor R1b**. It gates only the stable-release label (ADR-0009).
+>
 > **HISTORICAL AUTHORIZATION / TEST EVIDENCE — still UNVERIFIED:**
-> - **Status line:** the line at the top of this block ("Stage C … and Phase 8 NOT authorized", 2026-09-30) is kept as the historical record. No later Stage C authorization record is in the repository.
-> - **Phase 8:** no authorization and no 72-hour trial are recorded.
+> - **Status line:** the line at the top of this block ("Stage C … and Phase 8 NOT authorized", 2026-09-30) is kept as the historical record. The Stage C part is superseded by the owner decision of 2026-10-09 above (retroactive authorization; Stage C still open).
+> - **Phase 8:** no authorization and no 72-hour trial are recorded. Status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed (above).
 > - **Inside-service runtime boundary probe:** not re-run for this release.
 >   - `deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh` exist in the repository but are **not present in the deployed release**.
 >   - The hardening controls are verified as *loaded* (above).
@@ -208,6 +218,8 @@ Maplegotchi/
 │   ├── adr/                          # ADR per FIXED decision
 │   ├── roadmap/maple-roadmap.md      # product/capability roadmap (Room, Workspace, System Investigator)
 │   ├── spikes/2026-10-room-art-spike.md  # official Room art/PixiJS spike report (values locked in ADR-0041)
+│   ├── implementation/               # implementation plans, live checklists, append-only work logs
+│   │                                 #   (maple-room-r1a-{plan,checklist,worklog}.md)
 │   └── architecture/                 # DRAFT / PROPOSED / FOR HUMAN REVIEW — not implemented:
 │                                     #   maple-future-architecture.md, maple-art-production-contract.md
 ├── backend/
