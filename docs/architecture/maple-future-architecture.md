@@ -3,14 +3,16 @@
 > **DRAFT · PROPOSED · FOR HUMAN REVIEW. NOT IMPLEMENTED.**
 > - This document is an architecture proposal. None of the components, services, tables, endpoints, mounts, or units it describes exist in the code or on any host.
 > - The current system is described by `CLAUDE.md` and `docs/*.md`.
-> - Art values (tile 16 px, Maple frame 32×48, feet point (16, 47)) are **PROVISIONAL** until technical validation.
+> - **Art/rendering technical lock (2026-10-09):** the art/PixiJS spike passed (`docs/spikes/2026-10-room-art-spike.md`). The proven values are **LOCKED** in ADR-0041 ("Locked values", L1–L22, amendments C1–C8): tile 16 px, Maple frame 32×48, feet anchor (16, 47), `FEET_IN_TILE` (8, 13), 3T walls with archway doors, the device-pixel renderer, zoom L1–L4, lighting, atlases and budgets. They are locked design values, still **NOT IMPLEMENTED**.
+> - **Not locked:** face overlay size, art appearance, default zoom per form factor, phase tints, room dimensions and door positions.
 
 - **Status:** DRAFT for owner review. Every decision below is **[PROPOSED]** unless marked otherwise. Nothing here is FIXED until the owner accepts the matching ADR (§20).
 - **Maple Room update (2026-10-08):**
   - The owner accepted the Room decisions **B1–B15**, now **ADR-0035..0041 / CLAUDE.md D34–D40**. Accepted design, **not implemented**, implementation not yet authorized.
   - §6 and the Room parts of §9, §17–§22 are revised to match; §6.0 lists the decisions.
   - Where older text in this draft disagrees with an accepted ADR, the ADR wins.
-  - Numeric art and geometry values remain **PROVISIONAL**.
+  - Numeric art and geometry values were **PROVISIONAL** on 2026-10-08. **Since 2026-10-09** the spike-proven values are **LOCKED** (ADR-0041); §6.0, §6.3, §9 and §10 are updated to match.
+  - Face overlay size, art appearance, default zoom per form factor, phase tints, room dimensions and door positions stay PROVISIONAL / UNDECIDED.
   - The Workspace (§7) and System Investigator (§8) parts remain proposals, and the Room keeps only compatibility hooks for them.
 - **Date:** 2026-10-08
 - **Repository baseline:** branch `v0.2-development` @ `5be58c0`, schema v10.
@@ -294,7 +296,7 @@ Each row needs an explicit owner decision or ADR amendment.
 
 ### 6.0 Accepted owner decisions (Maple Room review, 2026-10-08)
 
-> Accepted design, **NOT IMPLEMENTED**. The ADRs are authoritative; this section is a summary. PROVISIONAL values wait for the art/PixiJS technical spike (ADR-0041).
+> Accepted design, **NOT IMPLEMENTED**. The ADRs are authoritative; this section is a summary. The art/PixiJS technical spike passed on 2026-10-09, and its proven values are **LOCKED** in ADR-0041 ("Locked values").
 
 | # | Decision | ADR |
 |---|---|---|
@@ -303,16 +305,16 @@ Each row needs an explicit owner decision or ADR amendment.
 | B3 | Owner auth uses defence in depth: mandatory exact Origin; a **dedicated owner secret** as the primary authenticator, giving a Secure/HttpOnly/SameSite=Strict expiring session with Lock/Logout; plus a matching Tailscale identity via Serve. Live Mode stays open. A spike checks how Serve handles identity headers. | 0038 |
 | B4 | "Inventory" becomes **Storage**: existing displayable creations and movable decorations that are not placed. It is derived, with no game mechanics. | 0039 |
 | B5 | Maple places items **autonomously** only into `maple_may_place` slots, and only objects marked `movable_by: maple`. Every placement is core-validated and audited; she walks there first; a rate limit applies; there is a cooldown after the owner removes an item; the owner always wins. | 0039 |
-| B6 | **Face overlay** sprites for the fixed five expressions, with per-frame face anchors. Face sizes stay PROVISIONAL. | 0041 |
+| B6 | **Face overlay** sprites for the fixed five expressions, with per-frame face anchors. The anchor *method* is LOCKED (2026-10-09). Face sizes stay PROVISIONAL until the owner blind test. | 0041 |
 | B7 | `art/export/**` (PNG + `meta.json`, plain Git, no LFS) is the only pipeline input. Sources and concept art stay outside the repo. | 0041 |
 | B8 | **One global house grid.** Rooms are regions, doors are openings between adjacent rooms, and the room graph is derived. One flat deterministic 4-direction A\*, with no hierarchy or cache. | 0035 |
 | B9 | Character direction is `down/left/right/up`; object orientation is `south/east/west/north`; the mapping between them is fixed. `front/back` are retired after the transition. | 0035, 0041 |
 | B10 | R1a is engine first, with no production change. R1b is one rehearsed v11 cutover straight into the 8-region house, plus a **legacy projection** for the old view. No temporary single-room layout. | 0037 |
 | B11 | **Slots only** for Maple through R3–R5. Free-standing zones are deferred until after R5. | 0039 |
-| B12 | `FEET_IN_TILE = (8, 13)` at T=16, as one shared constant. **PROVISIONAL**, and proportional if T changes. | 0035 |
+| B12 | `FEET_IN_TILE = (8, 13)` at T=16, as one shared constant. **LOCKED 2026-10-09** as (T/2, ⌊13T/16⌋). | 0035, 0041 |
 | B13 | Review items A1–A17 are accepted as the baseline, as amended by B1–B12. | 0035–0041 |
 | B14 | Default-switch gate, criteria 1–10: parity, truthfulness, backend correctness, a 7-day soak, rendering quality, production art, accessibility, security/CI, rollback for ≥ 1 release, and Paolo's sign-off. The old view is never removed in the same change. | 0040 |
-| B15 | Master palette lives in `art/palette/**` (plain Git, no LFS): production palette definitions for the validator/build only, not runtime content, excluded from the release bundle unless needed at runtime. Room sizes and door positions stay undecided until the Room Final Design Spec / technical art spike. | 0041 |
+| B15 | Master palette lives in `art/palette/**` (plain Git, no LFS): production palette definitions for the validator/build only, not runtime content, excluded from the release bundle unless needed at runtime. Room sizes and door positions stay undecided until the Room Final Design Spec; the spike locked only the wall, door and window conventions. | 0041 |
 
 ### 6.1 Component boundaries
 
@@ -338,14 +340,19 @@ Each row needs an explicit owner decision or ADR amendment.
 ### 6.3 Coordinate and room model
 
 - **World unit:** 1 *art pixel* at 1× ("px").
-- **Tile:** `T × T` px. Provisional `T = 16`, to be locked in the technical spike (art contract §B.2).
+- **Tile:** `T × T` px. **`T = 16` LOCKED** (2026-10-09, ADR-0041 L1).
 - **One global house grid (B8, ADR-0035):** integer `(tx, ty)` over the whole house, origin at the north-west; x grows east and y grows south.
 - **Room:** a labelled **region** on that grid. It is rectangular for now (non-rectangular is deferred) and has an `id` (slug), a `kind` (bedroom, living, library, studio, creation, system, hall, future), floor and wall theme ids, and a `lighting` preset. Walls lie on room edges.
 - **Doors:** a wall opening between two **physically adjacent** rooms, with a width in tiles and a state of `open` or `closed`.
 - **Room graph:** **derived** from door topology and never authored. It serves AI context, the overview and room-level rules.
 - **Initial house (B2):** regions for all 8 rooms are reserved from the start. 5 are open (Central Hall, Bedroom, Living Room, Library, Work Studio) and 3 are closed placeholders (Creation, System, Future Space), structurally present but inaccessible.
 - **World position:** `(tx, ty)` on the house grid; the room is derived from the region. While walking, Maple also has progress along the current route.
-- **Feet point (B12, PROVISIONAL):** one shared `FEET_IN_TILE = (8, 13)` at T=16 maps a tile to the pixel where Maple's feet stand. Stored positions stay tile coordinates.
+- **Feet point (B12, LOCKED 2026-10-09):** one shared `FEET_IN_TILE = (T/2, ⌊13T/16⌋) = (8, 13)` maps a tile to the pixel where Maple's feet stand. Stored positions stay tile coordinates.
+- **Walls (LOCKED, ADR-0041 L8):**
+  - north walls occupy 3 non-walkable rows (H_w = 3T);
+  - side walls occupy 1 column;
+  - doors are 2T openings, as open archways at 3T;
+  - room sizes and door positions are still undecided.
 - *(Superseded by B8: per-room grids, an authored `room_connection` graph, and `house_offset`.)*
 
 ### 6.4 Walkability, collision, pathfinding
@@ -997,21 +1004,27 @@ The production rules are in `maple-art-production-contract.md`. This section cov
 
 - **World space:**
   - 1 unit = 1 art pixel at 1×.
-  - Tiles are `T×T` (provisional 16).
+  - Tiles are `T×T` (T = 16, LOCKED).
   - Each room has a tile grid; the house places rooms by a tile offset.
   - Depth is *not* a coordinate: draw order comes from y-sort.
-- **Screen space:** world × integer zoom `Z` (engine range 1×–6×; integer-only is a rule, the exact zoom steps are PROVISIONAL per ADR-0041) − camera offset, rounded to whole device pixels.
-- **Backend:** speaks tiles (plus px offsets for occupy poses from the catalog). It never speaks screen pixels. Tile → feet pixel uses the shared `FEET_IN_TILE` constant (B12; PROVISIONAL (8, 13) at T=16; proportional if T changes).
+- **Screen space:** world × integer **device** zoom `Zd` − camera offset, in whole device pixels.
+  - **LOCKED (ADR-0041 L14):** apparent levels L1–L4 map to `Zd = max(1, ⌊L·DPR + 0.25⌋)`, Zd ∈ [1, 12].
+- **Backend:** speaks tiles (plus px offsets for occupy poses from the catalog). It never speaks screen pixels. Tile → feet pixel uses the shared `FEET_IN_TILE` constant (B12; LOCKED (8, 13) = (T/2, ⌊13T/16⌋)).
 - **Directions (B9):** character `down/left/right/up`; object orientation `south/east/west/north`; fixed mapping between them.
-- **Expressions (B6):** separate face overlay sprites for the fixed five, composited at per-frame face anchors. No face for `up`. The backend decides the expression and the renderer never invents one. Face sizes are PROVISIONAL.
-- **Pixel-perfect rules:**
-  - nearest-neighbour sampling (`scaleMode: 'nearest'`);
-  - `antialias: false`;
-  - `roundPixels: true`;
-  - integer zoom only for the world layer;
-  - camera translation snapped to `1/Z` world units, i.e. whole screen pixels;
+- **Expressions (B6):** separate face overlay sprites for the fixed five, composited at per-frame face anchors. No face for `up`. The backend decides the expression and the renderer never invents one. The face anchor method is LOCKED (top-left integer `face_anchor[row][frame]`). Face sizes are PROVISIONAL (12×6 proposed, pending the owner blind test).
+- **Pixel-perfect rules (LOCKED, ADR-0041 L13; spike M02/M04/M13):**
+  - nearest-neighbour sampling (`scaleMode: 'nearest'`), no mipmaps (`autoGenerateMipmaps: false`);
+  - Pixi `preference: "webgl"`, `resolution: 1`, `autoDensity: false`, `antialias: false`, `roundPixels: true`;
+  - integer device zoom `Zd` only for the world layer;
+  - camera translation snapped to whole **device** pixels;
   - interpolated character positions rounded at render time (not in state);
-  - canvas backing store = CSS size × DPR with an integer `Z × DPR` product. If DPR is fractional (e.g. 1.25), use `resolution = 1` and integer CSS-pixel zoom to avoid shimmer.
+  - **device-pixel backing:**
+    - the canvas backing store is the host's device-pixel content box (`devicePixelContentBoxSize`), validated against CSS size × DPR and otherwise rounded;
+    - `devicePixelRatio` is re-checked on every render, because DPR changes do not reliably fire ResizeObserver or `matchMedia`.
+  - **ADR-0041 AMENDMENT C6 (2026-10-09).**
+    - *Old rule:* "If DPR is fractional (e.g. 1.25), use `resolution = 1` and integer CSS-pixel zoom to avoid shimmer."
+    - *Evidence:* spike M02. The CSS-zoom strategy produced uneven pixel runs at DPR 1.25 and 1.5; the device-pixel strategy passed 20/20.
+    - *Replacement:* the device-pixel strategy above.
 
 ### 9.2 Render layers (Pixi scene graph)
 
@@ -1033,21 +1046,36 @@ stage
 DOM overlay (outside Pixi, D2): text speech bubble, hotspots/labels, editor tool panels, panels
 ```
 
-- **Sort key** = the world y of the part's ground line (the object footprint's south edge, plus the part's `sort_offset`; Maple's feet y).
-- **Ties:** `layer_priority` (floor props < furniture < occupant < overlay), then a stable instance id.
+- **Sort key (LOCKED, ADR-0041 L11):** `zIndex = sortY·8 + priority`.
+  - An object part's `sortY` is the footprint's south edge plus the part's `sort_offset_px`.
+  - **Maple's `sortY` is the south edge of her feet tile** (amendment C4; the feet-y rule failed spike M10). While occupying an object, she uses the object's `sortY`.
+- **Ties:** priority structural 1 < furniture 2 < character 3 < above_occupant 4, then instance insertion order.
+- **Walls (LOCKED, L8/L9):**
+  - north-wall caps are always-front occluders (≤ 13 px);
+  - side-wall caps are y-sorted per tile;
+  - north doors at 3T are open archways with no lintel (C5);
+  - side doors are gaps with end caps on the neighbouring wall tiles.
+- **Lighting (LOCKED, L16):** the L7 multiply tint covers a **non-overlapping partition of the grid**; overlapping per-room rectangles double-multiply shared walls (spike M12). Tint colours are undecided.
 - **Occupant overlays:** e.g. the bed blanket or a chair back drawn over a seated Maple. They are separate parts with `sort: "above_occupant"`.
 
 ### 9.3 Camera, zoom, viewport, modes
 
 | Mode | Behavior |
 |---|---|
-| **Overview** | fit the house at the largest integer Z that fits; letterbox; if Z would be < 1, show a DOM minimap plus room list instead |
-| **Follow** | centre on Maple with a dead-zone (e.g. 25 % of the viewport), eased with integer-snapped output; room transitions keep following |
-| **Focus** | frame one room or one object (editor, Inspector "show me"), at the largest integer Z that fits |
+**LOCKED technical rules (ADR-0041 L14/L15; spike M13):**
+
+| Mode | Behavior |
+|---|---|
+| **Overview** | fit the house at the largest apparent level L that fits; letterbox; if L1 does not fit, show a DOM room list (Maple's room highlighted) instead |
+| **Follow** | centre on Maple with a **25 % dead-zone**, eased, clamped to the house, output on whole device pixels; room transitions keep following |
+| **Focus** | frame one room or one object (editor, Inspector "show me"), at the largest L ≤ 4 that fits |
 
 - **Bounds:** the camera clamps to the house bounds.
-- **Zoom:** user control steps through integer levels only.
+- **Zoom:** user control steps through the apparent levels **L1–L4** only (`Zd = max(1, ⌊L·DPR + 0.25⌋)`).
 - **Reduced motion:** snap the camera, no easing.
+- **UNDECIDED (Q4):** the default level per form factor, including the default Follow zoom.
+  - Observed on the spike's fixture house: Follow L3 on desktop and tablet, L2 on phone.
+  - Phone Follow at L2 shows about 10.9 × 6.5 tiles in today's 348×209 room box. A taller phone room box is an R1a layout option.
 
 ### 9.4 Hit areas, interaction, pathfinding boundary
 
@@ -1080,23 +1108,45 @@ DOM overlay (outside Pixi, D2): text speech bubble, hotspots/labels, editor tool
 
 ### 9.6 Performance
 
-- **Atlases:**
+- **Atlases (LOCKED, ADR-0041 L18):**
   - One per room theme (`bedroom`, `living`, `library`, `studio`, `creation`, `system`, `hall`), plus `character_maple`, `shared_props`, `fx`, `ui_world`.
-  - Max page 2048×2048 (safe for any WebGL2 device). Packed at build time by the frontend pipeline from individual delivered PNGs, with 2 px extrusion and power-of-two pages.
+  - Pages ≤ 512 px (character, fx) or ≤ 1024 px (others), inside the contract's ≤ 2048 limit.
+  - Packed at build time from individual delivered PNGs:
+    - trim with `spriteSourceSize`;
+    - 2 px extrusion;
+    - deterministic MaxRects;
+    - anchors preserved exactly (spike M14: 196 frames, 0 mismatches).
+  - **Imported through Vite (content-hashed), never `public/`** (amendment C2: unhashed `public/` files are served `immutable` and would go stale).
+  - **Release:** `art/export/**` and `art/palette/**` are not `export-ignore` (amendment C1). They reach the build through `git archive` but never the runtime bundle; a bundle-content test enforces that.
 - **Loading:**
   - Boot: `character_maple` + the current room's atlas + shared.
   - Lazy: adjacent rooms when the camera or Maple's route enters a door, with idle prefetch of the rest.
   - Unload: rooms not visible for > N minutes may unload (Pixi `Assets.unload`).
-- **Memory budget (PROVISIONAL, set by the technical spike per ADR-0041):** target ≤ 48 MiB of GPU textures for a full house (about 12 pages of 2048² RGBA = 192 MiB if careless; budget enforced by an atlas-size CI check). Target ≤ 6 pages total at v1.
-- **Floor tilemaps:** baked per room into cached chunks (RenderTexture), re-baked on layout revision.
-- **Frame budget:** 60 fps on desktop; ≤ 300 sprites in view.
-- **CSP:** assets are same-origin (`/assets/...`), so the existing CSP allows them. Atlas JSON is loaded by fetch; no eval (the existing `pixi.js/unsafe-eval` import stays).
+- **Memory budget (LOCKED, ADR-0041 L20):** **32 MiB** of resident textures for a full house: static packs ≤ 28 MiB (atlas-size CI check over page sizes), runtime textures ≤ 4 MiB.
+  - **ADR-0041 AMENDMENT C7 (2026-10-09).**
+    - *Old rule:* "target ≤ 48 MiB".
+    - *Evidence:* spike M22 projected the declared production inventory at 6.75 MiB expected, 14.8 MiB realistic and 28.3 MiB upper bound; M15 measured 0.88 MiB with placeholders.
+    - *Budget rule:* `max(ceil8(upper), ceil8(1.5 × realistic))`.
+- **Floor tilemaps:** baking is **not needed** at the measured scale (1,219 unculled sprites under 3 ms p95). It remains an optional R1a optimisation only if real art changes this.
+- **Floor layout (LOCKED, L17):** ≥ 4 variants per material, chosen by an integer hash of (room, x, y), plus a 16-cell 4-bit edge overlay (`N1 E2 S4 W8`, 4×4 row-major).
+- **Frame budgets (LOCKED, L21; acceptance per ADR-0040 §4 item 5):**
+  - ≤ 40 draw calls per frame;
+  - CPU render p95 ≤ 4 ms on desktop and ≤ 8 ms in 4×-throttled phone emulation;
+  - 0 frames > 33 ms in 60 s on desktop;
+  - 10-minute soak heap growth < 5 MB.
+  - Measured with placeholder art: 4 draw calls; 2.8 / 4.4 ms; 0 frames; 0.14 MB.
+- **CSP (LOCKED, L19):**
+  - assets are same-origin (hashed `/assets/...`), so the existing CSP allows them;
+  - atlas JSON is bundled by Vite (0 JSON fetches);
+  - Pixi's loader runs with `Assets.init({ preferences: { preferWorkers: false } })`, because the default worker loader uses a blob worker that `script-src 'self'` refuses, and the page never becomes ready (spike M18);
+  - no eval; the existing `pixi.js/unsafe-eval` import stays;
+  - **CSP unchanged.**
 
 ### 9.7 Responsive behavior
 
 - **Desktop-first:** room viewport plus DOM panels.
-- **Tablet:** viewport on top, panels below; default Follow mode at Z = 2–3.
-- **Phone:** Focus on Maple's current room at the largest integer Z; overview replaced by the DOM room list or minimap. Editor not offered below a minimum viewport (e.g. 900 px wide).
+- **Tablet:** viewport on top, panels below; default Follow mode at a passing level (L2–L3; the exact default is UNDECIDED, Q4).
+- **Phone:** Focus on Maple's current room at the largest L that fits; overview replaced by the DOM room list or minimap. Spike tablet and phone evidence is EMULATED; real-device QA is required before the default switch (ADR-0040 §4). Editor not offered below a minimum viewport (e.g. 900 px wide).
 - **Room switching** in the UI is camera-only. It never moves Maple.
 
 ---
@@ -1125,9 +1175,21 @@ The full, standalone contract is in `docs/architecture/maple-art-production-cont
 
 It lists **SAFE TO PRODUCE NOW** (style bible, concepts, moods, poses, lighting references) and **WAIT FOR TECHNICAL LOCK** (final tile size, sheet dimensions, footprints, collision, interaction coordinates, frame counts, door dimensions, export sizes, atlas packing).
 
-Values are given as **provisional defaults** (T = 16 px, Maple frame 32×48 px, feet anchor (16, 47), `FEET_IN_TILE` (8, 13), face sizes) to be locked by the technical spike (§22).
+The **rule set** is accepted as **ADR-0041** (B6 face overlays, B7 art file locations, B9 vocabulary, B13 A16).
 
-The **rule set** is accepted as **ADR-0041** (B6 face overlays, B7 art file locations, B9 vocabulary, B13 A16). The numbers above stay PROVISIONAL.
+Since **2026-10-09** the spike-proven values are **LOCKED** (ADR-0041 "Locked values", spike report `docs/spikes/2026-10-room-art-spike.md`): T = 16 px, Maple frame 32×48 px, feet anchor (16, 47), `FEET_IN_TILE` (8, 13), and the wall, door, window, depth, zoom, lighting, floor, atlas and budget rules.
+
+Rule amendments C1–C8 correct the contract text:
+- C1: `export-ignore`;
+- C2: atlas location;
+- C3: frame border;
+- C4: Maple sort line;
+- C5: archway doors;
+- C6: DPR strategy;
+- C7: memory target;
+- C8: walk timing.
+
+Face sizes stay PROVISIONAL until the owner blind test.
 
 ---
 
@@ -1372,7 +1434,7 @@ Every step is forward-only, preceded by the automatic verified pre-migration cop
 
 | Phase | Reusable now | Architecture work | Schema | Service/process | Security | Art/asset | Depends on | Acceptance |
 |---|---|---|---|---|---|---|---|---|
-| **R1 Foundation** (R1a engine-only → R1b single cutover, B10) | movement semantics, route-in-state, RNG, DOM/Pixi split, day phase | one house grid, derived room graph, doors, flat 4-dir A\*, camera modes, layered renderer behind the flag, pixel-perfect pipeline, catalog loader, legacy projection (ADR-0035/0037/0040) | M-R1a none; M-R1b v11 (rehearsed) | none | none new (read-only additions) | **technical spike required** (T, frame, feet anchor, `FEET_IN_TILE`, faces); placeholder art in R1a | art spike (§22), ADR-0035..0041 (accepted) | Maple walks 4-dir between the 5 open rooms through doors, never teleports; deterministic replays; route renders identically from backend data; old view stays default via the projection (B1) |
+| **R1 Foundation** (R1a engine-only → R1b single cutover, B10) | movement semantics, route-in-state, RNG, DOM/Pixi split, day phase | one house grid, derived room graph, doors, flat 4-dir A\*, camera modes, layered renderer behind the flag, pixel-perfect pipeline, catalog loader, legacy projection (ADR-0035/0037/0040) | M-R1a none; M-R1b v11 (rehearsed) | none | none new (read-only additions) | **technical spike done 2026-10-09** (T, frame, feet anchor, `FEET_IN_TILE` LOCKED; face size pending the blind test); placeholder art in R1a | art spike (§22), ADR-0035..0041 (accepted) | Maple walks 4-dir between the 5 open rooms through doors, never teleports; deterministic replays; route renders identically from backend data; old view stays default via the projection (B1) |
 | **R2 Object / Activity** | interaction-point idea, task model, Director catalog | object catalog, capability resolution, instance points (approach/occupy), activity→capability table | lookup tables (in M-R1) | none | catalog validation | per-object metadata deliveries (contract §C) | R1 | no code path maps activity→object type directly (test); adding an object type with `reading_spot` makes it used without code change (test); Writing ≠ Computer Desk preserved |
 | **R3 Persistence / Growth** | single writer, append-only audit, snapshot | layout revisions, display placements, **slots only** (B11), derived Storage (B4), Maple's autonomous placement rules (B5); zones and growth unlock rules **deferred** | M-R2 | none | ADR-0039 (decided) | creation archetypes, slot sprite positions | R2 | restart keeps world; Maple placements never affect walkability (property test); placements audited and traceable to decisions; owner overrides win; cooldown and rate limit enforced |
 | **R4 Editor** | Inspector (owner UI), store | edit mode, draft, preview/save/revert, 409 rebase, owner session (ADR-0038) | none (uses revisions) | none | **owner auth decided (B3)**; Serve header spike; new mutation endpoints | editor overlay assets, hit polygons | R3, ADR-0038 | invalid layouts (incl. overlapping rooms) impossible to save; undo/redo; concurrent save → 409; Maple reroutes after save; not required for the default-view switch (B14) |
@@ -1451,7 +1513,7 @@ STEP 18    R6 (final art can be produced continuously from STEP 2a onward, integ
 | OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). **Still open:** the Stage C authorization record; Phase 8 status; an inside-service runtime boundary probe (the verify scripts are not in the deployed release); a restore test. | owner records the authorization, ships or runs the boundary probe for the deployed release, and tests a restore before roadmap work |
 | OD-02 | Meaning of "Inventory" (R3) | **Decided 2026-10-08 (B4, ADR-0039):** Storage, derived, no game mechanics |
 | OD-03 | Owner authentication for editor and approvals | **Decided 2026-10-08 (B3, ADR-0038):** dedicated owner secret → owner session + Origin + Tailscale identity; Serve header spike pending |
-| OD-04 | Initial room set and sizes | **Room set decided (B2, ADR-0040):** 5 open + 3 closed placeholders. Room **sizes and door positions** remain intentionally undecided until the Room Final Design Spec / technical art spike (B15). |
+| OD-04 | Initial room set and sizes | **Room set decided (B2, ADR-0040):** 5 open + 3 closed placeholders. Room **sizes and door positions** remain intentionally undecided until the Room Final Design Spec (B15); the 2026-10-09 spike locked only the wall, door and window conventions. |
 | OD-05 | Workspace capacity | 10 GiB image to start |
 | OD-06 | Exec mechanism | socket-activated `maple-exec@` + `DynamicUser` + minimal `RootDirectory`; confirm with a spike |
 | OD-07 | Runtimes | Python 3.12 stdlib only at W4; Node later with an explicit MDWE exception ADR |
@@ -1465,7 +1527,7 @@ STEP 18    R6 (final art can be produced continuously from STEP 2a onward, integ
 | OD-15 | Brain suggesting investigation queries | rule-only in S3; revisit in S4 |
 | OD-16 | Observation retention/compaction (append-only exception) | 90 d raw + hourly aggregates forever |
 | OD-17 | How owner files (PDFs) enter the Library | owner upload endpoint (owner-auth) *or* a read-only owner inbox bind; prefer the upload endpoint with size/type caps |
-| OD-18 | Tile size and character frame size | **PROVISIONAL (ADR-0041, B12):** T = 16 px, Maple 32×48, feet anchor (16, 47), `FEET_IN_TILE` (8, 13); locked only after the technical spike |
+| OD-18 | Tile size and character frame size | **LOCKED 2026-10-09 (ADR-0041 L1–L4):** T = 16 px, Maple 32×48, feet anchor (16, 47), `FEET_IN_TILE` (8, 13). Face overlay size is still PROVISIONAL (owner blind test). |
 | OD-19 | Where source art (`.aseprite`) lives | **Decided 2026-10-08 (B7, B15, ADR-0041):** exports in `art/export/**` and the master palette in `art/palette/**` (plain Git, no LFS); sources/concept outside the repo |
 | OD-20 | W5 initial autonomy | approval required for every new project during the first month, then the policy table |
 
@@ -1477,13 +1539,13 @@ ADR-0035..0041 (Room) are **written and accepted** (2026-10-08, B1–B15) as des
 
 | ADR | Decision | Amends / supersedes |
 |---|---|---|
-| 0035 ✅ | World model: one house grid, derived room graph, flat 4-dir A\*, no teleport, direction vocabulary, provisional `FEET_IN_TILE` (accepted) | supersedes ADR-0027 geometry on implementation (keeps its semantics) |
+| 0035 ✅ | World model: one house grid, derived room graph, flat 4-dir A\*, no teleport, direction vocabulary, `FEET_IN_TILE` (accepted; LOCKED (8, 13) 2026-10-09) | supersedes ADR-0027 geometry on implementation (keeps its semantics) |
 | 0036 ✅ | Object catalog, capability-based interaction, approach/occupy points, backend owns geometry (accepted) | extends ADR-0027 §1; D26 preserved |
 | 0037 ✅ | World persistence, R1a/R1b staging, single v11 cutover, legacy projection, lookup-table enums (accepted) | extends ADR-0028 schema policy |
 | 0038 ✅ | Owner Edit Mode and defense-in-depth owner authentication (accepted; Serve header spike pending) | amends D3/D31 mutation surface |
 | 0039 ✅ | Storage and Maple slot placement (accepted) | narrows roadmap "Inventory"; D3 preserved |
 | 0040 ✅ | Room view transition, initial room set, default-switch acceptance gate (accepted) | extends D2 / ADR-0002 |
-| 0041 ✅ | Art technical contract rule set; face overlays; art file locations (accepted rules; numeric values PROVISIONAL) | locks the contract's rules; values locked later by a recorded owner decision after the spike |
+| 0041 ✅ | Art technical contract rule set; face overlays; art file locations (accepted rules). **Amended 2026-10-09:** Locked values L1–L22 and rule amendments C1–C8 after the spike | locks the contract's rules and the spike-proven values; face size, art appearance, default zoom and tints stay open |
 | 0042 | Workspace storage: `/data/maple/workspace` dedicated noexec mount, content-addressed blobs, metadata in `maple.db`, GC/retention | supersedes ADR-0029 §1 (document table stays) |
 | 0043 | Projects, artifacts, library items, representations | — |
 | 0044 | Execution boundary: `maple-exec` socket-activated sandbox; toolchain and package policy | scopes §4.1 #2 to the backend explicitly; realises §8 "lab" |
@@ -1502,7 +1564,7 @@ ADR-0035..0041 (Room) are **written and accepted** (2026-10-08, B1–B15) as des
 | R-01 | Journal Brain called inside the writer lock (30 s, no caps) stalls all transitions | medium; **active in production** (`MAPLE_BRAIN=antigravity`, verified 2026-10-08) | high | fix in STEP 0 (outside-the-lock pattern) |
 | R-02 | R1 migration of `life_state` again (rebuild) on irreplaceable data | low | high | v4-style in-transaction verify, pre-migration copy, owner snapshot gate |
 | R-03 | Exec sandbox mechanism not viable on the host's systemd/AppArmor | medium | medium | spike before W4; fallback options listed |
-| R-04 | Art produced before the technical lock needs rework | high if not locked | medium | Art Contract "WAIT FOR TECHNICAL LOCK" list; STEP 2a; ADR-0041 rule set accepted, numbers provisional |
+| R-04 | Art produced before the technical lock needs rework | low since the 2026-10-09 lock (face size still open) | medium | ADR-0041 Locked values; Art Contract D.2 "Still waits" list (face size, per-object geometry, room sizes) |
 | R-05 | Observer journal group reads all logs | medium | medium | code-level filtering, redaction, journald namespaces alternative, OD-12 |
 | R-06 | Redaction misses a secret and it reaches a cloud provider | low–medium | high | OD-14 default: no investigation data to the cloud; corpus tests |
 | R-07 | Scope creep (game systems via "inventory", "growth") | medium | medium | OD-02; growth only unlocks displays/slots; no acquisition loop |
@@ -1521,7 +1583,7 @@ The owner should require all of the following before R1 code starts. Later subsy
 **Before R1:**
 1. OD-01 resolved: an inside-service boundary probe and a restore test are recorded for the running release (hardening-loaded, Tailscale and backup creation are already verified), and the authorization status is clarified. §2.7 docs drift: done 2026-10-08. R-01 fixed or explicitly accepted.
 2. Room Final Design Spec approved (roadmap STEP 1): room list, sizes, door positions, furniture list per room.
-3. **Technical lock spike done** and its values recorded by an owner decision under ADR-0041:
+3. **Technical lock spike done** and its values recorded by an owner decision under ADR-0041. **Done 2026-10-09**, except the owner face blind test (face size) and the Serve header spike (`docs/spikes/2026-10-room-art-spike.md`):
    - tile size, Maple frame, feet anchor, `FEET_IN_TILE` and face-overlay readability/sizes validated together;
    - Tailscale Serve identity-header behaviour verified (ADR-0038; required before R4, not before R1);
    - a Pixi prototype demonstrates integer-scale, pixel-perfect rendering with y-sort, an occupant overlay, multiply and additive lighting, and camera modes on desktop, tablet, and phone widths;

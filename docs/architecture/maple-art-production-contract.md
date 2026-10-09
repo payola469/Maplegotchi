@@ -3,15 +3,26 @@
 > **DRAFT · PROPOSED · FOR HUMAN REVIEW. NOT IMPLEMENTED.**
 > - The current renderer is procedural and uses a 1000×600 front-view room (`docs/frontend.md`). This contract describes a *future* asset system.
 > - **Accepted rule set (2026-10-08):** the RULE items of this contract, face overlays (B6), art file locations (B7) and the direction vocabulary (B9) are accepted as **ADR-0041** (CLAUDE.md D40). The asset pipeline and art are still **not implemented**.
-> - **PROVISIONAL until technical validation** (the art/PixiJS spike; locked values recorded later by an owner decision under ADR-0041):
+> - **Technical lock (2026-10-09):** the art/PixiJS spike passed all three gates (`docs/spikes/2026-10-room-art-spike.md`). The owner **LOCKED** the proven values (ADR-0041 "Locked values", L1–L22):
 >   - tile size **16 px**;
 >   - Maple frame **32×48**;
 >   - sprite feet anchor **(16, 47)**;
 >   - `FEET_IN_TILE` **(8, 13)** at T=16 (ADR-0035);
->   - face overlay sizes.
+>   - 3T walls with open archway doors;
+>   - the depth, zoom, lighting, floor, atlas and budget rules.
+>
+>   Accepted RULE text is corrected by **ADR-0041 amendments C1–C8**, marked inline below.
+> - **Still PROVISIONAL / UNDECIDED:**
+>   - face overlay size (12×6 vs 14×8, pending the owner blind test);
+>   - final face appearance;
+>   - production art appearance;
+>   - default zoom per form factor;
+>   - phase tint colours;
+>   - per-object production geometry;
+>   - room dimensions and door positions.
 
-- **Status:** DRAFT for owner review. Values marked **PROVISIONAL** become binding only after the technical spike, through a recorded owner decision under ADR-0041. Values marked **RULE** are accepted (ADR-0041) and binding for production assets now.
-- **Date:** 2026-10-08
+- **Status:** DRAFT for owner review. Values marked **RULE** are accepted (ADR-0041) and binding for production assets now. Values marked **LOCKED** were recorded by the owner decision of 2026-10-09 after the technical spike (ADR-0041 "Locked values"), and are binding. Values still marked **PROVISIONAL** or **UNDECIDED** are not binding yet.
+- **Date:** 2026-10-08 (technical lock and amendments C1–C8: 2026-10-09)
 - **Audience:** the separate Maple Art chat or artist, and the engineers who integrate the assets. The document is self-contained, so you do not need the codebase to use it.
 - **Related:** `docs/architecture/maple-future-architecture.md` §6 (Room), §9 (visual architecture), §11 (representations).
 - **Out of scope:** art style. The agreed direction is not redesigned here: 3/4 top-down pixel art, *Cozy Digital Home + Personal AI Lab*, a multi-room world, and Maple as a female character in a simple shirt and simple skirt. This contract only fixes **how** assets are made and delivered so they plug into the engine without reinterpretation.
@@ -21,7 +32,7 @@
 ## 0. How to use this contract
 
 1. **Concept work (Part A)** can start today. It has no engine constraints beyond perspective and lighting discipline.
-2. **Production assets (Part B)** must follow the RULE items now. PROVISIONAL numbers (tile size, frame sizes, frame counts, footprints) may still change, so do not mass-produce final sprites until §D says they are locked.
+2. **Production assets (Part B)** must follow the RULE and LOCKED items now. Tile size, Maple canvas, anchors, wall, door and window dimensions are LOCKED. PROVISIONAL items may still change: face overlay size, frame counts above the minimums, and per-object footprints. Do not mass-produce sprites that depend on those until §D says they are locked.
 3. **Every production asset ships with a metadata sidecar (Part C).** The art side fills in the art fields and *proposes* the engine fields. Engineering reviews the engine fields and copies them into the object catalog, which then becomes authoritative.
 4. **Run the validation checklist (Part E)** before handing anything over.
 
@@ -30,7 +41,7 @@
 | Term | Meaning |
 |---|---|
 | **px** | One art pixel at 1× scale. This is also the world unit. |
-| **T** | Tile size in px. PROVISIONAL: 16. |
+| **T** | Tile size in px. **LOCKED: 16** (ADR-0041 L1). |
 | **Footprint** | The floor rectangle an object occupies, in tiles. |
 | **Anchor** | The point in a frame that the engine places at a world position. It is a pixel *corner*, not a pixel centre (§B.4). |
 | **Part** | A separately drawn piece of one object, such as a bed base and its blanket overlay, so the engine can layer it independently. |
@@ -49,7 +60,7 @@ Concept art is free in style within the agreed direction. These rules only preve
 | # | Rule |
 |---|---|
 | A.1 | **Perspective:** 3/4 top-down oblique with no vanishing points. Floor tiles read as squares. Object fronts (south faces) and tops are both visible. Side faces are seen only as thin edges or not at all. All furniture and rooms use the same viewing angle. |
-| A.2 | **Scale reference (PROVISIONAL):** one floor tile ≈ one step for Maple. Maple stands about 3 tiles tall including her head. A door opening is 2 tiles wide. A bed is 2 tiles wide by 3 tiles long. Use these proportions in concepts so production does not need to rescale. |
+| A.2 | **Scale reference:** one floor tile ≈ one step for Maple. Maple's canvas is 32×48 (2 × 3 tiles) and her visible height is up to 44 px. A door opening is 2 tiles wide, and at 3T walls a north door is an **open archway** with no lintel (LOCKED). A bed is 2 tiles wide by 3 tiles long (reference convention, not frozen). Use these proportions in concepts so production does not need to rescale. |
 | A.3 | **Key light** comes from the top-left at about 45°. Self-shading on objects follows it consistently. Do **not** paint night, sunset or lamp glow into object concepts. Show time of day and lighting as separate mood pieces (A.7). |
 | A.4 | **Silhouettes must read at 1×.** Check every concept at actual pixel size (for example a 32×48 character) as well as zoomed in. |
 | A.5 | **Draw furniture concepts in the `south` orientation first.** Note whether an object needs `east`, `west` or `north` versions, or whether it only ever sits against one wall. |
@@ -65,13 +76,13 @@ Concept art is free in style within the agreed direction. These rules only preve
 
 ## Part B: Production asset rules
 
-### B.1 Canvas and frame conventions (RULE, sizes PROVISIONAL)
+### B.1 Canvas and frame conventions (RULE; Maple canvas LOCKED)
 
 - **One canvas size per asset type.** All frames of one asset share it. Canvas sizes are whole multiples of 8 px. They do not have to be multiples of T.
 - **Objects:** canvas width = `footprint_w × T` plus any declared horizontal overhang. Canvas height = `footprint_h × T` + the object's visible height above its footprint.
-- **Maple:** every animation uses one canvas size. PROVISIONAL: **32 × 48 px**, for standing, sitting and lying alike.
+- **Maple:** every animation uses one canvas size. **LOCKED: 32 × 48 px** (ADR-0041 L2), for standing, sitting and lying alike. The maximum visible width is **22 px** (L5).
 
-### B.2 Tile and grid alignment (RULE; T is PROVISIONAL = 16)
+### B.2 Tile and grid alignment (RULE; T LOCKED = 16)
 
 - Floor tiles are exactly `T × T`.
 - Every object footprint is a whole number of tiles.
@@ -95,9 +106,9 @@ Concept art is free in style within the agreed direction. These rules only preve
 
 An anchor `(ax, ay)` is given in frame pixel coordinates from the frame's top-left. It names a **pixel corner**, so `(16, 47)` is the corner between pixel columns 15|16 and above pixel row 47.
 
-| Asset kind | Anchor means | PROVISIONAL value |
+| Asset kind | Anchor means | Value |
 |---|---|---|
-| Maple (all frames) | The point between her feet where they meet the floor. Feet contact row = `ay − 1`. | (16, 47) on 32×48 |
+| Maple (all frames) | The point between her feet where they meet the floor. Feet contact row = `ay − 1`. | **LOCKED** (16, 47) = (W/2, H−1) on 32×48 |
 | Floor object | South-west corner of the footprint, at floor level | (0, canvas_h), unless the object overhangs to the left |
 | Wall-mounted object | Bottom-left of the canvas. The engine places it at the wall column with `mount_y_px` above the floor line. | (0, canvas_h) |
 | Slot item (things on shelves and desks) | Bottom-centre contact point | (canvas_w/2, canvas_h) |
@@ -147,16 +158,20 @@ The engine draws these layers, back to front:
 | 10 | fx | sparkles, reaction icons |
 | 11 | editor overlay | grid and editing aids |
 
-How the y-sort in layer 5 works:
+How the y-sort in layer 5 works (**LOCKED**, ADR-0041 L11):
 - Each part's sort line is the footprint's south edge plus the part's `sort_offset_px`.
-- Maple's sort line is her feet.
+- **Maple's sort line is the south edge of her feet tile** (the one tile she occupies).
+  - **ADR-0041 AMENDMENT C4 (2026-10-09).** *Old rule:* "Maple's sort line is her feet." *Evidence:* spike M10, where the feet rule produced 28 depth mismatches, including same-row cases where her hair or arm was cut by a neighbouring shelf or desk; the tile rule produced 0.
+- While Maple occupies an object, she uses the object's sort line.
 - Lower on screen means drawn later, so it appears in front.
+- Key: `zIndex = sortY·8 + priority`. Priorities: structural 1 < furniture 2 < character 3 < above_occupant 4. Ties go by instance insertion order.
 
 ### B.8 Occlusion rules (RULE)
 
 - When Maple uses an object and part of it must appear **in front of her**, deliver that part separately as `--<part>.png` with `"sort": "above_occupant"`. Examples: a bed blanket, a chair back when she sits facing up, a desk front panel.
 - Tall objects such as bookshelves and plants naturally hide Maple when she walks behind them, because of the y-sort. Nothing extra is needed. Optionally set `"fade_when_occluding": true` so the engine fades them.
-- Wall tops and door lintels are always in front (`occluders` layer). Deliver them as their own parts.
+- Wall tops are always in front (`occluders` layer). Deliver them as their own parts. Door lintels, **where they exist**, are `occluders` parts too.
+  - **ADR-0041 AMENDMENT C5 (2026-10-09).** *Old rule:* every north door has a lintel occluder. *Evidence:* spike M09; at 3T walls any lintel crosses Maple's face in the doorway (10 px → 8 face-hidden frames, 3 px → 5). *Replacement:* **north doors at 3T walls are open archways with no lintel part.** The owner keeps 3T walls and does not shorten Maple.
 - Do not draw Maple into furniture art. Occupied states are composited by the engine.
 
 ### B.9 Shadows and lighting (RULE)
@@ -178,7 +193,7 @@ How the y-sort in layer 5 works:
 - **Prefer additive overlay parts to whole repaints** when a state only adds something. For example, deliver an empty bookshelf base plus `--books_1` to `--books_4` overlays.
 - State names: `[a-z][a-z0-9_]*`. `default` is required.
 
-### B.11 Animation sheet layout (RULE; frame counts PROVISIONAL)
+### B.11 Animation sheet layout (RULE; frame counts PROVISIONAL, walk cycle LOCKED)
 
 - **One animation per file.**
 - **Rows = directions** in the order `down, left, right, up`. If an animation is delivered for only some directions, include only those rows, in that order, and list them in the metadata `rows`.
@@ -187,12 +202,12 @@ How the y-sort in layer 5 works:
 - Object animations such as monitor flicker or a door opening follow the same layout. Their rows are orientations, in the order `south, east, west, north`.
 - **Timing lives in the metadata:** per-frame `ms`, `loop` (`loop | once | pingpong`), and optional `events`, such as a footstep on frames 1 and 3 for future sound.
 
-**Maple animation set.** Frame counts are PROVISIONAL; timing is in the metadata.
+**Maple animation set.** Frame counts are PROVISIONAL except `walk` (LOCKED, 4 frames per 2 steps); timing is in the metadata.
 
 | Key | Directions | Frames (prov.) | Notes |
 |---|---|---|---|
 | `idle` | down, left, right, up | 4 | breathing/blink, ~400–600 ms per frame |
-| `walk` | down, left, right, up | 4 | contact–pass–contact–pass, ~150 ms per frame |
+| `walk` | down, left, right, up | 4 (**LOCKED**) | contact–pass–contact–pass = **2 steps per cycle**; `ms` per frame = `ms_per_step / 2`; phase locked to route distance (C8) |
 | `sit_idle` | down, left, right, up | 2 | seated base pose |
 | `sit_write` | up (required), down | 4 | writing at a desk |
 | `sit_type` | up (required) | 4 | typing (coding, W4) |
@@ -205,6 +220,10 @@ How the y-sort in layer 5 works:
 | `react_greet` | down (required), left, right, up | 4, `once` | wave |
 | `react_pet` | down (required) | 4, `once` | happy |
 
+- **Walk timing: ADR-0041 AMENDMENT C8 (2026-10-09).**
+  - *Old rule:* walk "~150 ms per frame", time-driven.
+  - *Evidence:* spike M05. No time-driven 4-frame cycle with continuous motion meets the foot-slide criterion; locking the frame index to route distance gives 0 drift.
+  - *Replacement:* 4 frames per 2 steps; `ms` per frame = `ms_per_step / 2` (150 ms at 300 ms/step); the engine selects the frame from the distance walked. `ms_per_step` is backend tuning (ADR-0035 §7).
 - **Fallback chain:** a missing key falls back in a fixed order, for example `sit_type_up → sit_write_up → sit_idle_up → idle_up`. New activities can therefore ship before their art exists.
 - **Expressions: face overlays (RULE, B6, ADR-0041).**
   - Maple's **five fixed expressions** (`calm`, `happy`, `curious`, `sleepy`, `focused`) are drawn as **separate face overlay sprites**.
@@ -212,7 +231,11 @@ How the y-sort in layer 5 works:
   - The engine composites the face at a **per-frame face anchor** given in the metadata, so faces stay aligned during head movement, sitting and animation.
   - The `up` (back) direction needs no face. Sleep may use a fixed closed-eye face. Blink may be an optional small overlay animation.
   - The backend decides the expression; the renderer never invents one.
-  - **Face pixel dimensions are PROVISIONAL** until the spike verifies readability at the proposed Maple scale.
+  - **Face anchor method LOCKED** (ADR-0041 L6):
+    - each body frame has a top-left integer anchor `face_anchor[row][frame]`, with `null` meaning no face;
+    - glasses sit inside the overlay;
+    - the fixed sleep face is one cell.
+  - **Face pixel dimensions remain PROVISIONAL:** 12×6 is proposed and technically passes; 14×8 is the challenger. They lock after the owner blind test.
   - File pattern: `char.maple--face_<expression>.png`, with rows `down, left, right` and an optional blink column.
 
 ### B.12 Export format (RULE)
@@ -279,7 +302,7 @@ art/
 - plain Git, no LFS;
 - production palette definitions used by the art validator and build pipeline, and nothing else;
 - not runtime content and not concept or mood-board material;
-- excluded from the release bundle unless the build needs it at runtime.
+- excluded from the runtime bundle unless the build needs it at runtime (it stays in `git archive` as build input, C1).
 
 **Outside the main repository**, in a separate private art repository or a deliberate Drive folder:
 - `.aseprite` working sources;
@@ -290,9 +313,17 @@ art/
 Their history stays separate from runtime and release history.
 
 **Pipeline rules:**
-- The build pipeline reads **only** `art/export/**` and packs it into `frontend/public/assets/atlas/<pack>.{png,json}`.
+- The build pipeline reads **only** `art/export/**` (plus `art/palette/**` for validation).
+- **Atlas output: ADR-0041 AMENDMENT C2 (2026-10-09).**
+  - *Old rule:* the pipeline packs into `frontend/public/assets/atlas/<pack>.{png,json}`.
+  - *Evidence:* spike M18. `public/` files are served `immutable` without a content hash, so they go stale across releases.
+  - *Replacement:* generated atlases are **imported through Vite** and content-hashed (`/assets/<pack>-<n>-<hash>.png`, with the JSON bundled). They are never placed in `public/`.
 - Generated atlases are build artifacts, **never edited by hand**.
-- Raw `art/export` is marked `export-ignore` if the release pipeline packs it into `frontend/dist`.
+- **Release archive: ADR-0041 AMENDMENT C1 (2026-10-09).**
+  - *Old rule:* "Raw `art/export` is marked `export-ignore` if the release pipeline packs it into `frontend/dist`."
+  - *Evidence:* spike M21. The release build runs from `git archive`, and `export-ignore` removes its input, so the build fails.
+  - *Replacement:* `art/export/**` and `art/palette/**` are **never** `export-ignore`; they stay in `git archive` as release-build input.
+  - Raw art (`art/export` PNGs, `meta.json`, palette files) must **not** appear in the final runtime bundle. A bundle-content test enforces this: `frontend/dist` holds only the built frontend and hashed atlases.
 - **LFS pointer files must never enter production asset inputs.** The validator rejects any non-PNG or pointer file under `art/export/**`.
 
 ### B.15 Versioning and compatibility (RULE)
@@ -309,13 +340,22 @@ Each `meta.json` carries two numbers:
 
 ### B.16 Padding and safe area (RULE)
 
-- Keep a 1 px fully transparent border inside every frame, except floor tiles and wall tiles, which are edge-to-edge.
-- **Maple safe area (PROVISIONAL):** x 2–29, y 1–46 on the 32×48 canvas. Nothing outside it except the reserved transparent rows.
+- **Border: ADR-0041 AMENDMENT C3 (2026-10-09).**
+  - *Old rule:* "Keep a 1 px fully transparent border inside every frame, except floor tiles and wall tiles, which are edge-to-edge."
+  - *Evidence:* the spike validator found a conflict with B.5. A floor object's lowest front edge lies on its footprint's south edge, which is the canvas edge. Spike M14 showed that trimming and 2 px extrusion round-trip exactly on edge-touching frames.
+  - *Replacement:*
+    - a **full 1 px transparent border** applies to character body frames, slot items and fx;
+    - **floor objects and wall-mounted objects keep only the top row clear**; their footprint or mount edges may touch the canvas edge;
+    - floor tiles and structural wall, door, window and backdrop pieces are edge-to-edge;
+    - shadow and light sprites and face overlays carry no border requirement.
+- **Maple safe area (LOCKED, L5):** x 2–29, y 1–46 on the 32×48 canvas, with a maximum visible width of 22 px. Nothing may lie outside it except the reserved transparent rows.
 - Bubbles and emote icons are separate `fx` sprites. Do not draw them inside character frames.
 
 ### B.17 Pixel-perfect scaling (RULE)
 
-- The engine renders at integer zoom (1×–6×) with nearest-neighbour sampling.
+- The engine renders at integer zoom with nearest-neighbour sampling.
+  - **LOCKED (L13/L14):** apparent levels L1–L4 map to an integer **device** zoom `Zd = max(1, ⌊L·DPR + 0.25⌋)`, Zd ∈ [1, 12].
+  - The canvas is backed in device pixels, so fractional DPRs (1.25, 1.5) stay pixel-perfect (ADR-0041 amendment C6).
 - Art must look right at 1×, 2× and 3×.
 - No detail may depend on sub-pixel placement.
 - Anything that moves smoothly, such as Maple walking, is rounded to whole pixels at render time. Do not rely on half-pixel offsets between parts.
@@ -323,20 +363,21 @@ Each `meta.json` carries two numbers:
 ### B.18 Atlas compatibility (RULE)
 
 - Artists **do not pack atlases.** Deliver individual sheets.
-- The pipeline trims transparent space, records offsets so anchors stay exact, adds 2 px edge extrusion, and packs into pages of 2048×2048 or smaller.
-- So that trimming and extrusion work, deliveries must follow B.3 (transparent pixels are RGB 0) and B.16 (1 px border).
+- The pipeline trims transparent space, records offsets (`spriteSourceSize` inside `sourceSize`) so anchors stay exact, adds 2 px edge extrusion, and packs with a deterministic MaxRects into pages of 2048×2048 or smaller.
+  - **LOCKED page caps (L18):** ≤ 512 px for character and fx packs, ≤ 1024 px for the others.
+- Trimming and extrusion need B.3 (transparent pixels are RGB 0). Edge-touching frames round-trip exactly (C3).
 - Group assets by the room theme they belong to via `pack` in the metadata, for example `bedroom`, `living`, `library`, `studio`, `creation`, `system`, `hall` or `shared`. This keeps per-room loading small.
 
-### B.19 Room and environment assets (RULE; dimensions PROVISIONAL)
+### B.19 Room and environment assets (RULE; dimensions LOCKED 2026-10-09, room sizes and door positions UNDECIDED)
 
 | Asset | Delivery |
 |---|---|
-| Floors | Tileable `T×T` tile sheets, with ≥ 4 variants per material to break repetition. Seams must tile in all four directions. Optional transition or edge tiles in a declared blob/autotile layout, which is locked at the spike. |
-| North walls (full face) | Column segments `T` wide × **3T** tall (48 px PROVISIONAL), tileable horizontally. Include left and right ends, inner and outer corners, and a top cap row delivered as an `occluders` part. |
-| Side walls (east/west) | Shown as a thin top cap strip (`T` wide segments). No face drawn. |
+| Floors | Tileable `T×T` tile sheets, with **≥ 4 variants per material** (LOCKED; the engine picks one by an integer hash of room, x, y). Seams must tile in all four directions. Edges use a **16-cell 4-bit edge overlay** (LOCKED, L17): bits `N1 E2 S4 W8`, cells laid out 4×4 row-major. |
+| North walls (full face) | Column segments `T` wide × **3T** tall (48 px, **LOCKED**), tileable horizontally. A north wall occupies **3 non-walkable grid rows**, with the face drawn exactly over them. Include left and right ends, inner and outer corners, and a top cap row (visual height **≤ 13 px**) delivered as an `occluders` part. |
+| Side walls (east/west) | Shown as a thin top cap strip (`T` wide segments). A side wall occupies **1 grid column**, with its cap y-sorted per tile (LOCKED, L8). No face drawn. |
 | South walls | Cutaway: a low top cap or edge only, so the room interior is never hidden. |
-| Doors | North-wall door: opening **2T** wide, frame `2T × 3T`, states `closed`/`open` plus an optional 4-frame `anim`. Side and south doors are gap thresholds with frame cap pieces. Lintels are `occluders` parts. |
-| Windows | North-wall window `2T × 2T` (PROVISIONAL) at a declared `mount_y_px`, with transparent or `--glass` panes, a `--light` daylight spill sprite and an `--emissive` night-lit variant. |
+| Doors | North-wall door: opening **2T** wide, frame `2T × 3T` (LOCKED), drawn as an **open archway with no lintel part** at 3T walls (C5, owner decision 2026-10-09). Side and south doors are gaps in the wall: the **neighbouring wall tiles carry end caps** (`side_end_n` / `side_end_s`), never a single y-sorted door sprite (spike M09). Door positions in the house are UNDECIDED. |
+| Windows | North-wall window **`2T × 2T`** with **`mount_y_px` = 8** (the bottom of the window 8 px above the floor line), on exterior north walls only (LOCKED, L10). Panes are transparent or a `--glass` part, with a `--light` daylight spill sprite and an `--emissive` night-lit variant. |
 | Backdrops | Wide horizontal strips, tileable or long, with optional parallax layers (`--far`, `--mid`, `--near`). Day-neutral; the engine tints them. |
 | Composite set pieces | Allowed only as **objects** with a footprint (a large fireplace, a server rack wall). Never as a baked full-room image. |
 
@@ -448,11 +489,13 @@ Every asset declares a `fallback`. The pipeline ships generic placeholders: `pla
 
 ---
 
-## Part C-bis: Worked examples (PROVISIONAL numbers, T = 16)
+## Part C-bis: Worked examples (T = 16 LOCKED; per-object geometry is a reference convention, NOT frozen)
+
+Maple's canvas, anchor and safe area in Ex.1 are LOCKED. The furniture footprints, approach and occupy offsets and slot positions below are **reference conventions**: the spike's placeholder catalog used them successfully, for example the bed occupy offset −10 (spike M11). They are **not** frozen production geometry. Each production object locks its geometry through `geometry_version` review (ADR-0036).
 
 ### Ex.1 Maple character: `char.maple`
 
-- **Canvas:** 32×48 for every animation. Anchor (16, 47). Feet contact row 46. Safe area x 2–29, y 1–46.
+- **Canvas (LOCKED):** 32×48 for every animation. Anchor (16, 47). Feet contact row 46. Safe area x 2–29, y 1–46. Max visible width 22 px.
 - **Files:**
   - `char.maple--idle.png`: 4 frames × 4 rows, so 128×192.
   - `char.maple--walk.png`: 128×192.
@@ -642,27 +685,40 @@ Related archetypes, all following the same rules:
 - Creation and project archetype concepts (B, C-bis Ex.7).
 - Placeholder or programmer-art sprites that follow Part B, used for engine development and expected to be replaced.
 
-### D.2 WAIT FOR TECHNICAL LOCK (spike → owner decision under ADR-0041)
+### D.2 TECHNICAL LOCK: done 2026-10-09 (spike → owner decision under ADR-0041)
 
-- Final sprite-sheet dimensions and canvas sizes (Maple 32×48 is provisional).
-- Exact tile size T (16 is provisional).
-- Final object footprints and collision masks.
-- Final interaction approach and occupy coordinates, and slot coordinates.
-- Atlas packing configuration (pipeline-owned in any case).
-- Exact frame counts and timings per animation.
-- Final door, window and wall dimensions (2T openings and 3T walls are provisional).
-- Production export sizes and the final palette freeze.
-- Face overlay pixel dimensions and per-frame face anchor values. The *method* is decided: face overlays (B6). Only sizes and readability wait.
-- `FEET_IN_TILE` (provisional (8, 13) at T=16; proportional if T changes).
-- The floor autotile/blob layout.
+**Now LOCKED** (ADR-0041 "Locked values"; spike report `docs/spikes/2026-10-room-art-spike.md`):
+- tile size T = 16;
+- Maple canvas 32×48, anchor (16, 47), safe area, max visible width 22 px;
+- `FEET_IN_TILE` (8, 13) = (T/2, ⌊13T/16⌋);
+- 3T north walls (3 grid rows), 1-column side walls, cap ≤ 13 px;
+- 2T door openings as open archways at 3T;
+- 2T × 2T windows at `mount_y_px` 8;
+- the walk cycle (4 frames per 2 steps, distance-locked);
+- the face anchor *method*;
+- the floor variant and 16-cell edge-overlay layout;
+- atlas packing configuration;
+- the depth-sort rule;
+- the zoom levels;
+- the texture and performance budgets;
+- the validator rule set.
 
-**Lock procedure.** The engineering spike renders placeholder assets made per this contract in a PixiJS prototype: integer zoom 2×/3×/4×, y-sort, occupant overlays, multiply and additive lighting, camera modes. The spike validates together T, the Maple frame, the feet anchor, `FEET_IN_TILE`, face readability, grounding near walls, doors and furniture, and depth sorting at 1×–3×. The owner then records the locked values (an owner decision under ADR-0041), which changes the PROVISIONAL items in §F to LOCKED.
+**Still waits:**
+- Face overlay pixel dimensions (12×6 proposed vs 14×8) and the final face appearance: after the owner blind test.
+- Final per-object footprints, collision masks, approach, occupy and slot coordinates: `geometry_version` review per object. The spike's placeholder geometry is a reference convention only.
+- Exact frame counts and timings above the engine minimums.
+- Production palette freeze and art appearance (art direction).
+- Room dimensions and door positions in the house (Room Final Design Spec).
+
+**Lock procedure (as run).** The engineering spike renders placeholder assets made per this contract in a PixiJS prototype: integer zoom 2×/3×/4×, y-sort, occupant overlays, multiply and additive lighting, camera modes. The spike validates together T, the Maple frame, the feet anchor, `FEET_IN_TILE`, face readability, grounding near walls, doors and furniture, and depth sorting at 1×–3×. The owner then records the locked values (an owner decision under ADR-0041), which changes the PROVISIONAL items in §F to LOCKED. This was done on 2026-10-09 for every value except those listed under "Still waits".
 
 ---
 
 ## Part E: Validation checklist
 
 Run this per delivery. Items marked ⚙ are checked automatically by the asset pipeline once it exists. The others are manual review.
+
+**LOCKED validator rule set (ADR-0041 L22):** E1–E8, E10–E13, E18, E20 and E23–E25 are automated. The spike validator proved them with 0 false positives and 30/30 negative cases rejected. E9, E14–E17, E19, E21 and E22 keep the status shown.
 
 | # | Check | ⚙ |
 |---|---|---|
@@ -672,7 +728,7 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | E4 | Base and part layers use binary alpha only. Partial alpha appears only in shadow/light/glass/fx, with ≤ 8 levels. | ⚙ |
 | E5 | Base and part layers use only master-palette colours | ⚙ |
 | E6 | Sheet size = frames × canvas_w by rows × canvas_h. No gutters or margins. | ⚙ |
-| E7 | 1 px transparent border in every frame (except tiles). Maple pixels lie inside the safe area. | ⚙ |
+| E7 | 1 px transparent border per **C3**: full border on character body frames, slot items and fx; top row only on floor and wall-mounted objects; none on tiles, structural wall/door/window/backdrop pieces, shadow/light sprites and face overlays. Maple pixels lie inside the safe area. | ⚙ |
 | E8 | Anchor is identical across frames, states and parts. It lies inside the canvas. It is the feet point for Maple and the footprint SW corner for floor objects. | ⚙ (consistency) / manual (placement) |
 | E9 | Footprint × T is consistent with the visible floor contact. The front edge sits on the footprint's south edge. | manual + ⚙ overlay render |
 | E10 | `blocks` has `footprint.h` rows of `footprint.w` characters | ⚙ |
@@ -686,10 +742,10 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | E18 | Frame ≤ 512², file ≤ 2048 px per side | ⚙ |
 | E19 | `geometry_version` was bumped if any geometry changed (§B.15) | ⚙ (diff vs previous) |
 | E20 | `pack` is set. `fallback` is set. A `hit` polygon is present for interactive objects. | ⚙ |
-| E21 | Looks correct at 1×, 2× and 3× in the preview (the spike's viewer) | manual |
+| E21 | Looks correct at 1×, 2× and 3× in the preview (the spike's viewer), at L1–L4 | manual |
 | E22 | The tile sheet tiles seamlessly in 4 directions | ⚙ (seam diff) / manual |
 | E23 | Animation timing is present (`ms` per frame, `loop`) | ⚙ |
-| E24 | Only PNG and `meta.json` files under `art/export/**`; no LFS pointer files; no `.aseprite` or concept files (B7) | ⚙ |
+| E24 | Only PNG and `meta.json` files under `art/export/**`; no LFS pointer files and no `filter=lfs` attribute on art inputs; no `.aseprite` or concept files (B7) | ⚙ |
 | E25 | Face overlays exist for all five expressions in `down/left/right`; per-frame face anchors present for every body frame that shows a face (B6) | ⚙ |
 
 ---
@@ -699,9 +755,11 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | Value | Status | Default |
 |---|---|---|
 | Perspective 3/4 top-down oblique, key light top-left | RULE | — |
-| Tile size T | PROVISIONAL | 16 px |
-| Maple canvas / anchor | PROVISIONAL | 32×48 / (16, 47) |
-| `FEET_IN_TILE` (tile → feet pixel, shared backend/renderer constant) | PROVISIONAL | (8, 13) at T=16; proportional if T changes |
+| Tile size T | **LOCKED** (2026-10-09, L1) | 16 px |
+| Maple canvas / anchor | **LOCKED** (L2, L3) | 32×48 / (16, 47) = (W/2, H−1) |
+| Maple safe area / max visible width | **LOCKED** (L5) | x 2–29, y 1–46 / ≤ 22 px |
+| `FEET_IN_TILE` (tile → feet pixel, shared backend/renderer constant) | **LOCKED** (L4) | (T/2, ⌊13T/16⌋) = (8, 13) at T=16 |
+| Depth sort (Maple = south edge of her feet tile) | **LOCKED** (L11; amendment C4) | `zIndex = sortY·8 + priority` |
 | Direction vocabulary (character `down/left/right/up`, object `south/east/west/north`, fixed mapping) | RULE (B9) | — |
 | Art file locations (`art/export/**` plain Git, no LFS; sources/concept outside the repo) | RULE (B7) | — |
 | Master palette location (`art/palette/**`, plain Git, no LFS; validator/build input only; not shipped unless needed at runtime) | RULE (B15) | — |
@@ -712,15 +770,29 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | Separate shadow / light / emissive / glass / occupant-overlay parts | RULE | — |
 | Naming and ID grammar | RULE | — |
 | `art_revision` / `geometry_version` semantics | RULE | — |
-| North wall height | PROVISIONAL | 3T |
-| Door opening | PROVISIONAL | 2T |
-| Window size | PROVISIONAL | 2T × 2T |
-| Frame counts per animation | PROVISIONAL | §B.11 table |
-| Expression method | RULE (B6) | face overlays, per-frame face anchors |
-| Face overlay dimensions | PROVISIONAL | set by the spike (readability) |
-| Floor autotile layout | PROVISIONAL | not yet set; locked at the spike |
-| Atlas page size | RULE (pipeline) | ≤ 2048² |
+| North wall height / cap | **LOCKED** (L7) | 3T = 48 px / cap ≤ 13 px |
+| Wall grid convention | **LOCKED** (L8) | north walls 3 grid rows; side walls 1 column; south cutaway 1 row |
+| Door opening | **LOCKED** (L9; amendment C5) | 2T, open archway (no lintel) at 3T walls; side doors = gap + end caps |
+| Window size / mount | **LOCKED** (L10) | 2T × 2T / `mount_y_px` 8 |
+| Walk cycle | **LOCKED** (L12; amendment C8) | 4 frames per 2 steps, distance-locked; `ms` = `ms_per_step / 2` |
+| Frame counts per animation (other than walk) | PROVISIONAL | §B.11 table |
+| Expression method / face anchor method | RULE (B6) / **LOCKED** (L6) | face overlays, per-frame top-left integer face anchors |
+| Face overlay dimensions | PROVISIONAL | 12×6 proposed (technical PASS); owner blind test vs 14×8 |
+| Face appearance, expression designs | UNDECIDED | art direction |
+| Floor layout | **LOCKED** (L17) | ≥ 4 variants per material + 16-cell 4-bit edge overlay |
+| Atlas page size | RULE (pipeline) + **LOCKED** caps (L18) | ≤ 2048²; ≤ 512 (character, fx), ≤ 1024 (others) |
+| Atlas location / loading | **LOCKED** (L18, L19; amendment C2) | Vite-imported, content-hashed; `preferWorkers: false`; CSP unchanged |
+| Raw art in the release | RULE (amendment C1) | in `git archive` (build input), never in the runtime bundle |
+| Frame border | RULE (amendment C3) | E7 as amended |
 | Integer-only zoom (no fractional world scaling) | RULE (engine) | — |
-| Exact zoom steps | PROVISIONAL | engine range 1×–6×; set by the spike |
-| Texture-memory budget | PROVISIONAL | set by the spike |
-| Room dimensions, door positions | UNDECIDED | Room Final Design Spec / technical art spike (B15) |
+| Zoom levels / renderer strategy | **LOCKED** (L13, L14) | L1–L4, `Zd = max(1, ⌊L·DPR + 0.25⌋)`, device-pixel backing |
+| Default zoom per form factor | UNDECIDED | visual review (Q4) |
+| Lighting partition | **LOCKED** (L16) | multiply tint over a non-overlapping grid partition |
+| Phase tint colours, light strengths | UNDECIDED | art direction (Q4) |
+| Texture-memory budget | **LOCKED** (L20) | 32 MiB resident (static ≤ 28, runtime ≤ 4) |
+| Performance budgets | **LOCKED** (L21) | ≤ 40 draw calls; p95 ≤ 4 ms desktop / ≤ 8 ms 4× phone emulation; 0 frames > 33 ms; soak < 5 MB |
+| Validator rule set | **LOCKED** (L22) | E1–E8, E10–E13, E18, E20, E23–E25 automated |
+| Per-object production geometry | PROVISIONAL | spike placeholder geometry is a reference convention only; `geometry_version` review |
+| Room dimensions, door positions | UNDECIDED | Room Final Design Spec (the spike did not decide them) |
+| Real-device mobile acceptance | DEFERRED | B14 gate (ADR-0040 §4 item 5), before the default switch |
+| Linux atlas reproducibility | DEFERRED | R1a CI |

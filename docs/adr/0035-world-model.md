@@ -1,7 +1,7 @@
 # ADR-0035: World model — one house grid, derived room graph, 4-direction movement
 
-- **Status:** Accepted — FIXED design (CLAUDE.md D34). **NOT IMPLEMENTED.** Implementation is not yet authorized. Technical values marked PROVISIONAL wait for the art/PixiJS technical spike (ADR-0041).
-- **Date:** 2026-10-08
+- **Status:** Accepted — FIXED design (CLAUDE.md D34). **NOT IMPLEMENTED.** Implementation is not yet authorized. **Amended 2026-10-09:** the art/PixiJS technical spike passed (`docs/spikes/2026-10-room-art-spike.md`). `FEET_IN_TILE` (§6) and the wall grid convention (§4) are **LOCKED** (ADR-0041 L4, L8). Room sizes, door positions and movement tuning (§7) stay undecided.
+- **Date:** 2026-10-08 (amended 2026-10-09)
 - **Decided by:** owner, Maple Room review decisions **B8** (geometry), **B9** (direction vocabulary), **B12** (feet in tile, provisional), and **B13** (baseline A1, A6, A7, A8).
 - **Supersedes (on implementation at R1b, ADR-0037):** the *geometry* of ADR-0027. That covers the single 1000×600 front-view room, the hard-coded points in `core/room.py`, and the waypoint graph with declared edge lengths. ADR-0027's movement *semantics* are kept unchanged. Until R1b, ADR-0027 describes the running system.
 - **Related:** ADR-0036 (objects), ADR-0037 (persistence and migration), ADR-0040 (view transition), ADR-0041 (art contract), `docs/architecture/maple-future-architecture.md` §6, `docs/roadmap/maple-roadmap.md` R1.
@@ -44,6 +44,12 @@ Rooms, doors and object placements are versioned **data** that core validates, n
 
 ### 4. Collision (A8)
 - Walkability = floor tiles − wall tiles − the blocking masks of placed objects + door tiles in `open` state.
+- **Wall grid convention (LOCKED 2026-10-09, ADR-0041 L8; spike M09):**
+  - A north (east–west) wall occupies **H_w / T = 3 non-walkable grid rows** (H_w = 3T). Its face is drawn exactly over those rows.
+  - A side (north–south) wall occupies **1 non-walkable grid column**.
+  - The exterior south wall is 1 cutaway row.
+  - A door is an opening **2 tiles** wide in the wall. North doors are open archways (no lintel). A side door is a gap whose neighbouring wall tiles carry end caps.
+  - Room sizes and door positions remain undecided (§7).
 - Maple occupies exactly **one tile**, her feet tile.
 - There are no other agents, and dynamic occupancy is deferred.
 
@@ -56,18 +62,24 @@ Rooms, doors and object placements are versioned **data** that core validates, n
   - During R1a, the new character directions are added alongside them, with `front → down` and `back → up`.
   - `front`/`back` are retired only after the flagged transition is complete (ADR-0040).
 
-### 6. Feet point inside a tile (B12) — PROVISIONAL
+### 6. Feet point inside a tile (B12) — LOCKED 2026-10-09
 - **Accepted:**
   - Stored world positions are **tile coordinates only**.
   - One shared constant `FEET_IN_TILE` maps a tile to the pixel where Maple's feet stand. Backend and renderer use the same constant, and so do route positions and walking interpolation.
   - Feet are horizontally centred in the tile and sit slightly toward its south (lower) side.
-- **PROVISIONAL:** `FEET_IN_TILE = (8, 13)` for `T = 16`. It is validated by the technical spike together with T, the Maple frame, the sprite feet anchor, grounding near walls, doors and furniture, and depth sorting at 1×–3× (ADR-0041). If T changes, `FEET_IN_TILE` is expressed **proportionally**, not as the literal `(8, 13)`.
+- **LOCKED (2026-10-09, ADR-0041 L4):** `FEET_IN_TILE = (T/2, ⌊13T/16⌋) = (8, 13)` at the locked `T = 16`.
+  - It was validated together with T, the Maple frame (32×48), the sprite feet anchor (16, 47), grounding near walls, doors and furniture, and depth sorting (spike M02, M06, M09, M10).
+  - FEET y 12, 13 and 14 all passed, so the tie keeps 13.
+  - The formula is the definition: if T were ever changed by a new owner decision, the constant follows the formula, not the literal `(8, 13)`.
+- **Depth (renderer, ADR-0041 L11):** Maple sorts by the **south edge of her feet tile**, not by her feet pixel. The feet tile is the one tile she occupies (§4).
+- *Previously PROVISIONAL (2026-10-08): `(8, 13)` for `T = 16`, proportional if T changes.*
 
 ### 7. PROVISIONAL tuning (not architecture)
 These are set during implementation and changed only together with the pinned simulation digest:
 - `ms_per_step`;
 - the turn penalty;
-- the room sizes and door positions of the initial house. These are **intentionally undecided** until the Room Final Design Spec and the technical art spike (confirmed with B15).
+- the room sizes and door positions of the initial house. These are **intentionally undecided** until the Room Final Design Spec (confirmed with B15). The technical art spike (2026-10-09) did **not** decide them; it only locked the wall, door and window conventions they must use (ADR-0041 L7–L10).
+- Spike evidence for `ms_per_step` (M05): 300 ms gives 1 px per 60 Hz frame with 11 % zero-advance frames; 250 ms gives mostly 1 px, occasionally 2. Either is acceptable; the choice is made in R1a with the simulation digest.
 
 ## Deferred
 - Hierarchical pathfinding and path caches (only if profiling shows a need).

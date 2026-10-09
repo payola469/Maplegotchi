@@ -39,13 +39,13 @@ accepted; a changed decision gets a new ADR that supersedes the old one.
 | [0032](0032-discord-conversation.md) | Discord conversations with the same Maple (D31) |
 | [0033](0033-brain-companion-packaging.md) | The Maple Brain companion, version-controlled and reproducible (D32) |
 | [0034](0034-brain-health-observability.md) | Brain Health / Observability v1: companion model, reply latency (schema v10), read-only `/api/brain-health` (D33) |
-| [0035](0035-world-model.md) | Maple Room world model: one house grid, derived room graph, flat 4-direction A\*, direction vocabulary, provisional feet-in-tile (D34; accepted design, not implemented) |
+| [0035](0035-world-model.md) | Maple Room world model: one house grid, derived room graph, flat 4-direction A\*, direction vocabulary, feet-in-tile (LOCKED 2026-10-09) and wall grid convention (D34; accepted design, not implemented) |
 | [0036](0036-object-catalog-and-capabilities.md) | Object catalog, capability-based interaction, approach/occupy points, backend owns geometry (D35; accepted design, not implemented) |
 | [0037](0037-world-persistence-v11-migration-and-legacy-projection.md) | World persistence, R1a/R1b staging, single schema-v11 cutover, legacy projection (D36; accepted design, not implemented) |
 | [0038](0038-owner-edit-mode-and-owner-authentication.md) | Owner Edit Mode and defense-in-depth owner authentication (D37; accepted design, not implemented; Tailscale header spike pending) |
 | [0039](0039-storage-and-maple-slot-placement.md) | Storage (not an inventory) and Maple's slot-only placement autonomy (D38; accepted design, not implemented) |
-| [0040](0040-room-view-transition-and-acceptance-gate.md) | Legacy room stays default behind a flag; 5 open + 3 placeholder rooms; default-switch acceptance gate (D39; accepted design, not implemented) |
-| [0041](0041-art-technical-contract.md) | Art technical contract rule set; face overlays; art file and palette locations; numeric values provisional (D40; accepted rules, values pending spike) |
+| [0040](0040-room-view-transition-and-acceptance-gate.md) | Legacy room stays default behind a flag; 5 open + 3 placeholder rooms; default-switch acceptance gate; locked zoom/camera/budgets referenced 2026-10-09 (D39; accepted design, not implemented) |
+| [0041](0041-art-technical-contract.md) | Art technical contract rule set; face overlays; art file and palette locations; Locked values L1–L22 and rule amendments C1–C8 after the 2026-10-09 spike; face size still provisional (D40; accepted rules, not implemented) |
 
 ## Template
 
