@@ -77,7 +77,7 @@ denies every action to `maple-svc`. Evidence on the host comes from
 
 **Boundary verification update (2026-10-10):**
 - **Inside-service runtime boundary behaviour:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
-- **Isolated Restore Test: PASS / CLOSED (2026-10-10)** from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md`. No production replacement or restart/recovery test; archived identity equality does not authenticate original provenance or prove uninterrupted continuity. R-01 repository criteria are satisfied; separate gate clearance remains pending and R1a has not started.
+- **Isolated Restore Test: PASS / CLOSED (2026-10-10)** from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md`. No production replacement or restart/recovery claim from that exercise; archived identity equality does not authenticate original provenance or prove uninterrupted continuity. Owner now confirms R-01 deployed/HTTP Health PASS, Pre-R1 clearance APPROVED / CLEAR and R1a AUTHORIZED; only R1A-01 baseline preparation starts.
 
 See `docs/architecture.md` → Deployment state.
 
@@ -97,8 +97,8 @@ Boundaries between the services:
 
 ## Known limitations and open items (documented, not fixed)
 
-1. **R-01: PASS / CLOSED at repository level, owner accepted 2026-10-10; not deployed.**
-   - Historical finding: deployed journal `/generate` holds the writer lock, with a 30 s default and no explicit response cap/redirect refusal. Production uses `MAPLE_BRAIN=antigravity` (owner evidence 2026-10-08); no new production verification or deployment is claimed.
+1. **R-01: PASS / CLOSED; owner confirms production deployment and HTTP Health PASS (2026-10-10).**
+   - Historical finding on the old release: journal `/generate` held the writer lock, with a 30 s default and no explicit response cap/redirect refusal. Owner now confirms remediation deployed; exact deployed SHA and detailed acceptance transcript not supplied. HTTP Health alone does not prove concurrency, timeout or sandbox enforcement. No agent production access. Pre-R1 clearance APPROVED / CLEAR; R1a AUTHORIZED, R1A-01 baseline preparation only; full baseline checks/CI remain unverified.
    - Repository patch: prepare under lock → one daemon composes unlocked → revision/lifecycle revalidation → atomic commit. Stale candidates are recomputed without wording; busy/timeout/failure also yields no wording. Core validation and existing retry opportunities remain authoritative.
    - Monotonic caller deadline: 30 s including startup, request preparation and parsing; connect at most 2 s. Streamed HTTP body limited to 64 KiB before JSON parsing; redirects/environment proxies refused; no automatic retries. Only identity content coding is accepted, preventing decompression expansion before the cap.
    - Timed-out workers retain their slot through transport cleanup: at most one outstanding request per runtime, no replacement worker or durable queue. Workers have no storage or commit capability.

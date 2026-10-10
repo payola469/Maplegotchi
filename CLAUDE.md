@@ -1,5 +1,7 @@
 # CLAUDE.md — Maplegotchi
 
+> **Current owner authorization — 2026-10-10:** Pre-R1 Gate clearance APPROVED / CLEAR; R1a preparation and implementation AUTHORIZED. R-01 is implemented, merged and deployed to paolo-core, HTTP Health PASS (owner-confirmed; exact deployed SHA / detailed acceptance transcript not supplied). R1A-01 is IN PROGRESS on `codex/r1a-01-baseline` from `5c6db41c0139e1da6a2178b36d838e4da57074b1`, baseline/documentation preparation only; R1A-02–R1A-20 remain TODO. This supersedes earlier R1a authorization and R-01 deployment/pending-gate statements below. Baseline release gate and CI are not claimed PASS. No production changes are authorized in this kickoff; retained paolo-core build environment must remain intact. See `docs/implementation/maple-room-r1a-01-baseline.md` and worklog. Phase 8/M3 status is unchanged.
+
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
 > **Status: Phases 0-6 complete and APPROVED (2026-09-30); milestones M1, M2 reached. Phase 7 authorized by the owner: Stage A (read-only paolo-core survey) complete; Stage B (local preparation: D-Bus transport, service map, sandbox, release/backup/verification tooling) complete and awaiting review. Stage C (owner-run install on paolo-core) and Phase 8 NOT authorized.**

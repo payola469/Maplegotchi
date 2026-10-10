@@ -1,5 +1,7 @@
 # Maple future architecture: Room, Workspace, System Investigator
 
+> **Owner status update — 2026-10-10:** Pre-R1 clearance APPROVED / CLEAR; R1a preparation and implementation AUTHORIZED. R1A-01 baseline/documentation preparation starts at `5c6db41…`; R1A-02–R1A-20 remain TODO. Owner confirms R-01 deployed to paolo-core and HTTP Health PASS; exact deployed SHA / detailed acceptance transcript not supplied. This supersedes earlier R-01 "not deployed" / active-production-finding and pending-gate statements below. No world/engine implementation exists yet; proposal/ADR/spec authority is unchanged. Baseline release-gate and CI PASS remain unverified. Evidence: `docs/implementation/maple-room-r1a-01-baseline.md` and worklog.
+
 > **DRAFT · PROPOSED · FOR HUMAN REVIEW. NOT IMPLEMENTED.**
 > - This document is an architecture proposal. None of the components, services, tables, endpoints, mounts, or units it describes exist in the code or on any host.
 > - The current system is described by `CLAUDE.md` and `docs/*.md`.

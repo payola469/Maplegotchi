@@ -6,7 +6,9 @@ owner-run procedure is `deploy/install.md`.
 
 This file describes the designed and contract-tested production boundary.
 
-**Verified current runtime (2026-10-08):**
+**Latest owner update (2026-10-10):** R-01 implementation is merged and deployed to paolo-core; HTTP Health PASS. Exact deployed SHA, activation time and detailed post-deployment evidence were not supplied with this update; do not infer them from the approved development baseline `5c6db41…`. Pre-R1 clearance APPROVED / CLEAR; R1a AUTHORIZED, R1A-01 baseline preparation IN PROGRESS. No deployment/restart is performed or authorized by this kickoff. Retain the paolo-core build environment. Prior release-gate attempt did not start; complete exact-baseline checks/CI evidence remain missing. See `docs/implementation/maple-room-r1a-01-baseline.md`.
+
+**Historical verified runtime (2026-10-08; release details superseded by the owner update above):**
 - `maplegotchi`, `maple-brain` and `maple-discord` are active on paolo-core.
 - Each `current` points to release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`.
 - The database is at schema v10.
@@ -17,7 +19,7 @@ This file describes the designed and contract-tested production boundary.
 
 **Boundary verification update (2026-10-10):**
 - **Inside-service runtime probe:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
-- **Isolated Restore Test: PASS / CLOSED (2026-10-10).** Owner-restored schema v10 database opens and passes integrity verification; historical/current archived identity equality and exact-path cleanup passed. Evidence and limitations: `docs/implementation/maple-room-r1a-worklog.md`. Production replacement and restart/recovery were not tested; R-01 remains OPEN and R1a has not started.
+- **Isolated Restore Test: PASS / CLOSED (2026-10-10).** Owner-restored schema v10 database opens and passes integrity verification; historical/current archived identity equality and exact-path cleanup passed. Evidence and limitations: `docs/implementation/maple-room-r1a-worklog.md`. Production replacement and restart/recovery were not tested by that restore exercise. R-01 deployment and R1a authorization status are updated above.
 
 See `docs/architecture.md` → Deployment state. The v0.2 companions have their own
 units and runbooks: `maple-brain` (`deploy/brain/`, ADR-0033) and `maple-discord`

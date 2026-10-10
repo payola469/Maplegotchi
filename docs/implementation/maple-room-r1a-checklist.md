@@ -2,8 +2,8 @@
 
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
-- **Baseline:** `v0.2-development` @ `dfd5972`
-- **R1a authorization:** **NOT GIVEN.** No item may leave TODO until the Pre-R1 Gate below is closed and the owner authorizes R1a (plan §9).
+- **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 starts with baseline preparation only; R1A-02–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -16,8 +16,9 @@ Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last up
 | Phase 8 status | **RESOLVED** | 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b |
 | Boundary probe (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied production evidence; worklog contains results and limitations |
 | Restore test (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10: owner-executed isolated restic restore; restored `maple.db` opens and passes `integrity_check`; evidence and limitations in worklog |
-| R-01 | **RESOLVED** | **PASS / CLOSED (repository level)** 2026-10-10: owner accepted `3c90e78` + `6f3239f` and authorized merge without another independent review; worklog evidence; not deployed |
-| R1a authorization | **BLOCKED** | R-01 repository criteria satisfied; separate Pre-R1 Gate clearance and explicit R1a authorization still required |
+| R-01 | **RESOLVED** | **PASS / CLOSED**; repository acceptance recorded; owner confirms production deployment completed and HTTP Health PASS (2026-10-10). Exact deployed SHA / detailed acceptance transcript not supplied |
+| Pre-R1 Gate clearance | **RESOLVED** | **APPROVED / CLEAR** by explicit owner decision, 2026-10-10; does not imply release-gate/CI PASS |
+| R1a authorization | **RESOLVED** | **AUTHORIZED** by owner, 2026-10-10; R1A-01 kickoff only in this step |
 
 Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item statuses below.
 
@@ -25,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 20 | 0 | 0 | 0 | 0 | 0 |
+| 20 | 19 | 1 | 0 | 0 | 0 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -53,7 +54,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | ID | Title | Status | Dependencies (start) | Last updated |
 |---|---|---|---|---|
-| R1A-01 | Baseline and test harness | TODO | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-09 |
+| R1A-01 | Baseline and test harness | IN PROGRESS | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
 | R1A-02 | Canonical world model and final house geometry | TODO | 01 | 2026-10-09 |
 | R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
@@ -78,15 +79,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-01 — Baseline and test harness
 
-- **Status:** TODO
+- **Status:** IN PROGRESS
 - **Dependencies:** Pre-R1 Gate closed + owner authorization of R1a
-- **Branch:** —
-- **Start commit:** —
+- **Branch:** `codex/r1a-01-baseline`
+- **Start commit:** `5c6db41c0139e1da6a2178b36d838e4da57074b1`
 - **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** Cannot start until the Pre-R1 Gate is closed (remaining: separate owner gate-clearance decision; R-01 repository-level, boundary probe and restore PASS) and R1a is authorized.
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Evidence / tests:** Owner approval; local Git/remote/clean-start verification; documentation/static checks. Historical R-01 validation is not full baseline/CI evidence; see baseline record.
+- **Notes:** Kickoff/documentation preparation only. Baseline verification and harness remain outstanding; no World Model, Test Oracle or Engine created. R1A-02–R1A-20 not started.
+- **Last updated:** 2026-10-10 (owner-authorized kickoff)
+- **Detailed task plan:** [R1A-01 baseline and focused task plan](maple-room-r1a-01-baseline.md)
 
 ### R1A-02 — Canonical world model and final house geometry
 
