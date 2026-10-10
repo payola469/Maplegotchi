@@ -257,7 +257,8 @@ def host(expected: str) -> None:
     def runtime() -> None:
         status = cb.parse_proc_status(Path(f"/proc/{before[0]}/status").read_text())
         results = cb.evaluate_process(status, account.pw_uid, account.pw_gid)
-        require(not status.get("Groups", "").split(), "service supplementary groups not empty")
+        # evaluate_process permits only the primary GID in Groups (or an empty
+        # list). The namespace helper separately requires --clear-groups.
         listeners = []
         for name, v6 in (("tcp", False), ("tcp6", True)):
             listeners.extend(cb.parse_listeners(Path(f"/proc/net/{name}").read_text(), ipv6=v6))

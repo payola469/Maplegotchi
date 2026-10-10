@@ -14,7 +14,7 @@ Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last up
 |---|---|---|
 | Stage C authorization | **RESOLVED** | 2026-10-09: install of `160ed4f…` retroactively authorized; Stage C stays open; M3 not claimed |
 | Phase 8 status | **RESOLVED** | 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b |
-| Boundary probe (OD-01) | **OPEN** | inside-service probe for the deployed release; BLOCKER before R1A-01. 2026-10-10: Boundary probe tooling safety patch = **prepared / pending production execution**; local targeted validation only; no production evidence yet |
+| Boundary probe (OD-01) | **OPEN** | inside-service probe for the deployed release; BLOCKER before R1A-01. 2026-10-10: owner reports production probe attempted; false FAIL on primary-only Groups discovered; tooling bug identified and fixed, **pending production rerun**. No accepted probe PASS yet |
 | Restore test (OD-01) | **OPEN** | restic restore; restored `maple.db` passes `integrity_check`; BLOCKER before R1A-01 |
 | R-01 | **OPEN** | fixed (separate small PR) or explicitly accepted by the owner; BLOCKER before R1A-01 |
 | R1a authorization | **BLOCKED** | until the three OPEN items above are resolved |
