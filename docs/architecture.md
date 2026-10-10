@@ -5,8 +5,8 @@ built; this file collects longer-form notes as each phase lands.
 
 ## R1A-01 test infrastructure (2026-10-10)
 
-R1A-01 is OWNER ACCEPTED / MERGE PENDING (owner decision 2026-10-10);
-PR #1 integration is not complete. R1A-02–R1A-20 remain TODO. This adds
+R1A-01 is DONE / OWNER ACCEPTED / MERGED (owner decision 2026-10-10);
+PR #1 merged into `v0.2-development` at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`. R1A-02 current status is recorded below; R1A-03–R1A-20 remain TODO. R1A-01 added
 only `tests/world/` (T1–T7 oracle, approved snapshot, deterministic scratch fixtures,
 evidence conventions and negative contract tests), plus docstring-only package
 markers at `core/world/` and `world_catalog/`. Runtime will load the future catalog
@@ -17,6 +17,21 @@ only `src/maplegotchi`. No world behavior, production view, schema or deployment
 changes. Details and evidence: `implementation/maple-room-r1a-01-baseline.md` and
 `../backend/tests/world/README.md`. Historical phase/runtime records below remain
 historical; current gate clearance and authorization are recorded in the R1a checklist.
+
+## R1A-02 Checkpoint 1 (2026-10-10)
+
+STEP 81 authorizes foundational pure values only. `core/world/coordinates.py`
+owns T=16, grid dimensions, immutable Tile and the single feet-offset formula;
+`model.py` owns frozen Rect/Region and region enums; `directions.py` owns the
+canonical character/object enums and explicit bidirectional legacy Facing adapters.
+Rect ranges are half-open and grid-contained; malformed values fail explicitly.
+These modules use deterministic, immutable inputs with no I/O, clock, randomness,
+database or external services. No production entry point imports them.
+No wall, door, passage, lighting, layout loader or initial-house data is implemented.
+Oracle/Harness, existing Facing, simulation pin and production behavior are unchanged.
+R1A-02 is IN PROGRESS; Checkpoint 1 meets its criteria pending review.
+Checkpoints 2–6 require separate authorization. Evidence: implementation worklog,
+STEP 81; 92 focused tests passed and all 10 import contracts kept.
 
 ## Phase status
 

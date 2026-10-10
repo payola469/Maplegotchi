@@ -1,1 +1,1 @@
-"""Reserved pure world-domain package. R1A-01 supplies contracts only, no behavior."""
+"""Pure world-domain primitives; no initial layout or production activation."""
