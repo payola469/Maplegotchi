@@ -7,6 +7,7 @@ admin/debug surface in production (API docs exist only in development).
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -94,8 +95,10 @@ def create_app(
         try:
             yield
         finally:
+            await asyncio.to_thread(service.begin_shutdown)
             if run_life_loop:
                 await service.stop_life_loop()
+            await asyncio.to_thread(service.close)
 
     docs = settings.docs_enabled
     app = FastAPI(
@@ -152,16 +155,17 @@ def create_app(
         limit: int = Query(200, ge=1, le=MAX_LIFE_EVENTS),
     ) -> LifeEventsOut:
         """Life events committed after `after_revision` (a cursor for any client)."""
-        records = service.runtime.life_since(after_revision, limit=limit)
-        events = views.life_events(records)
-        # Only whole revisions are returned, so a client never misses part of one.
-        cutoff = _complete_cutoff(records, limit)
-        if cutoff is not None:
-            events = [e for e in events if e.revision < cutoff]
-            if not events:  # one revision holds more than `limit`: serve it whole
-                events = views.life_events(service.runtime.life_written_at(cutoff))
-        last = events[-1].revision if events else after_revision
-        return LifeEventsOut(events=events, last_revision=last)
+        with service.operation():
+            records = service.runtime.life_since(after_revision, limit=limit)
+            events = views.life_events(records)
+            # Only whole revisions are returned, so a client never misses part of one.
+            cutoff = _complete_cutoff(records, limit)
+            if cutoff is not None:
+                events = [e for e in events if e.revision < cutoff]
+                if not events:  # one revision holds more than `limit`: serve it whole
+                    events = views.life_events(service.runtime.life_written_at(cutoff))
+            last = events[-1].revision if events else after_revision
+            return LifeEventsOut(events=events, last_revision=last)
 
     @api.get("/documents", response_model=list[DocumentSummaryOut])
     def documents(limit: int = Query(20, ge=1, le=MAX_RECENT)) -> list[DocumentSummaryOut]:

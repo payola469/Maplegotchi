@@ -7,7 +7,7 @@
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
 > - **R1a is NOT authorized.** This document plans R1a; it does not authorize it. Implementation starts only after an explicit owner authorization.
-> - **Pre-R1 gate (§9): R-01 remains OPEN and is a BLOCKER before R1A-01** (fixed or explicitly accepted). The OD-01 boundary probe and restore test are **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied evidence (worklog). Stage C authorization and Phase 8 status were resolved on 2026-10-09. R1a is not authorized or started.
+> - **Pre-R1 gate (§9): R-01 PASS / CLOSED at repository level** (owner-accepted implementation and shutdown fix, 2026-10-10; not deployed). Gate clearance remains a separate owner decision; Pre-R1 stays BLOCKED. The OD-01 boundary probe and restore test are **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied evidence (worklog). Stage C authorization and Phase 8 status were resolved on 2026-10-09. R1a is not authorized or started.
 > - This is a planning document. It records **no** implementation result. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
 
@@ -622,7 +622,7 @@ Classification: **BLOCKER** (prevents starting R1a work) · **REQUIRED BEFORE R1
 | 14 | Turn penalty yields walk lengths different from spec T6 | REQUIRED BEFORE R1A ACCEPTANCE | Recorded as a decision in R1A-05; spec unchanged unless the stop rule applies. |
 | 15 | Tailscale Serve identity-header spike | NON-BLOCKING / DEFERRED → before **R4** (ADR-0038 §3) | Not needed for R1a (no owner endpoints). |
 
-**BLOCKER:** none among the design and technical items above. The remaining blockers are R-01 and R1a authorization, both in §9.
+**BLOCKER:** none among the design and technical items above. Separate Pre-R1 Gate clearance and R1a authorization remain pending (§9); R-01 repository criteria are satisfied.
 
 ---
 
@@ -718,9 +718,9 @@ Status updated 2026-10-10 (boundary probe and isolated restore PASS; evidence an
 | OD-01: Phase 8 status | **RESOLVED** 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b (ADR-0009) | — |
 | OD-01: inside-service boundary probe (`check_boundaries.py` / `sandbox_probe.sh` for the deployed release) | **RESOLVED** — PASS / CLOSED, recorded 2026-10-10; evidence and limitations in worklog | Met |
 | OD-01: restore test (restic restore; restored `maple.db` opens and passes `integrity_check`) | **RESOLVED** — PASS / CLOSED, recorded 2026-10-10; isolated restore evidence and limitations in worklog | Met |
-| R-01: journal Brain call inside the writer lock — fixed (separate small PR, §17 M-0) or explicitly accepted by the owner | **OPEN** | **BLOCKER** before R1A-01 |
+| R-01: journal Brain call inside the writer lock — fixed (separate small PR, §17 M-0) or explicitly accepted by the owner | **RESOLVED** — PASS / CLOSED at repository level; owner accepted `3c90e78` + `6f3239f` and waived further independent review; not deployed; worklog evidence | Met (repository level) |
 | **R1a authorization** | | |
-| Owner authorization of R1a | **Not given.** BLOCKED while R-01 remains OPEN | **BLOCKER** for starting R1A-01 |
+| Owner authorization of R1a | **Not given.** Separate Pre-R1 Gate clearance and R1a authorization remain pending | **BLOCKER** for starting R1A-01 |
 | **Design baseline** | | |
 | Room Final Design Spec approved | Approved in principle (2026-10-09) | Met |
 | Technical lock (ADR-0041 L1–L22, C1–C8) | Locked 2026-10-09 | Met |

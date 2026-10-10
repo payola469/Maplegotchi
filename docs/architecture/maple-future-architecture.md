@@ -81,7 +81,7 @@ Also verified on the live host:
 - Tailscale Serve and Funnel are tailnet-only.
 - The nightly backup ran successfully on 2026-10-08, with the Maple DB snapshot staged (restic snapshot `8b7bea38`).
 
-**Updated 2026-10-10:** inside-service boundary probe PASS / CLOSED from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md` for evidence and limitations. Isolated Restore Test also PASS / CLOSED, recorded 2026-10-10 in the same worklog; R-01 remains OPEN and R1a has not started.
+**Updated 2026-10-10:** inside-service boundary probe PASS / CLOSED from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md` for evidence and limitations. Isolated Restore Test also PASS / CLOSED, recorded 2026-10-10 in the same worklog; R-01 is PASS / CLOSED at repository level; separate gate clearance remains pending and R1a has not started.
 
 See `docs/architecture.md` → Deployment state.
 
@@ -110,10 +110,10 @@ These rules are enforced by seven import-linter contracts plus the AST forbidden
   3. The result is re-validated against current state (`decide_proposal_committed`). A decision that is no longer due is recorded `stale`.
   - Verdicts: `accepted | clamped | rejected | fallback | stale`. Every non-accepted outcome falls back to rule direction in the same transition.
 - **Replies** follow the same three-step pattern (`receive_message_committed` → unlocked `/reply` → `record_reply_committed`).
-- **Finding (failure isolation):** the *journal* Brain (`ExternalHttpBrain`, `/generate`) is called from `_write_journal` **inside the writer lock**.
-  - It uses a 30 s default timeout that is not configurable, with no redirect refusal and no response-size cap. The Director and Replier clients have both.
-  - A slow companion can therefore stall every transition for up to 30 s when `MAPLE_BRAIN=antigravity`.
-  - This predates the roadmap and is listed in §21 (R-01). The new subsystems must not copy this pattern.
+- **Historical finding (R-01):** deployed journal `/generate` holds the writer lock with a 30 s default and no explicit redirect refusal/response-size cap, delaying transitions.
+  - **Repository patch owner accepted, PASS / CLOSED at repository level; not deployed:** prepare under lock → one daemon composes unlocked → revision/lifecycle revalidation → atomic commit. Stale operations are recomputed without wording; RuleBrain remains synchronous.
+  - Approved controls: 30 s caller deadline, connect at most 2 s, streamed 64 KiB response cap, redirects/proxies refused, no overlapping requests or durable queue. Timed-out workers retain their slot through cleanup; shutdown invalidates work and drains callers before storage closure.
+  - R-01 repository criteria are satisfied (owner acceptance 2026-10-10); separate gate clearance remains pending. Bounded caller waiting does not guarantee worker termination, whole-process shutdown or eventual wording. Details/evidence: `docs/journal.md` and R1a worklog. New subsystems must not copy the historical pattern.
 
 ### 2.4 Room (A1/A8, ADR-0027)
 
@@ -180,7 +180,7 @@ These items were found during this review. A documentation-only update on 2026-1
 > **Pointer — current status (owner decisions 2026-10-09).** The "unverified" wording in this section is the dated 2026-10-08 record and is kept as history. Since then:
 > - **Stage C authorization: resolved.** The Stage C install of release `160ed4f…` is retroactively authorized. Stage C stays **open** until the boundary probe and the restore test pass; M3 is not claimed.
 > - **Phase 8: resolved as a status.** Not authorized, not started, deferred until Stage C is closed. It blocks neither R1a nor R1b (ADR-0009).
-> - **Update 2026-10-10:** boundary probe PASS / CLOSED. **Restore Test also PASS / CLOSED:** isolated restore evidence satisfies the remaining OD-01 requirement (§19). **Still open:** R-01 (§21). See `docs/implementation/maple-room-r1a-worklog.md` for production evidence and limitations; R1a has not started.
+> - **Update 2026-10-10:** boundary probe PASS / CLOSED. **Restore Test also PASS / CLOSED:** isolated restore evidence satisfies the remaining OD-01 requirement (§19). **R-01 (§21): PASS / CLOSED at repository level; not deployed.** Separate gate clearance remains pending. See `docs/implementation/maple-room-r1a-worklog.md` for production evidence and limitations; R1a has not started.
 
 | Where | Drift |
 |---|---|
@@ -1392,7 +1392,7 @@ Legend: **C** = control, **V** = validation/test, **R** = residual risk.
 |---|---|---|---|
 | Director `/decide` | existing 15 s | never stacked | rule direction |
 | Replier `/reply` | existing | never stacked; `busy` | rule reply |
-| Journal `/generate` | existing 30 s **inside the lock** | — | no wording. **Fix before roadmap work (R-01):** move outside the lock or reduce the timeout and add caps. |
+| Journal `/generate` | R-01 patch: 30 s caller deadline **outside the lock**; not deployed | one outstanding request, no queue | no wording on busy/timeout/stale/failure; existing retries. Owner selected outside-lock remediation with caps/redirect refusal; owner accepted, R-01 PASS / CLOSED at repository level; separate gate clearance pending. |
 | Work `/work` | 30 s (proposed) | one per step | step skipped; after N failures the task is paused; notes fall back to templates |
 | Explain `/explain` | 15 s | one | rule wording |
 | Exec job | `RuntimeMaxSec` 120 s + connect 2 s | `MaxConnections=1`; core queue | job failed/timed_out; Maple continues |
@@ -1513,7 +1513,7 @@ STEP 18    R6 (final art can be produced continuously from STEP 2a onward, integ
 
 | # | Decision | Recommendation |
 |---|---|---|
-| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Boundary probe PASS / CLOSED recorded 2026-10-10:** owner-supplied production evidence and limitations in `docs/implementation/maple-room-r1a-worklog.md`. **Restore Test PASS / CLOSED recorded 2026-10-10:** isolated restore opens and passes integrity; archived identity equality and exact-path cleanup PASS. Full evidence and limitations in the same worklog; no original-provenance or production replacement/restart claim. | OD-01 evidence satisfied; R-01 and R1a authorization remain blockers |
+| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Boundary probe PASS / CLOSED recorded 2026-10-10:** owner-supplied production evidence and limitations in `docs/implementation/maple-room-r1a-worklog.md`. **Restore Test PASS / CLOSED recorded 2026-10-10:** isolated restore opens and passes integrity; archived identity equality and exact-path cleanup PASS. Full evidence and limitations in the same worklog; no original-provenance or production replacement/restart claim. | OD-01 and R-01 repository criteria satisfied; separate gate clearance and R1a authorization pending |
 | OD-02 | Meaning of "Inventory" (R3) | **Decided 2026-10-08 (B4, ADR-0039):** Storage, derived, no game mechanics |
 | OD-03 | Owner authentication for editor and approvals | **Decided 2026-10-08 (B3, ADR-0038):** dedicated owner secret → owner session + Origin + Tailscale identity; Serve header spike pending |
 | OD-04 | Initial room set and sizes | **Room set decided (B2, ADR-0040):** 5 open + 3 closed placeholders. Room **sizes and door positions** remain intentionally undecided until the Room Final Design Spec (B15); the 2026-10-09 spike locked only the wall, door and window conventions. |
@@ -1564,7 +1564,7 @@ ADR-0035..0041 (Room) are **written and accepted** (2026-10-08, B1–B15) as des
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R-01 | Journal Brain called inside the writer lock (30 s, no caps) stalls all transitions | medium; **active in production** (`MAPLE_BRAIN=antigravity`, verified 2026-10-08) | high | fix in STEP 0 (outside-the-lock pattern) |
+| R-01 | Journal Brain called inside the writer lock (30 s, no caps) stalls all transitions | medium; **active in production** (`MAPLE_BRAIN=antigravity`, verified 2026-10-08) | high | repository fix owner accepted 2026-10-10, PASS / CLOSED; not deployed; production limitation remains |
 | R-02 | R1 migration of `life_state` again (rebuild) on irreplaceable data | low | high | v4-style in-transaction verify, pre-migration copy, owner snapshot gate |
 | R-03 | Exec sandbox mechanism not viable on the host's systemd/AppArmor | medium | medium | spike before W4; fallback options listed |
 | R-04 | Art produced before the technical lock needs rework | low since the 2026-10-09 lock (face size still open) | medium | ADR-0041 Locked values; Art Contract D.2 "Still waits" list (face size, per-object geometry, room sizes) |
@@ -1585,7 +1585,7 @@ The owner should require all of the following before R1 code starts. Later subsy
 
 **Before R1:**
 1. OD-01 resolved: an inside-service boundary probe and a restore test are recorded for the running release (hardening-loaded, Tailscale and backup creation are already verified), and the authorization status is clarified. §2.7 docs drift: done 2026-10-08. R-01 fixed or explicitly accepted.
-   - *Status updated 2026-10-10:* authorization clarified; boundary probe and isolated Restore Test **PASS / CLOSED** (worklog evidence and limitations). Phase 8 remains not authorized/not started; M3 not claimed. **Open:** R-01; Pre-R1 Gate BLOCKED and R1a authorization not given. R1a has not started.
+   - *Status updated 2026-10-10:* authorization clarified; boundary probe and isolated Restore Test **PASS / CLOSED** (worklog evidence and limitations). Phase 8 remains not authorized/not started; M3 not claimed. **R-01 PASS / CLOSED at repository level:** owner accepted implementation; not deployed. Pre-R1 Gate BLOCKED pending separate clearance; R1a authorization not given. R1a has not started.
 2. Room Final Design Spec approved (roadmap STEP 1): room list, sizes, door positions, furniture list per room.
 3. **Technical lock spike done** and its values recorded by an owner decision under ADR-0041. **Done 2026-10-09**, except the owner face blind test (face size) and the Serve header spike (`docs/spikes/2026-10-room-art-spike.md`):
    - tile size, Maple frame, feet anchor, `FEET_IN_TILE` and face-overlay readability/sizes validated together;

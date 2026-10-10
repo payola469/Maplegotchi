@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import time
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -56,6 +57,7 @@ from maplegotchi.runtime.brain_health import (
 from maplegotchi.runtime.clock import Clock, SystemClock
 from maplegotchi.runtime.events import EventHub
 from maplegotchi.runtime.life import LifeRuntime
+from maplegotchi.runtime.lifecycle import admitted
 from maplegotchi.runtime.senses import Senses, paolo_core_senses
 from maplegotchi.sensors.fake import FakeHostProbe
 from maplegotchi.sensors.service_health.fake import FakeServiceHealth
@@ -200,6 +202,7 @@ class MapleService:
         companion_probe: CompanionProbe | None = None,
     ) -> None:
         self.runtime = runtime
+        self._calls = runtime._calls
         self.senses = senses
         self.clock = clock
         self.params = params
@@ -257,6 +260,7 @@ class MapleService:
 
     # ------------------------------------------------------------ reads
 
+    @admitted
     def interaction_availability(
         self, state: MapleState, now: datetime
     ) -> tuple[InteractionAvailability, ...]:
@@ -284,6 +288,7 @@ class MapleService:
         summary, _ = server_summary(reflection, snap)
         return ServerView(observed_at, latest, summary, assess_server_attention(snap))
 
+    @admitted
     def freshness(
         self, state: MapleState, now: datetime, observed_at: datetime | None
     ) -> Freshness:
@@ -308,6 +313,7 @@ class MapleService:
             observations_at=observed_at,
         )
 
+    @admitted
     def snapshot(self, *, recent: int = RECENT_LIMIT) -> LiveSnapshot:
         """A snapshot whose persisted parts all come from ONE committed database view.
 
@@ -346,6 +352,7 @@ class MapleService:
 
     # ------------------------------------------------------------ transitions
 
+    @admitted
     def settle(self) -> None:
         """Record a walk's arrival between heartbeats, so the activity begins on time."""
         if not self.runtime.arrival_due():
@@ -358,6 +365,7 @@ class MapleService:
             committed.revision, events=bool(committed.events), journal=bool(committed.journal)
         )
 
+    @admitted
     def decide(self) -> None:
         """Run a due decision transition (ADR-0026 §3): next goal and action.
 
@@ -416,6 +424,7 @@ class MapleService:
         latency = int((time.perf_counter() - started) * 1000)
         return raw, failure, latency
 
+    @admitted
     def converse(self, message: IncomingMessage) -> ConversationResult:
         """A message from Paolo: record it and its effects, reply truthfully, record the reply.
 
@@ -470,6 +479,7 @@ class MapleService:
             return rule_reply(context), "rule", "rule_replier", code, latency
         return text.strip(), replier.kind, replier.name, None, latency
 
+    @admitted
     def brain_health(self) -> BrainHealthReport:
         """Read-only Brain Health (ADR-0034): stored audit + one bounded companion probe.
 
@@ -492,12 +502,14 @@ class MapleService:
             probe=self.companion_probe,
         )
 
+    @admitted
     def step(self) -> None:
         """One life-loop pass: record arrivals, make due decisions, heartbeat if due."""
         self.settle()
         self.decide()
         self.tick()
 
+    @admitted
     def tick(self) -> TickResult | None:
         """Observe (outside the lock) and heartbeat if due.
 
@@ -518,6 +530,7 @@ class MapleService:
         self._publish_written(revision, events=bool(result.events), journal=bool(committed.journal))
         return result
 
+    @admitted
     def interact(self, kind: InteractionKind) -> InteractionResult:
         committed = self.runtime.interact_committed(kind)
         outcome = committed.outcome
@@ -551,7 +564,7 @@ class MapleService:
     # ------------------------------------------------------------ life loop
 
     async def _life_loop(self, poll_seconds: float) -> None:
-        while not self._stop.is_set():
+        while not self._stop.is_set() and not self._calls.stopping:
             try:
                 await asyncio.to_thread(self.step)
                 self._loop_error = None
@@ -568,6 +581,7 @@ class MapleService:
 
     async def stop_life_loop(self) -> None:
         self._stop.set()
+        await asyncio.to_thread(self.begin_shutdown)
         if self._loop_task is not None:
             await self._loop_task
             self._loop_task = None
@@ -579,7 +593,17 @@ class MapleService:
             return DirectorLabel("rule", RULE_DIRECTOR_NAME, RULE_DIRECTOR_VERSION)
         return DirectorLabel(director.kind.value, director.name, director.version)
 
+    def operation(self) -> AbstractContextManager[None]:
+        """Keep a multi-read API operation admitted through its final storage read."""
+        return self._calls.enter()
+
+    def begin_shutdown(self) -> None:
+        self._calls.stop()
+        self.runtime.begin_shutdown()
+
     def close(self) -> None:
+        self.begin_shutdown()
+        self._calls.drain()
         self._director_pool.shutdown(wait=False, cancel_futures=True)
         self._replier_pool.shutdown(wait=False, cancel_futures=True)
         self.runtime.close()

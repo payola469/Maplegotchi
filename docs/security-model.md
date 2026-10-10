@@ -77,7 +77,7 @@ denies every action to `maple-svc`. Evidence on the host comes from
 
 **Boundary verification update (2026-10-10):**
 - **Inside-service runtime boundary behaviour:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
-- **Isolated Restore Test: PASS / CLOSED (2026-10-10)** from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md`. No production replacement or restart/recovery test; archived identity equality does not authenticate original provenance or prove uninterrupted continuity. R-01 remains OPEN; R1a has not started.
+- **Isolated Restore Test: PASS / CLOSED (2026-10-10)** from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md`. No production replacement or restart/recovery test; archived identity equality does not authenticate original provenance or prove uninterrupted continuity. R-01 repository criteria are satisfied; separate gate clearance remains pending and R1a has not started.
 
 See `docs/architecture.md` → Deployment state.
 
@@ -97,12 +97,14 @@ Boundaries between the services:
 
 ## Known limitations and open items (documented, not fixed)
 
-1. **Journal Brain call inside the writer lock.**
-   - When `MAPLE_BRAIN=antigravity`, `ExternalHttpBrain` (`/generate`) is called from `LifeRuntime._write_journal` while the single-writer lock is held.
-   - **Production runs `MAPLE_BRAIN=antigravity` (verified 2026-10-08), so this applies to the live service.**
-   - Its timeout is a 30 s class default that cannot be configured, and it has no redirect refusal or response-size cap.
-   - A slow companion can stall every transition for up to that time. It is not a confidentiality issue (loopback only; output validated by `core.journal.accept_drafts`), but it weakens failure isolation.
-   - Director and Replier calls do not have this problem.
+1. **R-01: PASS / CLOSED at repository level, owner accepted 2026-10-10; not deployed.**
+   - Historical finding: deployed journal `/generate` holds the writer lock, with a 30 s default and no explicit response cap/redirect refusal. Production uses `MAPLE_BRAIN=antigravity` (owner evidence 2026-10-08); no new production verification or deployment is claimed.
+   - Repository patch: prepare under lock → one daemon composes unlocked → revision/lifecycle revalidation → atomic commit. Stale candidates are recomputed without wording; busy/timeout/failure also yields no wording. Core validation and existing retry opportunities remain authoritative.
+   - Monotonic caller deadline: 30 s including startup, request preparation and parsing; connect at most 2 s. Streamed HTTP body limited to 64 KiB before JSON parsing; redirects/environment proxies refused; no automatic retries. Only identity content coding is accepted, preventing decompression expansion before the cap.
+   - Timed-out workers retain their slot through transport cleanup: at most one outstanding request per runtime, no replacement worker or durable queue. Workers have no storage or commit capability.
+   - Shutdown closes admission, invalidates preparations, wakes waiters and drains callers through their final reads before storage closes. Every persistence path obtains an irrevocable commit permit under the same gate lock as shutdown admission closure: shutdown first aborts the preparation without persistence; permit first allows that transaction to finish atomically. The gate lock is released before SQLite work and never held while acquiring the writer lock.
+   - Limits: bounded external-journal caller waiting, subject to scheduling/other operations, does not force blocked daemons to terminate or guarantee bounded whole-process shutdown. A stuck request keeps wording busy until cleanup or restart. No eventual-wording guarantee. RuleBrain remains synchronous; Director/Replier behavior is not redesigned.
+   - Evidence: R1a worklog. No schema, service/configuration, backup-tooling or production changes.
 2. **Future owner mutations need owner authentication.**
    - Today the tailnet plus an exact `Origin` is the only check on browser mutations (Greet/Pet).
    - Any future owner-only mutation must first get an owner-authentication decision and an ADR. Examples are the proposed Room Editor and project approvals.

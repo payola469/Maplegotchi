@@ -1,124 +1,228 @@
+"""Journal HTTP controls, using only in-memory transports."""
+
+import threading
+from collections.abc import Callable, Iterator
+
+import httpx2
 import pytest
 
 from maplegotchi.core.journal import BrainContext, BrainKind, Trigger, TriggerKind
-from maplegotchi.runtime.external_brain import ExternalHttpBrain
+from maplegotchi.runtime.external_brain import (
+    MAX_RESPONSE_BYTES,
+    ExternalHttpBrain,
+    JournalResponseError,
+)
 from tests.core.support import at_local, make_state
-
-
-class FakeResponse:
-    def __init__(self, payload: dict[str, object]) -> None:
-        self._payload = payload
-        self.raise_called = False
-
-    def raise_for_status(self) -> None:
-        self.raise_called = True
-
-    def json(self) -> dict[str, object]:
-        return self._payload
 
 
 def make_context() -> BrainContext:
     now = at_local(14)
     state = make_state(at=now)
-    trigger = Trigger(TriggerKind.ACTIVITY, "daily:read", "read")
     return BrainContext(
         now=now,
-        local_hour=14.0,
-        owner_name="Paolo",
+        local_hour=14,
+        owner_name="owner",
         state=state,
         expression=state.expression_at(now),
         snapshot=None,
-        triggers=(trigger,),
+        triggers=(Trigger(TriggerKind.ACTIVITY, "daily:read", "read"),),
     )
 
 
-def test_external_http_brain_identity() -> None:
+def transport(
+    monkeypatch: pytest.MonkeyPatch, handler: Callable[[httpx2.Request], httpx2.Response]
+) -> list[dict[str, object]]:
+    original = httpx2.Client
+    captured: list[dict[str, object]] = []
+
+    def client(**kwargs: object) -> httpx2.Client:
+        captured.append(kwargs)
+        return original(transport=httpx2.MockTransport(handler), **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("maplegotchi.runtime.external_brain.httpx2.Client", client)
+    return captured
+
+
+def test_external_http_brain_posts_prompt_and_parses_draft(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST" and request.url.path == "/generate"
+        for phrase in (b"Do not use any tools", b"Do not run commands", b"trigger_index"):
+            assert phrase in request.content
+        return httpx2.Response(
+            200,
+            json={
+                "response": '[{"trigger_index":0,"text":"I read quietly.",'
+                '"importance":"low","template_id":"external.read"}]'
+            },
+        )
+
+    captured = transport(monkeypatch, handler)
     brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471")
-
-    assert brain.kind is BrainKind.EXTERNAL
-    assert brain.name == "antigravity"
-    assert brain.version == "1"
-
-
-def test_external_http_brain_posts_prompt_and_parses_draft(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, object] = {}
-
-    response = FakeResponse(
-        {
-            "response": (
-                '[{"trigger_index":0,'
-                '"text":"I spent some time reading.",'
-                '"importance":"low",'
-                '"template_id":"external.daily.read"}]'
-            )
-        }
-    )
-
-    def fake_post(
-        url: str,
-        *,
-        json: dict[str, object],
-        timeout: float,
-    ) -> FakeResponse:
-        captured["url"] = url
-        captured["json"] = json
-        captured["timeout"] = timeout
-        return response
-
-    monkeypatch.setattr(
-        "maplegotchi.runtime.external_brain.httpx2.post",
-        fake_post,
-    )
-
-    brain = ExternalHttpBrain(
-        base_url="http://127.0.0.1:8471",
-        timeout_seconds=12.5,
-    )
-
     drafts = brain.compose_journal(make_context())
-
-    assert response.raise_called is True
-    assert captured["url"] == "http://127.0.0.1:8471/generate"
-    assert captured["timeout"] == 12.5
-
-    body = captured["json"]
-    assert isinstance(body, dict)
-    prompt = body["prompt"]
-    assert isinstance(prompt, str)
-    assert "Owner: Paolo" in prompt
-    assert "topic=daily:read" in prompt
-    for required in (
-        "Do not use any tools.",
-        "Do not run commands.",
-        "Do not inspect workspace files.",
-        "Do not access external information.",
-        "Return ONLY a JSON array.",
-        "trigger_index",
-        "importance: one of low, normal, high",
-        "template_id",
-    ):
-        assert required in prompt
-
-    assert len(drafts) == 1
-    assert drafts[0].trigger_index == 0
-    assert drafts[0].text == "I spent some time reading."
-
-
-def test_external_http_brain_ignores_invalid_response(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    response = FakeResponse({"response": "not-json"})
-
-    def fake_post(*args: object, **kwargs: object) -> FakeResponse:
-        return response
-
-    monkeypatch.setattr(
-        "maplegotchi.runtime.external_brain.httpx2.post",
-        fake_post,
+    assert (brain.kind, brain.name, brain.version) == (BrainKind.EXTERNAL, "antigravity", "1")
+    assert len(drafts) == 1 and drafts[0].text == "I read quietly."
+    assert captured[0]["follow_redirects"] is False
+    assert captured[0]["trust_env"] is False
+    timeout = captured[0]["timeout"]
+    assert (
+        isinstance(timeout, httpx2.Timeout) and timeout.connect is not None and timeout.connect <= 2
     )
 
-    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471")
 
-    assert brain.compose_journal(make_context()) == ()
+@pytest.mark.parametrize("extra", [0, 1])
+def test_decoded_response_limit(monkeypatch: pytest.MonkeyPatch, extra: int) -> None:
+    body = b'{"response":"[]"}'
+    body += b" " * (MAX_RESPONSE_BYTES + extra - len(body))
+    transport(monkeypatch, lambda request: httpx2.Response(200, content=body))
+    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471")
+    if extra:
+        with pytest.raises(JournalResponseError, match="too large"):
+            brain.compose_journal(make_context())
+    else:
+        assert brain.compose_journal(make_context()) == ()
+
+
+class Trickle(httpx2.SyncByteStream):
+    def __init__(self, clock: list[float]) -> None:
+        self.clock = clock
+        self.closed = False
+
+    def __iter__(self) -> Iterator[bytes]:
+        for _ in range(4):
+            self.clock[0] += 10
+            yield b" " * 4096
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_trickle_stream_hits_absolute_deadline_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = [0.0]
+    stream = Trickle(clock)
+    transport(monkeypatch, lambda request: httpx2.Response(200, stream=stream))
+    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471", monotonic=lambda: clock[0])
+    with pytest.raises(JournalResponseError, match="deadline"):
+        brain.compose_journal(make_context())
+    assert stream.closed and clock[0] == 30
+
+
+@pytest.mark.parametrize("status", [301, 302, 307, 308])
+def test_redirect_is_refused(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
+    requests = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(status, headers={"Location": "http://127.0.0.1:9999/"})
+
+    transport(monkeypatch, handler)
+    with pytest.raises(JournalResponseError, match="redirects"):
+        ExternalHttpBrain(base_url="http://127.0.0.1:8471").compose_journal(make_context())
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [[], {"response": 3}, {"response": "not-json"}, {"response": '[{"trigger_index":0}]'}],
+)
+def test_unusable_response_has_no_drafts(monkeypatch: pytest.MonkeyPatch, payload: object) -> None:
+    transport(monkeypatch, lambda request: httpx2.Response(200, json=payload))
+    assert ExternalHttpBrain(base_url="http://127.0.0.1:8471").compose_journal(make_context()) == ()
+
+
+def test_malformed_envelope_raises_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = httpx2.Response(200, content=b"not-json")
+    transport(monkeypatch, lambda request: response)
+    with pytest.raises(ValueError):
+        ExternalHttpBrain(base_url="http://127.0.0.1:8471").compose_journal(make_context())
+    assert response.is_closed
+
+
+def test_network_timeout_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request)
+        raise httpx2.ReadTimeout("test timeout")
+
+    transport(monkeypatch, handler)
+    with pytest.raises(httpx2.ReadTimeout):
+        ExternalHttpBrain(base_url="http://127.0.0.1:8471").compose_journal(make_context())
+    assert len(calls) == 1
+
+
+def test_compressed_response_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    transport(
+        monkeypatch,
+        lambda request: httpx2.Response(200, headers={"Content-Encoding": "br"}, content=b""),
+    )
+    with pytest.raises(JournalResponseError, match="encoding"):
+        ExternalHttpBrain(base_url="http://127.0.0.1:8471").compose_journal(make_context())
+
+
+@pytest.mark.parametrize("phase", ["prompt", "parse"])
+def test_deadline_includes_request_preparation_and_parsing(
+    monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    now = [0.0]
+    captured = transport(monkeypatch, lambda request: httpx2.Response(200, json={"response": "[]"}))
+    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471", monotonic=lambda: now[0])
+    if phase == "prompt":
+
+        def prompt(context: BrainContext) -> str:
+            now[0] = 31
+            return "test"
+
+        monkeypatch.setattr(brain, "_build_prompt", prompt)
+    else:
+
+        def parse(text: str) -> tuple[()]:
+            now[0] = 31
+            return ()
+
+        monkeypatch.setattr(brain, "_parse_response", parse)
+    with pytest.raises(JournalResponseError, match="deadline"):
+        brain.compose_journal(make_context())
+    assert len(captured) == (0 if phase == "prompt" else 1)
+
+
+def test_subchunk_trickle_bounds_caller_and_retains_slot_until_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maplegotchi.runtime.journal_composition import JournalComposer
+    from tests.runtime.test_journal_isolation import Call
+
+    now = [0.0]
+    blocked, release = threading.Event(), threading.Event()
+
+    class SubChunk(httpx2.SyncByteStream):
+        closed = False
+
+        def __iter__(self) -> Iterator[bytes]:
+            for _ in range(3):
+                now[0] += 10
+                yield b" "  # HTTPX buffers these below its 4096-byte chunk size
+            blocked.set()
+            assert release.wait(10)
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = SubChunk()
+    transport(monkeypatch, lambda request: httpx2.Response(200, stream=stream))
+    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471", monotonic=lambda: now[0])
+    composer = JournalComposer(brain, monotonic=lambda: now[0])
+    caller = Call(lambda: composer.compose(make_context()))
+    try:
+        assert blocked.wait(10)
+        with composer._condition:
+            composer._condition.notify_all()
+        assert caller.finish() == () and now[0] == 30
+        assert not stream.closed and composer._attempt is not None
+        assert composer.compose(make_context()) == ()
+        release.set()
+        with composer._condition:
+            assert composer._condition.wait_for(lambda: composer._attempt is None, timeout=10)
+        assert stream.closed
+    finally:
+        release.set()
+        composer.stop()

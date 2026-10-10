@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from maplegotchi.api.app import create_app
 from maplegotchi.runtime.clock import FakeClock
+from maplegotchi.runtime.life import RuntimeClosedError
 from maplegotchi.runtime.senses import Senses
 from tests.api.support import TRUSTED, make_client, make_service, make_settings
 from tests.persistence_support import BIRTH, TICK
@@ -36,7 +37,9 @@ def test_life_loop_runs_with_the_app_and_stops_with_it(tmp_path: Path) -> None:
         wait_until(lambda: service.runtime.state.ticks_lived == 2)
         status = client.get("/api/status").json()["freshness"]
         assert status["heartbeat_status"] == "fresh" and status["sensor_status"] == "fresh"
-    assert service.snapshot().freshness.life_loop_running is False
+    assert service._loop_task is None and service.runtime._repo is None
+    with pytest.raises(RuntimeClosedError):
+        service.snapshot()
     service.close()
 
 
