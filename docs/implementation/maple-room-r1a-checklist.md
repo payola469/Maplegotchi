@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is IN PROGRESS (STEP 81 authorizes Checkpoint 1 only; Checkpoints 2–6 require separate authorization); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is IN PROGRESS (STEP 84 authorizes Checkpoint 2 wall structure only; Checkpoints 3–6 require separate authorization); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -55,7 +55,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | ID | Title | Status | Dependencies (start) | Last updated |
 |---|---|---|---|---|
 | R1A-01 | Baseline and test harness | DONE / OWNER ACCEPTED / MERGED | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
-| R1A-02 | Canonical world model and final house geometry | IN PROGRESS / CHECKPOINT 1 | 01 (DONE) | 2026-10-10 |
+| R1A-02 | Canonical world model and final house geometry | IN PROGRESS / CHECKPOINT 2 | 01 (DONE) | 2026-10-10 |
 | R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
 | R1A-05 | Deterministic A* pathfinding | TODO | 04 (completion: 17 tuning evidence) | 2026-10-09 |
@@ -91,14 +91,14 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-02 — Canonical world model and final house geometry
 
-- **Status:** IN PROGRESS / CHECKPOINT 1 IMPLEMENTED (review pending; Checkpoints 2–6 not authorized)
+- **Status:** IN PROGRESS / CHECKPOINT 2 IMPLEMENTED (review pending; Checkpoints 3–6 not authorized)
 - **Dependencies:** 01
 - **Branch:** `feat/r1a-02-world-model`
-- **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (implementation baseline; Checkpoint 1 only)
+- **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (workstream baseline; Checkpoint 2 starts at `3d389d1fd68838a708cf0c0d6471a82a6426bd5c`)
 - **End commit:** —
-- **Evidence / tests:** 65 new primitive cases + 24 existing world contract cases + 3 existing security boundary cases = **92 passed**; Ruff lint/format PASS; strict targeted mypy PASS (5 files); import-linter **10 kept / 0 broken**. See STEP 81 worklog for commands and scope.
-- **Notes:** STEP 81 authorizes Checkpoint 1 only: immutable Tile/Rect/Region values, vocabulary/legacy adapters and shared feet mapping, without production wiring. Checkpoints 2–6 await separate authorization; R1A-03–R1A-20 remain TODO. Cross-source desk-capability conflict remains deferred to R1A-03/06; no geometry or Oracle changes.
-- **Last updated:** 2026-10-10 (STEP 81; Checkpoint 1)
+- **Evidence / tests:** STEP 84: 38 new structural cases + 65 Checkpoint 1 cases + 24 world contract cases + 3 security cases = **130 passed**; Ruff lint/format PASS; strict targeted mypy PASS (7 files); import-linter **10 kept / 0 broken**. Checkpoint 1 review PASS (STEP 82), committed/pushed (STEP 83). See worklog for commands and scope.
+- **Notes:** STEP 84 adds pure derived L8 bands/side columns/exterior cutaway, structural ownership/classification and applicable S1/S2 rejection. No doors, passages, graph, lighting zones or initial-house data; no production wiring or Oracle changes. Checkpoints 3–6 await separate authorization; R1A-03–R1A-20 remain TODO. Desk-capability conflict remains deferred to R1A-03/06.
+- **Last updated:** 2026-10-10 (STEP 84; Checkpoint 2)
 - **Detailed task plan:** [R1A-02 world model breakdown](maple-room-r1a-02-world-model.md)
 
 ### R1A-03 — Object catalog and capability metadata

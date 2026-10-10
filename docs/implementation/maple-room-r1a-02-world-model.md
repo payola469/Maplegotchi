@@ -1,6 +1,6 @@
 # R1A-02 — Canonical World Model and Final House Geometry
 
-**Status:** IN PROGRESS / CHECKPOINT 1 IMPLEMENTED — review pending; STEP 81 authorizes Checkpoint 1 only. Checkpoints 2–6 require separate authorization.
+**Status:** IN PROGRESS / CHECKPOINT 2 IMPLEMENTED — review pending. STEP 84 authorizes wall structure only; Checkpoints 3–6 require separate authorization. Checkpoint 1 review PASS (STEP 82), committed/pushed as `3d389d1fd68838a708cf0c0d6471a82a6426bd5c` (STEP 83).
 **Date:** 2026-10-10 (+07), STEP 78.
 **Workspace:** `/Users/paolo_cu/GitHub Desktop/Maplegotchi-r1a-02-world-model`
 **Branch / starting HEAD:** `feat/r1a-02-world-model` / `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`.
@@ -9,7 +9,7 @@
 
 Produce an isolated, pure-domain representation of the approved initial house,
 with derived structure, topology and lighting ownership, validated before use.
-This document defines the implementation breakdown. STEP 81 implements only its foundational values; no production activation or later checkpoint is authorized.
+This document defines the implementation breakdown. Checkpoints 1 and 2 add isolated foundational values and derived wall structure. No production activation or Checkpoint 3–6 implementation is authorized.
 R1A-01 is DONE / OWNER ACCEPTED / MERGED through [PR #1](https://github.com/payola469/Maplegotchi/pull/1)
 into `v0.2-development` at the starting HEAD above. Its two acknowledged evidence
 limitations remain: run `38062574000` validates `26aed831…`, not a separate original-base
@@ -277,6 +277,37 @@ Checkpoint 1 completion criteria are met pending review. Legacy Facing and live
 outputs are unchanged; production has no imports of these new modules. Existing
 Oracle, Harness, snapshot and simulation pin are unchanged; no full gate rerun.
 Checkpoints 2–6 have not begun and require separate owner authorization.
+
+## Checkpoint 2 evidence (STEP 84, 2026-10-10)
+
+`geometry.py` derives an immutable row-major Structure of StructuralCell values
+from region floors. TileKind distinguishes floor, north band, side wall and south
+cutaway, without access/walkability semantics. Bands have exactly three rows and
+span inclusive x−1 through x+w; side columns span the half-open floor y range.
+The one-row cutaway is derived only beneath the lowest tier and must occupy the
+exterior last row. Shared walls/corners are deduplicated; bands follow the southern
+floor, side/corner ownership is westward (eastward at the west exterior), and
+cutaway ownership is northward. No lighting-zone data or logic is introduced.
+
+`validation.py` enforces applicable S1: fixed 44×26 grid, nonempty valid region
+values, unique IDs and disjoint floors; Checkpoint 1 Rect bounds remain unchanged.
+S2 derivation rejects out-of-grid walls, floor/wall or incompatible wall-kind
+collisions, misaligned shared bands, an interior cutaway and uncovered grid cells.
+Walls are derived, never accepted as separately authored input. Exact eight-region
+T1 identities/areas and approved house/Oracle comparisons remain Checkpoint 5;
+doors, passages and graph remain Checkpoint 3.
+
+**130 tests passed:** 38 new structural cases + 65 Checkpoint 1 cases + 24 existing
+world contract cases + 3 existing security boundary cases. Synthetic layouts
+exercise independent exact cell sets, all 1,144 cells of a mixed-width three-tier
+layout, bounds/corners, deduplication/ownership, immutable/order-independent
+results and deterministic rejection diagnostics. No T1/T2 runtime data is added.
+Ruff lint/format PASS; strict targeted mypy PASS (7 files); import contracts
+**10 kept / 0 broken**. One initial negative test expected a later collision
+diagnostic; it was corrected to the first uncovered-cell diagnostic, retaining
+the invalid fixture and rejection requirement. No production wiring, Oracle,
+Harness, snapshot, simulation pin, API, schema or renderer changes. Checkpoint 2
+is ready for review; Checkpoints 3–6 have not begun.
 
 ## Acceptance checklist for the complete implementation
 
