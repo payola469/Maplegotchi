@@ -190,8 +190,12 @@ come from the accepted implementation, never external output.
   and environment proxies refused, no automatic retries. Compressed content is
   refused to prevent decompression expansion before the cap; plain JSON is supported.
 - Shutdown rejects new operations, invalidates preparations, wakes waiters and
-  drains admitted callers through final reads before storage closure. Executing
-  commits finish; late workers cannot commit. App teardown now closes storage;
+  drains admitted callers through final reads before storage closure. Every write
+  obtains an irrevocable commit permit under the same gate lock as shutdown.
+  Shutdown first aborts persistence; permit first allows one atomic transaction
+  to finish, including when shutdown arrives before SQLite starts. The gate lock
+  is released before persistence and never held while acquiring the writer lock.
+  Late workers cannot commit. App teardown now closes storage;
   post-teardown reads raise `RuntimeClosedError`; close is idempotent.
 - Bounded composition waiting does not guarantee worker termination or bounded
   whole-process shutdown. A stuck daemon can keep wording busy until restart.

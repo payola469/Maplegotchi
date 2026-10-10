@@ -16,7 +16,9 @@ accepted, while any other class claiming `kind=rule` is refused
 External journal wording is prepared under the lock, composed by a bounded
 daemon worker outside it, then revision/lifecycle checked before one atomic
 commit. Stale preparations are recomputed without wording. RuleBrain keeps its
-synchronous deterministic path. There is no durable journal queue.
+synchronous deterministic path. Every persistence path obtains a commit permit
+serialized with shutdown; admitted transactions finish before storage closes.
+There is no durable journal queue.
 """
 
 from __future__ import annotations
@@ -495,9 +497,13 @@ class LifeRuntime:
                     raw=raw,
                     latency_ms=latency_ms,
                 )
-                revision = repo.commit(
-                    self._state, expected_revision=self._revision, events=(), decisions=(record,)
-                )
+                with self._calls.commit():
+                    revision = repo.commit(
+                        self._state,
+                        expected_revision=self._revision,
+                        events=(),
+                        decisions=(record,),
+                    )
                 self._revision = revision
                 return None
             intent = todays_intent(repo, now, self._params.utc_offset)
@@ -594,20 +600,21 @@ class LifeRuntime:
                     MemoryEvent(MemoryEventKind.CREATED, now),
                 ),
             )
-            revision = repo.commit(
-                state,
-                expected_revision=self._revision,
-                events=(*arrival, *outcome.events),
-                actions=(*audit, *outcome.actions),
-                memories=remembered,
-                message=MessageRecord(
-                    at=now,
-                    channel=message.channel,
-                    speaker=message.speaker,
-                    text=message.text,
-                    external_id=message.external_id,
-                ),
-            )
+            with self._calls.commit():
+                revision = repo.commit(
+                    state,
+                    expected_revision=self._revision,
+                    events=(*arrival, *outcome.events),
+                    actions=(*audit, *outcome.actions),
+                    memories=remembered,
+                    message=MessageRecord(
+                        at=now,
+                        channel=message.channel,
+                        speaker=message.speaker,
+                        text=message.text,
+                        external_id=message.external_id,
+                    ),
+                )
             self._state, self._revision = state, revision
             message_id = repo.last_message_id
             if message_id is None:  # pragma: no cover - the commit wrote it
@@ -634,22 +641,23 @@ class LifeRuntime:
             self._require_running()
             repo = self._repository()
             now = max(self._clock.now(), self._state.last_updated_at)
-            revision = repo.commit(
-                self._state,
-                expected_revision=self._revision,
-                events=(),
-                message=MessageRecord(
-                    at=now,
-                    channel=Channel.DISCORD,
-                    speaker=Speaker.MAPLE,
-                    text=text,
-                    reply_to=message_id,
-                    replier_kind=replier_kind,
-                    replier_name=replier_name,
-                    fallback_code=fallback_code,
-                    latency_ms=latency_ms,
-                ),
-            )
+            with self._calls.commit():
+                revision = repo.commit(
+                    self._state,
+                    expected_revision=self._revision,
+                    events=(),
+                    message=MessageRecord(
+                        at=now,
+                        channel=Channel.DISCORD,
+                        speaker=Speaker.MAPLE,
+                        text=text,
+                        reply_to=message_id,
+                        replier_kind=replier_kind,
+                        replier_name=replier_name,
+                        fallback_code=fallback_code,
+                        latency_ms=latency_ms,
+                    ),
+                )
             self._revision = revision
             return revision
 
@@ -774,18 +782,19 @@ class LifeRuntime:
             daily = reflect_if_due(repo, self._state, outcome.state, now, self._params.utc_offset)
             if daily is not None:
                 remembered += daily.memory_changes
-            revision = repo.commit(
-                outcome.state,
-                expected_revision=self._revision,
-                events=outcome.events,
-                journal=entries,
-                reflection=reflection,
-                actions=outcome.actions,
-                decisions=(record,),
-                tools=tools,
-                memories=remembered,
-                daily=daily.reflection if daily else None,
-            )
+            with self._calls.commit():
+                revision = repo.commit(
+                    outcome.state,
+                    expected_revision=self._revision,
+                    events=outcome.events,
+                    journal=entries,
+                    reflection=reflection,
+                    actions=outcome.actions,
+                    decisions=(record,),
+                    tools=tools,
+                    memories=remembered,
+                    daily=daily.reflection if daily else None,
+                )
             self._state, self._revision, self._reflection = outcome.state, revision, reflection
             return CommittedDecision(outcome, revision, entries)
 
@@ -816,14 +825,15 @@ class LifeRuntime:
             def finish(
                 entries: tuple[JournalEntry, ...], reflection: ReflectionState
             ) -> CommittedArrival:
-                revision = repo.commit(
-                    settled,
-                    expected_revision=self._revision,
-                    events=events,
-                    journal=entries,
-                    reflection=reflection,
-                    actions=arrived,
-                )
+                with self._calls.commit():
+                    revision = repo.commit(
+                        settled,
+                        expected_revision=self._revision,
+                        events=events,
+                        journal=entries,
+                        reflection=reflection,
+                        actions=arrived,
+                    )
                 self._state, self._revision, self._reflection = settled, revision, reflection
                 return CommittedArrival(settled, revision, events, entries)
 
@@ -878,20 +888,21 @@ class LifeRuntime:
                 daily = reflect_if_due(repo, state, result.state, now, self._params.utc_offset)
                 if daily is not None:
                     remembered += daily.memory_changes
-                revision = repo.commit(
-                    result.state,
-                    expected_revision=self._revision,
-                    events=result.events,
-                    tick_id=result.tick_id,
-                    observations=observations.observations if observations else (),
-                    journal=entries,
-                    reflection=reflection,
-                    actions=result.actions,
-                    decisions=(result.decision,) if result.decision else (),
-                    tools=tools,
-                    memories=remembered,
-                    daily=daily.reflection if daily else None,
-                )
+                with self._calls.commit():
+                    revision = repo.commit(
+                        result.state,
+                        expected_revision=self._revision,
+                        events=result.events,
+                        tick_id=result.tick_id,
+                        observations=observations.observations if observations else (),
+                        journal=entries,
+                        reflection=reflection,
+                        actions=result.actions,
+                        decisions=(result.decision,) if result.decision else (),
+                        tools=tools,
+                        memories=remembered,
+                        daily=daily.reflection if daily else None,
+                    )
                 self._state, self._revision, self._reflection = result.state, revision, reflection
                 return CommittedTick(result, revision, entries)
 
@@ -935,15 +946,16 @@ class LifeRuntime:
                 def finish(
                     entries: tuple[JournalEntry, ...], reflection: ReflectionState
                 ) -> CommittedInteraction:
-                    revision = repo.commit(
-                        outcome.state,
-                        expected_revision=self._revision,
-                        events=(*arrival, outcome.event),
-                        journal=entries,
-                        reflection=reflection,
-                        actions=audit,
-                        memories=self._memory_changes(repo, (*arrival, outcome.event), (), now),
-                    )
+                    with self._calls.commit():
+                        revision = repo.commit(
+                            outcome.state,
+                            expected_revision=self._revision,
+                            events=(*arrival, outcome.event),
+                            journal=entries,
+                            reflection=reflection,
+                            actions=audit,
+                            memories=self._memory_changes(repo, (*arrival, outcome.event), (), now),
+                        )
                     self._state, self._revision, self._reflection = (
                         outcome.state,
                         revision,

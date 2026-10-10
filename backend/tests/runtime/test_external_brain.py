@@ -1,5 +1,6 @@
 """Journal HTTP controls, using only in-memory transports."""
 
+import threading
 from collections.abc import Callable, Iterator
 
 import httpx2
@@ -182,3 +183,46 @@ def test_deadline_includes_request_preparation_and_parsing(
     with pytest.raises(JournalResponseError, match="deadline"):
         brain.compose_journal(make_context())
     assert len(captured) == (0 if phase == "prompt" else 1)
+
+
+def test_subchunk_trickle_bounds_caller_and_retains_slot_until_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from maplegotchi.runtime.journal_composition import JournalComposer
+    from tests.runtime.test_journal_isolation import Call
+
+    now = [0.0]
+    blocked, release = threading.Event(), threading.Event()
+
+    class SubChunk(httpx2.SyncByteStream):
+        closed = False
+
+        def __iter__(self) -> Iterator[bytes]:
+            for _ in range(3):
+                now[0] += 10
+                yield b" "  # HTTPX buffers these below its 4096-byte chunk size
+            blocked.set()
+            assert release.wait(10)
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = SubChunk()
+    transport(monkeypatch, lambda request: httpx2.Response(200, stream=stream))
+    brain = ExternalHttpBrain(base_url="http://127.0.0.1:8471", monotonic=lambda: now[0])
+    composer = JournalComposer(brain, monotonic=lambda: now[0])
+    caller = Call(lambda: composer.compose(make_context()))
+    try:
+        assert blocked.wait(10)
+        with composer._condition:
+            composer._condition.notify_all()
+        assert caller.finish() == () and now[0] == 30
+        assert not stream.closed and composer._attempt is not None
+        assert composer.compose(make_context()) == ()
+        release.set()
+        with composer._condition:
+            assert composer._condition.wait_for(lambda: composer._attempt is None, timeout=10)
+        assert stream.closed
+    finally:
+        release.set()
+        composer.stop()

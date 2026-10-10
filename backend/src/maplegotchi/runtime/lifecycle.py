@@ -42,6 +42,22 @@ class CallGate:
         with self._condition:
             self._stopping = True
 
+    @contextmanager
+    def commit(self) -> Iterator[None]:
+        """Issue an irrevocable commit permit, serialized with stop().
+
+        The caller already owns the writer lock and an operation admission.
+        Shutdown may close admission after this boundary, but drain() keeps
+        storage open until the permitted transaction and caller finish. Never
+        retain the gate lock during persistence or acquire the writer lock here.
+        """
+        with self._condition:
+            if not getattr(self._local, "depth", 0):
+                raise RuntimeError("commit requires an admitted operation")
+            if self._stopping:
+                raise RuntimeClosedError("commit admission is closed")
+        yield
+
     @property
     def stopping(self) -> bool:
         with self._condition:
