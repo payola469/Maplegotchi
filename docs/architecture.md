@@ -3,6 +3,19 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
+## R1A-02 current implementation status (STEP 90, 2026-10-10)
+
+REVIEW / PENDING FINAL OWNER ACCEPTANCE; Checkpoints 1–6 implemented, 4–6
+uncommitted. Pure `core/world` owns immutable geometry, topology, lighting and
+layout validation. Release data lives in `world_catalog/initial_house.json`;
+only isolated `runtime/world_layout.py` reads/parses/freezes it. No production
+startup/life-loop imports or calls this reader; existing production paths,
+schema, legacy view and simulation pin remain unchanged. Consolidated focused
+validation: 380 tests PASS, exact T1/T2 Oracle equality, packaged wheel resource
+loading PASS, strict mypy/Ruff and 10 import contracts PASS. Commands and evidence:
+R1A-02 detailed plan and worklog. Owner acceptance/integration remain pending;
+R1A-03–R1A-20 TODO. Earlier checkpoint sections below describe their historical scope.
+
 ## R1A-01 test infrastructure (2026-10-10)
 
 R1A-01 is DONE / OWNER ACCEPTED / MERGED (owner decision 2026-10-10);

@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is IN PROGRESS (STEP 87 authorizes Checkpoint 3 doors/topology only; Checkpoints 4–6 require separate authorization); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 18 | 1 | 0 | 0 | 1 | 0 |
+| 20 | 18 | 0 | 0 | 1 | 1 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -55,7 +55,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | ID | Title | Status | Dependencies (start) | Last updated |
 |---|---|---|---|---|
 | R1A-01 | Baseline and test harness | DONE / OWNER ACCEPTED / MERGED | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
-| R1A-02 | Canonical world model and final house geometry | IN PROGRESS / CHECKPOINT 3 | 01 (DONE) | 2026-10-10 |
+| R1A-02 | Canonical world model and final house geometry | REVIEW / PENDING OWNER ACCEPTANCE | 01 (DONE) | 2026-10-10 |
 | R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
 | R1A-05 | Deterministic A* pathfinding | TODO | 04 (completion: 17 tuning evidence) | 2026-10-09 |
@@ -91,14 +91,14 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-02 — Canonical world model and final house geometry
 
-- **Status:** IN PROGRESS / CHECKPOINT 3 IMPLEMENTED (review pending; Checkpoints 4–6 not authorized)
+- **Status:** REVIEW / PENDING FINAL OWNER ACCEPTANCE (Checkpoints 1–6 implemented; 4–6 uncommitted, integration pending)
 - **Dependencies:** 01
 - **Branch:** `feat/r1a-02-world-model`
-- **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (workstream baseline; Checkpoint 3 starts at `312c81dae03f503368e2379600407acfe454dd1c`)
+- **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (workstream baseline; Checkpoints 4–6 start at `06295b65a2f8c79825b154249cf6e7869f66e9cb`)
 - **End commit:** —
-- **Evidence / tests:** STEP 87: **182 distinct cases passed, 0 failed** (52 new topology + 130 existing primitive/structural/contract/security cases); Ruff lint/format PASS; strict targeted mypy PASS (8 files); import-linter **10 kept / 0 broken**. Checkpoint 2 accepted and committed/pushed (STEP 86). See worklog for commands and run breakdown.
-- **Notes:** STEP 87 adds immutable doors, southern-owned passages, S3 adjacency/overlap validation and deterministic open-door graph/S4 connectivity across open rooms. No lighting zones, initial-house data, pathfinder/walkability engine, production wiring or Oracle changes. Checkpoints 4–6 await separate authorization; R1A-03–R1A-20 remain TODO. Desk-capability conflict remains deferred to R1A-03/06.
-- **Last updated:** 2026-10-10 (STEP 87; Checkpoint 3)
+- **Evidence / tests:** STEP 90 consolidated **380 passed / 0 failed**; Ruff lint/format PASS (12 files); strict mypy PASS (23 files); **10 import contracts kept / 0 broken**. Exact T1/T2 Oracle equality; 44×26, 8 regions, 7 doors, 4 open edges, 1,144 singly covered lighting cells. Wheel resource inclusion/byte equality and isolated wheel loading PASS. Earlier checkpoint evidence retained in worklog.
+- **Notes:** Checkpoints 4–6 add backend lighting/S7 predicates, declarative initial house, strict isolated runtime reader and consolidated validation. No production wiring, object catalog, pathfinder/walkability engine, API, renderer, schema, Oracle or simulation-pin change. Final owner acceptance and integration pending; no commit/push/merge in STEP 90. R1A-03–R1A-20 TODO; desk-capability conflict remains deferred to R1A-03/06.
+- **Last updated:** 2026-10-10 (STEP 90; final review preparation)
 - **Detailed task plan:** [R1A-02 world model breakdown](maple-room-r1a-02-world-model.md)
 
 ### R1A-03 — Object catalog and capability metadata

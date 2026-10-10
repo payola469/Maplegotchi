@@ -1,6 +1,6 @@
 # R1A-02 — Canonical World Model and Final House Geometry
 
-**Status:** IN PROGRESS / CHECKPOINT 3 IMPLEMENTED — review pending. STEP 87 authorizes doors and room topology only; Checkpoints 4–6 require separate authorization. Checkpoint 2 acceptance review PASS (STEP 85), owner accepted and committed/pushed as `312c81dae03f503368e2379600407acfe454dd1c` (STEP 86).
+**Status:** REVIEW / PENDING FINAL OWNER ACCEPTANCE — Checkpoints 1–6 implemented and focused validation complete (STEP 90). Checkpoints 4–6 are uncommitted; no commit, push, merge or deployment authorized. Checkpoint 3 owner accepted and committed/pushed as `06295b65a2f8c79825b154249cf6e7869f66e9cb` (STEP 89). R1A-02 is not DONE before acceptance and repository integration.
 **Date:** 2026-10-10 (+07), STEP 78.
 **Workspace:** `/Users/paolo_cu/GitHub Desktop/Maplegotchi-r1a-02-world-model`
 **Branch / starting HEAD:** `feat/r1a-02-world-model` / `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`.
@@ -9,7 +9,7 @@
 
 Produce an isolated, pure-domain representation of the approved initial house,
 with derived structure, topology and lighting ownership, validated before use.
-This document defines the implementation breakdown. Checkpoints 1–3 add isolated foundational values, derived wall structure and validated doorway/topology values. No production activation or Checkpoint 4–6 implementation is authorized.
+This document defines the implementation breakdown. STEP 90 authorizes Checkpoints 4–6 sequentially: lighting/mount predicates, initial-house release data/isolated reader and consolidated evidence. The implementation remains isolated; production activation, commit/push/merge and later workstreams are not authorized.
 R1A-01 is DONE / OWNER ACCEPTED / MERGED through [PR #1](https://github.com/payola469/Maplegotchi/pull/1)
 into `v0.2-development` at the starting HEAD above. Its two acknowledged evidence
 limitations remain: run `38062574000` validates `26aed831…`, not a separate original-base
@@ -344,18 +344,56 @@ No lighting/mount predicates, tile pathfinder/walkability engine, API, persisten
 renderer or production wiring is added. Checkpoint 3 is ready for acceptance
 review; Checkpoints 4–6 have not begun.
 
+## Consolidated Checkpoints 4–6 evidence (STEP 90)
+
+- **Checkpoint 4 PASS:** `lighting.py` provides frozen LightingZone and
+  LightingPartition values, deterministic per-tile ownership and S12 rejection of
+  missing/duplicate/unknown zones, gaps, overlaps and wrong ownership. Rect
+  enforces bounds. Every cell must have exactly one zone matching floor,
+  structural or southern passage ownership, including closed areas. `can_mount`
+  is S7 geometry only: plain north band, no passage cells in either state;
+  windows additionally require exterior rows 0–2. No appearance or catalog logic.
+  Gate: **39 new lighting tests**, Ruff, strict mypy and import contracts PASS.
+- **Checkpoint 5 PASS:** independent spec transcription in release-shipped
+  `world_catalog/initial_house.json`; no snapshot generation or runtime spec
+  parsing. Pure `layout.py` assembles frozen WorldLayout values.
+  `runtime/world_layout.py` alone reads the named package resource, strictly
+  parses JSON (including duplicate/unknown fields and numeric types), freezes
+  values and invokes S1–S4/S12 validation. No startup/life-loop caller exists.
+  Gate: **52 data/acceptance tests** PASS; exact T1/T2 columns, rows/order and all
+  cells equal the unchanged Oracle. Grid 44×26, 8 regions, 7 doors, 4 open edges,
+  3 closed placeholders, approved floor counts and 1,144 singly owned cells.
+  Ruff, strict mypy and import contracts PASS.
+- **Resource packaging PASS:** existing hatchling wheel build succeeded offline
+  into temporary storage; no packaging/dependency configuration change. Wheel
+  resource bytes equal the JSON source, tests/snapshot are excluded, and an
+  isolated Python import directly from the wheel validates 8/7/1,144 values.
+- **Checkpoint 6 PASS:** **380 tests passed / 0 failed** across `tests/world`,
+  forbidden-API/security boundaries and legacy `tests/core/test_room.py`.
+  Ruff lint/format PASS (12 files); strict targeted mypy PASS (23 files);
+  import contracts **10 kept / 0 broken**. Scope/history/whitespace checks PASS.
+  These consolidated totals include the checkpoint tests; do not sum reruns.
+- **Safety / pending:** no changes to earlier primitive/structure/topology code,
+  legacy runtime paths, Oracle/Harness/snapshot, approved sources, database/schema,
+  API, renderer or production default. The existing 30-day digest test and its
+  dependency sources are unchanged; the full simulation and Release Gate were
+  not rerun. Only isolated runtime resource loading is added. Original design
+  conversation was not consulted; accepted repository sources are the evidence.
+  Final owner acceptance and subsequent commit/integration remain pending.
+  R1A-03–R1A-20 stay TODO; the deferred desk-capability decision is outside R1A-02.
+
 ## Acceptance checklist for the complete implementation
 
-- [ ] Grid 44×26; 8 regions with exact T1 identities, floor counts and statuses.
-- [ ] L8 bands, side columns and exterior south cutaway reproduce the spec.
-- [ ] 7 T2 archways, correct 2×3 passages, adjacency and southern ownership.
-- [ ] Derived graph has 4 open edges and connects all 5 open rooms; closed
+- [x] Grid 44×26; 8 regions with exact T1 identities, floor counts and statuses.
+- [x] L8 bands, side columns and exterior south cutaway reproduce the spec.
+- [x] 7 T2 archways, correct 2×3 passages, adjacency and southern ownership.
+- [x] Derived graph has 4 open edges and connects all 5 open rooms; closed
   placeholders unconnected initially.
-- [ ] Backend lighting has 1,144 cells covered exactly once, including structure.
-- [ ] Zero differences against approved T1/T2 Oracle; snapshot/Harness unchanged.
-- [ ] S1–S4, S7 band-side and S12 positive and negative tests pass.
+- [x] Backend lighting has 1,144 cells covered exactly once, including structure.
+- [x] Zero differences against approved T1/T2 Oracle; snapshot/Harness unchanged.
+- [x] S1–S4, S7 band-side and S12 positive and negative tests pass.
 - [x] Direction/legacy mapping and one shared feet formula verified (Checkpoint 1).
-- [ ] Pure-core/catalog/test boundaries preserved; no runtime activation, API,
+- [x] Pure-core/catalog/test boundaries preserved; no runtime activation, API,
   renderer, DB/schema, production/default-view or pinned-digest changes.
 - [ ] Focused validation evidence and docs reviewed; owner acceptance recorded.
 
