@@ -110,10 +110,10 @@ These rules are enforced by seven import-linter contracts plus the AST forbidden
   3. The result is re-validated against current state (`decide_proposal_committed`). A decision that is no longer due is recorded `stale`.
   - Verdicts: `accepted | clamped | rejected | fallback | stale`. Every non-accepted outcome falls back to rule direction in the same transition.
 - **Replies** follow the same three-step pattern (`receive_message_committed` → unlocked `/reply` → `record_reply_committed`).
-- **Finding (failure isolation):** the *journal* Brain (`ExternalHttpBrain`, `/generate`) is called from `_write_journal` **inside the writer lock**.
-  - It uses a 30 s default timeout that is not configurable, with no redirect refusal and no response-size cap. The Director and Replier clients have both.
-  - A slow companion can therefore stall every transition for up to 30 s when `MAPLE_BRAIN=antigravity`.
-  - This predates the roadmap and is listed in §21 (R-01). The new subsystems must not copy this pattern.
+- **Historical finding (R-01):** deployed journal `/generate` holds the writer lock with a 30 s default and no explicit redirect refusal/response-size cap, delaying transitions.
+  - **Repository patch prepared, pending review; not deployed:** prepare under lock → one daemon composes unlocked → revision/lifecycle revalidation → atomic commit. Stale operations are recomputed without wording; RuleBrain remains synchronous.
+  - Approved controls: 30 s caller deadline, connect at most 2 s, streamed 64 KiB response cap, redirects/proxies refused, no overlapping requests or durable queue. Timed-out workers retain their slot through cleanup; shutdown invalidates work and drains callers before storage closure.
+  - R-01 stays OPEN. Bounded caller waiting does not guarantee worker termination, whole-process shutdown or eventual wording. Details/evidence: `docs/journal.md` and R1a worklog. New subsystems must not copy the historical pattern.
 
 ### 2.4 Room (A1/A8, ADR-0027)
 
@@ -1392,7 +1392,7 @@ Legend: **C** = control, **V** = validation/test, **R** = residual risk.
 |---|---|---|---|
 | Director `/decide` | existing 15 s | never stacked | rule direction |
 | Replier `/reply` | existing | never stacked; `busy` | rule reply |
-| Journal `/generate` | existing 30 s **inside the lock** | — | no wording. **Fix before roadmap work (R-01):** move outside the lock or reduce the timeout and add caps. |
+| Journal `/generate` | R-01 patch: 30 s caller deadline **outside the lock**; not deployed | one outstanding request, no queue | no wording on busy/timeout/stale/failure; existing retries. Owner selected outside-lock remediation with caps/redirect refusal; prepared, R-01 OPEN pending review. |
 | Work `/work` | 30 s (proposed) | one per step | step skipped; after N failures the task is paused; notes fall back to templates |
 | Explain `/explain` | 15 s | one | rule wording |
 | Exec job | `RuntimeMaxSec` 120 s + connect 2 s | `MaxConnections=1`; core queue | job failed/timed_out; Maple continues |

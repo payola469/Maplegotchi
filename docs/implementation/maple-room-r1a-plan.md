@@ -718,7 +718,7 @@ Status updated 2026-10-10 (boundary probe and isolated restore PASS; evidence an
 | OD-01: Phase 8 status | **RESOLVED** 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b (ADR-0009) | — |
 | OD-01: inside-service boundary probe (`check_boundaries.py` / `sandbox_probe.sh` for the deployed release) | **RESOLVED** — PASS / CLOSED, recorded 2026-10-10; evidence and limitations in worklog | Met |
 | OD-01: restore test (restic restore; restored `maple.db` opens and passes `integrity_check`) | **RESOLVED** — PASS / CLOSED, recorded 2026-10-10; isolated restore evidence and limitations in worklog | Met |
-| R-01: journal Brain call inside the writer lock — fixed (separate small PR, §17 M-0) or explicitly accepted by the owner | **OPEN** | **BLOCKER** before R1A-01 |
+| R-01: journal Brain call inside the writer lock — fixed (separate small PR, §17 M-0) or explicitly accepted by the owner | **OPEN** — implementation prepared, pending review; worklog evidence; not deployed | **BLOCKER** before R1A-01 |
 | **R1a authorization** | | |
 | Owner authorization of R1a | **Not given.** BLOCKED while R-01 remains OPEN | **BLOCKER** for starting R1A-01 |
 | **Design baseline** | | |

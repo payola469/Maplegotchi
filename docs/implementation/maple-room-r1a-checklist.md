@@ -16,7 +16,7 @@ Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last up
 | Phase 8 status | **RESOLVED** | 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b |
 | Boundary probe (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied production evidence; worklog contains results and limitations |
 | Restore test (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10: owner-executed isolated restic restore; restored `maple.db` opens and passes `integrity_check`; evidence and limitations in worklog |
-| R-01 | **OPEN** | fixed (separate small PR) or explicitly accepted by the owner; BLOCKER before R1A-01 |
+| R-01 | **OPEN** | implementation prepared on `fix/r01-journal-lock-isolation`, pending review; worklog evidence; not deployed. Fixed (separate small PR) or explicitly accepted by owner before R1A-01 |
 | R1a authorization | **BLOCKED** | R-01 remains OPEN; explicit owner authorization still required |
 
 Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item statuses below.

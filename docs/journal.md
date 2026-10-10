@@ -160,15 +160,47 @@ last reflection day, milestones). All are written in the same transaction as
 the transition that caused them; a failure rolls back everything. A life
 from before v3 starts with an empty `ReflectionState`.
 
-## External Brain boundary (D6, D10)
+## External Brain boundary (D6, D10, ADR-0025)
 
-- `BrainKind.EXTERNAL` exists so a future provider is distinguishable in the
-  data; nothing implements it and there are no HTTP/SDK/model calls.
-- The runtime accepts **only the built-in `RuleBrain` class** (exact type, not
-  just `kind == "rule"`), so a stub claiming to be the RuleBrain or a subclass
-  is refused (`ExternalBrainNotAllowed`) before storage is opened.
-- `brain_kind`/`brain_name`/`brain_version` are taken from the Brain object the
-  runtime accepted, so external output cannot be stored as RuleBrain output.
+ADR-0025 extended the Phase 4 RuleBrain-only boundary: runtime may select an
+ExternalHttpBrain through the separately hardened loopback companion. Output
+remains advisory; only the built-in RuleBrain may claim rule kind. Brain labels
+come from the accepted implementation, never external output.
+
+**R-01 implementation prepared, pending review; not deployed:**
+
+- Rule/Director decisions, arrival, heartbeat and accepted interactions prepare
+  context and a candidate transition under the writer lock. External composition
+  runs unlocked with no open transaction and no storage access in the worker.
+- Lifecycle and base revision are checked before commit. An unchanged candidate
+  retains its logical timestamp. An overtaken operation is recomputed from current
+  state/time without stale drafts or another request; eligibility/cooldowns may
+  yield no-op/rejection. Existing Director stale-audit behavior is preserved.
+- State, observations, accepted entries and reflection markers commit together;
+  memory adoption and publication follow persistence. RuleBrain keeps the original
+  deterministic locked path. Trigger ordering/validation are unchanged.
+- Busy, timeout, stale, invalid or failed wording advances no wording markers.
+  Factual interaction counts/day rollover still commit. Existing retry opportunities
+  remain; event-only triggers are not guaranteed eventual wording. No durable queue.
+- One nonblocking external request slot per runtime. A daemon receives context and
+  storage-free coordination. The 30 s monotonic caller deadline covers startup,
+  request preparation, I/O, decoding and parsing. Timed-out workers retain the slot
+  until cleanup, so no replacement worker can overlap.
+- Connect at most 2 s; streamed response cap 64 KiB before JSON parsing. Redirects
+  and environment proxies refused, no automatic retries. Compressed content is
+  refused to prevent decompression expansion before the cap; plain JSON is supported.
+- Shutdown rejects new operations, invalidates preparations, wakes waiters and
+  drains admitted callers through final reads before storage closure. Executing
+  commits finish; late workers cannot commit. App teardown now closes storage;
+  post-teardown reads raise `RuntimeClosedError`; close is idempotent.
+- Bounded composition waiting does not guarantee worker termination or bounded
+  whole-process shutdown. A stuck daemon can keep wording busy until restart.
+
+Schema/stored formats stay v10. Same-schema code rollback (`docs/deployment.md`)
+preserves the database, discards memory-only attempts and restores the older
+release's R-01 limitation. Deployment/rollback execution need separate owner
+authorization. R-01 remains OPEN, Pre-R1 BLOCKED, R1a not started. Evidence: R1a
+worklog.
 
 ## Demo
 

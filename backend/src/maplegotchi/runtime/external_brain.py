@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 
 import httpx2
 
 from maplegotchi.core.journal import BrainContext, BrainKind, Importance, JournalDraft
+
+MAX_RESPONSE_BYTES = 64 * 1024
+
+
+class JournalResponseError(RuntimeError):
+    """The companion response exceeds the journal transport boundary."""
 
 
 class ExternalHttpBrain:
@@ -20,27 +27,58 @@ class ExternalHttpBrain:
         *,
         base_url: str,
         timeout_seconds: float = 30.0,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
+        self._monotonic = monotonic
 
     def compose_journal(self, context: BrainContext) -> Sequence[JournalDraft]:
+        deadline = self._monotonic() + self._timeout_seconds
+
+        def remaining() -> float:
+            budget = deadline - self._monotonic()
+            if budget <= 0:
+                raise JournalResponseError("journal deadline exceeded")
+            return budget
+
         prompt = self._build_prompt(context)
-
-        response = httpx2.post(
-            f"{self._base_url}/generate",
-            json={"prompt": prompt},
-            timeout=self._timeout_seconds,
-        )
-        response.raise_for_status()
-
-        payload = response.json()
+        budget = remaining()
+        with httpx2.Client(
+            timeout=httpx2.Timeout(budget, connect=min(2.0, budget)),
+            follow_redirects=False,
+            trust_env=False,
+            headers={"Accept-Encoding": "identity"},
+        ) as client:
+            with client.stream(
+                "POST", f"{self._base_url}/generate", json={"prompt": prompt}
+            ) as response:
+                if 300 <= response.status_code < 400:
+                    raise JournalResponseError("journal redirects refused")
+                response.raise_for_status()
+                # The companion uses plain JSON. Refuse content coding so a
+                # decompressor cannot allocate an unbounded expansion first.
+                if response.headers.get("Content-Encoding", "identity").lower() != "identity":
+                    raise JournalResponseError("journal content encoding refused")
+                body = bytearray()
+                for chunk in response.iter_bytes(chunk_size=4096):
+                    remaining()
+                    if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                        raise JournalResponseError("journal response too large")
+                    body.extend(chunk)
+                remaining()
+        payload = json.loads(body)
+        remaining()
+        if not isinstance(payload, dict):
+            return ()
         text = payload.get("response")
 
         if not isinstance(text, str):
             return ()
 
-        return self._parse_response(text)
+        drafts = self._parse_response(text)
+        remaining()
+        return drafts
 
     def _build_prompt(self, context: BrainContext) -> str:
         triggers = "\n".join(
