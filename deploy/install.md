@@ -78,14 +78,33 @@ ss -tlnp | grep 8470                           # 127.0.0.1:8470 only
 ls -l /data/maple                              # maple.db owned by maple-svc
 ```
 
-## 6. Verify the boundary (see "Verify" below for the full checklist)
+## 6. OD-01 boundary probe (owner-run manual execution only)
+
+For OD-01 run **only this section**, not the install, restart, Tailscale, backup
+or rollback sections. No service stop/restart or automatic remediation is part
+of this probe. Use all three reviewed safety-patch scripts together from an
+owner-controlled checkout. They are absent from the deployed release: do not
+install them into `/opt/maplegotchi/current` or deploy just to probe it.
+If no reviewed checkout exists on paolo-core, STOP and arrange temporary staging
+separately. Remove only those exact staged files and their empty directory afterward.
+
+### A. Preflight and safe HTTP checks (no sudo)
+
+From the reviewed checkout root on paolo-core:
 
 ```bash
-python3 /opt/maplegotchi/current/deploy/verify/check_boundaries.py
-PID=$(systemctl show -P MainPID maplegotchi)
-sudo nsenter --target "$PID" --mount --setuid "$(id -u maple-svc)" --setgid "$(id -g maple-svc)" \
-     -- /bin/sh /opt/maplegotchi/current/deploy/verify/sandbox_probe.sh
+hostname -s                          # must be paolo-core
+sha256sum deploy/verify/check_boundaries.py deploy/verify/sandbox_probe.sh deploy/verify/sandbox_probe.py
+readlink -f /opt/maplegotchi/current  # must match the expected release below
+python3 -B deploy/verify/check_boundaries.py
 ```
+Require zero failures/warnings and resolve every OWNER_CHECK before proceeding.
+HTTP uses allowlisted GETs only, disables proxies and redirects, and never prints
+response bodies. An untrusted-Origin GET must receive no `Access-Control-*`
+headers. **This does NOT prove POST Origin rejection.** That behavior is supported
+by isolated tests `test_untrusted_origins_are_refused_without_side_effects` and
+`test_production_origin_is_the_configured_one_only`, never a live interaction POST.
+Do not use `--record` or `--compare` for OD-01.
 `check_boundaries.py` runs unprivileged, so it cannot stat files inside
 directories that are protected by design (`/etc/maplegotchi` 0750,
 `/data/maple` 0750, `/etc/polkit-1/rules.d` 0700). It reports those as
@@ -103,17 +122,71 @@ sudo stat -c '%U:%G %a %n' /etc/maplegotchi/maplegotchi.env \
 Do not loosen these permissions or add your user to `maple-svc` to make the
 unprivileged check pass.
 
-If `sandbox_probe.sh` reports any FAIL, stop Maple (`sudo systemctl stop maplegotchi`)
-and report it before continuing.
-
-## 7. Restart continuity (after ≥ 1 heartbeat, i.e. 5+ minutes)
+### B. Namespace and actual-process probe (manual sudo)
 
 ```bash
-python3 /opt/maplegotchi/current/deploy/verify/check_boundaries.py --record /tmp/maple-before.json
-sudo systemctl restart maplegotchi
-sleep 5
-python3 /opt/maplegotchi/current/deploy/verify/check_boundaries.py --compare /tmp/maple-before.json
+sudo sh deploy/verify/sandbox_probe.sh 160ed4fb9f2534a4609d826d9c4535cc7863ae3d
 ```
+
+This is the expected **deployed release**, not the tooling commit. A different
+release is STOP: reconcile evidence first. Requires Linux `/usr/bin/python3`,
+`systemctl`, `nsenter` and `setpriv`. Root is needed for namespace/process
+inspection; the script never calls sudo itself. The filesystem child runs as
+`maple-svc`, with empty supplementary groups, capabilities dropped and
+no_new_privs. Source travels via stdin; bytecode generation is disabled.
+
+**Probe-only actions and cleanup:**
+
+- Exclusively create `/data/maple/.od01-probe-<128-bit-random>` mode `0700` and
+  its `sentinel` mode `0600`. Write only `OD-01 probe-only` plus newline, read it
+  back, immediately unlink it and remove the empty directory.
+- At the original protected directories (`/opt/maplegotchi`, its `current`,
+  `current/venv/bin`, and `python`; `/etc/maplegotchi`; `/etc/systemd/system`;
+  `/data/monitor`; `/data`; `/usr`; `/var/lib`; `/`), exclusively attempt to create
+  a fresh `.od01-deny-<128-bit-random>` file. Never open/truncate existing files.
+  PASS only on EROFS, EACCES or EPERM. An unexpected success is closed, the exact
+  created file removed immediately, and the probe fails without continuing.
+  Read-only mount flags are verified separately from access permissions.
+- Only successful creations/descriptors are tracked. Cleanup runs on failure
+  and catchable INT/TERM/HUP signals; signals are deferred during registration.
+  No wildcard or recursive deletion; verify absence before PASS. Candidate paths
+  are printed for recovery, but pre-existing collisions must never be deleted.
+  SIGKILL/power loss can prevent cleanup: an interrupted run is incomplete until
+  the owner establishes which exact candidates were created and removes them.
+  Cleanup checks device/inode identity and refuses replaced paths or symlinks;
+  it never deletes a replacement merely because its name matches a probe path.
+- Neither database is opened for writing. Settings/database readability and
+  Docker inaccessibility use metadata/permissions; no secret contents or Docker
+  socket connections. No service/configuration/network changes.
+
+**PASS:** exit zero and `sandbox_probe: PASS`; verified cleanup, marker round-trip,
+explicit create denials, expected visibility/mount flags; correct helper identity;
+actual service credentials, empty capabilities, NoNewPrivs=1 and Seccomp=2;
+Maple-owned listeners exactly 127.0.0.1:8470, ports 8470/8471 loopback-only.
+PID, process start time, current release and mount namespace stay unchanged.
+
+**FAIL/STOP:** wrong host/release/identity, failed or inaccessible evidence,
+unexpected errno or successful forbidden creation, service identity change,
+interruption or incomplete cleanup. Stop the **probe**, report, and leave OD-01
+OPEN. Do not stop/restart Maple or automatically repair production.
+
+**Limits:** the helper joins the mount namespace, not the actual service seccomp
+context or cgroup. Read credentials/seccomp from the service process itself.
+Observed listeners do not prove cgroup network filtering; D-Bus socket presence
+and polkit-rule metadata do not prove polkit denial. Private temporary filesystems
+are outside the persistent-data write claim. No live POST Origin-denial,
+restore or restart-continuity claim.
+
+**Record evidence:** timestamp/timezone, operator, tooling branch/commit and script
+hashes, expected deployed release, printed PID/start-time/namespace, PASS/FAIL
+lines, exit codes, resolved OWNER_CHECKs and cleanup outcome. No response bodies,
+tokens, environment contents or raw application state. Update the Pre-R1
+checklist/worklog after owner review; restore and R-01 stay OPEN, R1A items TODO.
+
+## 7. Restart continuity (separate owner-authorized work)
+
+Not part of OD-01. The checker retains optional identity record/compare support;
+this boundary procedure neither requests nor performs a service restart.
 
 ## 8. Tailscale Serve (tailnet only; Funnel stays off)
 
@@ -140,7 +213,7 @@ run one backup, verify the restic snapshot and a restore.
 | Identity | process runs as maple-svc; no supplementary/privileged groups; caps empty; no_new_privs; seccomp | `check_boundaries.py` |
 | Filesystem | can write `/data/maple`; cannot write `/opt/maplegotchi`, `/etc/maplegotchi`, `/data/monitor`; `/data` shows only `maple monitor`; siblings, homes, Docker socket, other processes invisible | `sandbox_probe.sh` |
 | Files | ownership/modes per `docs/deployment.md`; nothing under `/opt` writable by non-root; release matches `SHA256SUMS`; installed unit = release unit | `check_boundaries.py`; protected paths (OWNER_CHECK) via `sudo stat -c '%U:%G %a %n' …` (step 6) |
-| Runtime | service active; only `127.0.0.1:8470`; `/api/health` ok; frontend served by the backend with security headers; untrusted Origin → 403; no `/api/docs`; heartbeat fresh; `maple.db` created | `check_boundaries.py`, step 5 |
+| Runtime | service active; only `127.0.0.1:8470`; `/api/health` ok; frontend served with security headers; untrusted-Origin GET grants no CORS permissions (not POST rejection); no `/api/docs`; heartbeat fresh; `maple.db` created | `check_boundaries.py`, step 5 |
 | Persistence | after restart: same name + `born_at`; revision and ticks continue | step 7 |
 | Monitoring | CPU/RAM/disk/load/temperature `available` from psutil; `metrics_collector` and `backup` observed; `maplegotchi` sees itself `active`; `grafana`, `lycan_watch` `unknown` (`not_observable:*`); no qbittorrent/jellyfin | `check_boundaries.py` |
 | Security | no Docker socket; no shell/subprocess in code (CI); Funnel off; no public listener | `sandbox_probe.sh`, CI, step 8 |
