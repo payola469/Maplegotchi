@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01 OWNER ACCEPTED / MERGE PENDING (2026-10-10). World/engine implementation not started; R1A-02–R1A-20 TODO.
+**Status:** AUTHORIZED — R1A-01 DONE / OWNER ACCEPTED / MERGED (2026-10-10). R1A-02 REVIEW / PENDING FINAL OWNER ACCEPTANCE: Checkpoints 1–6 implemented in isolation, 4–6 uncommitted; R1A-03–R1A-20 TODO.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,9 +8,9 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 authorized to start**. R1A-01 baseline/test infrastructure is in progress; other items remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
-> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merge remains pending (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
-> - This is a planning document. It records **no** implementation result. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 DONE / OWNER ACCEPTED / MERGED**. STEP 90 authorizes R1A-02 Checkpoints 4–6 implementation/validation only; these now await final owner acceptance with no commit/push/merge or production activation authorized; R1A-03–R1A-20 remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
+> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
+> - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
 
 ## Contents
@@ -106,6 +106,10 @@ Every item also inherits these global rules:
 - **Blocks later R1a items:** yes, all. **Blocks R1b:** yes (indirectly).
 
 ### R1A-02 — Canonical world model and final house geometry
+
+**Current status (STEP 90):** REVIEW / PENDING FINAL OWNER ACCEPTANCE. Checkpoints 1–6 implemented; 4–6 remain uncommitted. Consolidated 380 focused tests, exact T1/T2 Oracle equality, packaged resource loading and static/import checks PASS. No production activation or later workstream. Evidence/commands are in the detailed plan and append-only worklog; DONE requires owner acceptance and integration.
+[Detailed implementation breakdown](maple-room-r1a-02-world-model.md). Dependency
+R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`.
 
 - **Objective:** a pure-core house model that reproduces the Final Design Spec geometry exactly.
 - **Scope:**
@@ -624,7 +628,9 @@ Classification: **BLOCKER** (prevents starting R1a work) · **REQUIRED BEFORE R1
 | 14 | Turn penalty yields walk lengths different from spec T6 | REQUIRED BEFORE R1A ACCEPTANCE | Recorded as a decision in R1A-05; spec unchanged unless the stop rule applies. |
 | 15 | Tailscale Serve identity-header spike | NON-BLOCKING / DEFERRED → before **R4** (ADR-0038 §3) | Not needed for R1a (no owner endpoints). |
 
-**BLOCKER:** none among the design and technical items above. Owner cleared Pre-R1 and authorized R1a (§9); R1A-01 baseline/harness evidence is owner accepted on 2026-10-10; separate original-base CI execution remains unverified and complete raw baseline gate details remain unavailable, both explicitly acknowledged by owner. PR #1 merge remains pending; repository integration is not complete. R1A-01 stays OWNER ACCEPTED / MERGE PENDING.
+**R1A-02 planning note (STEP 78):** no geometry blocker identified. ADR-0036 §3 / spec S15 disjoint desk capabilities conflict with the shared `seat` in spec T3/T4. Owner clarification is required before catalog/capability validation in R1A-03/06; no accepted source or Oracle is changed. See the R1A-02 detailed plan.
+
+**BLOCKER:** none among the geometry items above. Owner cleared Pre-R1 and authorized R1a (§9); R1A-01 baseline/harness evidence is owner accepted on 2026-10-10; separate original-base CI execution remains unverified and complete raw baseline gate details remain unavailable, both explicitly acknowledged by owner. PR #1 merged into `v0.2-development` at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`; R1A-01 repository integration is complete. R1A-01 stays DONE / OWNER ACCEPTED / MERGED.
 
 ---
 

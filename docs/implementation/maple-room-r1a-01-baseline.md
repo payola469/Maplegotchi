@@ -1,6 +1,6 @@
 # R1A-01 — Kickoff baseline and focused task plan
 
-**Status:** OWNER ACCEPTED / MERGE PENDING — R1A-01 only (2026-10-10, +07).
+**Status:** DONE / OWNER ACCEPTED / MERGED — R1A-01 only (2026-10-10, +07).
 Master Plan: `maple-room-r1a-plan.md` §3 R1A-01, §7–§9. Live status:
 `maple-room-r1a-checklist.md`; history: `maple-room-r1a-worklog.md`.
 
@@ -81,11 +81,11 @@ PR-head CI are recorded. Master Plan §3 / R1A-01 completion review:
 | Criterion | Evidence / remaining action |
 |---|---|
 | Baseline recorded | Approved base, prior Docker PASS/counts, computed digest and route reference recorded. Separate original-base GitHub CI execution remains unverified; PR-head CI is explicitly distinguished. |
-| Harness usable by R1A-02 | 48 focused oracle/contract/fixture tests passed; conventions documented. Owner accepted 2026-10-10; PR #1 merge pending; R1A-02 remains TODO. |
+| Harness usable by R1A-02 | 48 focused oracle/contract/fixture tests passed; conventions documented. Owner accepted 2026-10-10; PR #1 merged; R1A-02 remains TODO. |
 | Contracts enforced in CI | 10 kept / 0 broken; passing Ubuntu and Windows backend jobs at PR HEAD include the existing import-linter and pytest checks. |
 | No runtime behaviour changed | Oracle/harness remain test infrastructure. CI fixes initialize API schemas earlier, add probe platform guards, and preserve installer guard semantics; no API contract, world behavior or schema change. |
 
-**OWNER ACCEPTED / MERGE PENDING — 2026-10-10 (STEP 71).** The owner
+**Owner acceptance — 2026-10-10 (STEP 71); merged completion recorded STEP 78.** The owner
 explicitly APPROVES R1A-01 acceptance and acknowledges that GitHub run
 `38062574000` validates PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`,
 not a separate CI execution of original baseline
@@ -93,9 +93,11 @@ not a separate CI execution of original baseline
 PASS remains recorded, with complete raw gate details unavailable and explicitly
 acknowledged. These evidence limitations are accepted; no rerun is claimed.
 
-Outstanding action: PR #1 merge under existing policy. R1A-01 is not DONE and
-repository integration is not complete until merge succeeds. No merge is performed
-or authorized by this documentation step. R1A-02–R1A-20 remain TODO.
+**Completion reconciled — STEP 78:** PR #1 merged into `v0.2-development` at
+`a754efc9cd35f66e15efb8707dc9b4066d5ab54d`. R1A-01 is **DONE / OWNER ACCEPTED / MERGED**;
+repository integration for this item is complete. The two owner-acknowledged
+limitations above remain unchanged. R1A-02 is TODO / PLAN PREPARED; R1A-03–R1A-20
+remain TODO. This update performs no merge or production action.
 
 ADR-locked values > accepted ADR rules > Final Design Spec > PROPOSED text.
 Keep schema v10 and the legacy default view; no production deployment/restart,
@@ -152,5 +154,5 @@ contracts **10 kept / 0 broken**. PR #1 HEAD `26aed831b82eebf2db8e73ff9b04f60a43
 Frontend and ShellCheck. This is PR-head evidence, not a separate CI execution of
 the original base SHA. No tests, simulation or release gate rerun for this update.
 
-R1A-01 remains **OWNER ACCEPTED / MERGE PENDING**; R1A-02–R1A-20 remain
+R1A-01 remains **DONE / OWNER ACCEPTED / MERGED**; R1A-02–R1A-20 remain
 **TODO**. Earlier failed attempts and evidence limitations remain in the worklog.

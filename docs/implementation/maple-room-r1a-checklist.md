@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 is limited to baseline and test infrastructure; R1A-02–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 19 | 0 | 0 | 1 | 0 | 0 |
+| 20 | 18 | 0 | 0 | 1 | 1 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -54,8 +54,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | ID | Title | Status | Dependencies (start) | Last updated |
 |---|---|---|---|---|
-| R1A-01 | Baseline and test harness | REVIEW — OWNER ACCEPTED / MERGE PENDING | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
-| R1A-02 | Canonical world model and final house geometry | TODO | 01 | 2026-10-09 |
+| R1A-01 | Baseline and test harness | DONE / OWNER ACCEPTED / MERGED | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
+| R1A-02 | Canonical world model and final house geometry | REVIEW / PENDING OWNER ACCEPTANCE | 01 (DONE) | 2026-10-10 |
 | R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
 | R1A-05 | Deterministic A* pathfinding | TODO | 04 (completion: 17 tuning evidence) | 2026-10-09 |
@@ -79,27 +79,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-01 — Baseline and test harness
 
-- **Status:** OWNER ACCEPTED / MERGE PENDING (REVIEW; not DONE)
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** Pre-R1 Gate closed + owner authorization of R1a
 - **Branch:** `codex/r1a-01-baseline`
 - **Start commit:** `5c6db41c0139e1da6a2178b36d838e4da57074b1`
-- **End commit:** —
+- **End commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (PR #1 merge into `v0.2-development`)
 - **Evidence / tests:** Approved base `5c6db41c0139e1da6a2178b36d838e4da57074b1`; previously verified isolated Docker release gate PASS and baseline counts retained. Owner-verified 30-day simulation: 8,640 ticks; computed digest `458d6cb4035329a008105f8f2055d5f35b61cc1f537df3e04eabfcfe52d25917`. PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`: [GitHub Actions run 38062574000](https://github.com/payola469/Maplegotchi/actions/runs/38062574000), Backend Ubuntu / Backend Windows / Frontend / ShellCheck PASS. PR-head CI is not separate original-base CI evidence.
-- **Notes:** Oracle/Harness: 48 new focused tests passed; 635 cells and 49 walk values; 10 import contracts kept / 0 broken. Owner explicitly APPROVES R1A-01 acceptance on 2026-10-10, acknowledging that run `38062574000` validates PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`, not a separate CI run on base `5c6db41c0139e1da6a2178b36d838e4da57074b1`, and complete raw baseline Docker gate details are unavailable. PR #1 merge remains pending; repository integration is not complete. No World Model or Engine behavior; R1A-02–R1A-20 TODO.
-- **Last updated:** 2026-10-10 (STEP 71; owner accepted, merge pending)
+- **Notes:** Oracle/Harness: 48 new focused tests passed; 635 cells and 49 walk values; 10 import contracts kept / 0 broken. Owner explicitly APPROVES R1A-01 acceptance on 2026-10-10, acknowledging that run `38062574000` validates PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`, not a separate CI run on base `5c6db41c0139e1da6a2178b36d838e4da57074b1`, and complete raw baseline Docker gate details are unavailable. PR #1 merged into `v0.2-development` at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`; R1A-01 repository integration is complete. R1A-01 introduced no World Model or Engine behavior. Current R1A-02 status is recorded below.
+- **Last updated:** 2026-10-10 (STEP 78; completion reconciled)
 - **Detailed task plan:** [R1A-01 baseline and focused task plan](maple-room-r1a-01-baseline.md)
 
 ### R1A-02 — Canonical world model and final house geometry
 
-- **Status:** TODO
+- **Status:** REVIEW / PENDING FINAL OWNER ACCEPTANCE (Checkpoints 1–6 implemented; 4–6 uncommitted, integration pending)
 - **Dependencies:** 01
-- **Branch:** —
-- **Start commit:** —
+- **Branch:** `feat/r1a-02-world-model`
+- **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (workstream baseline; Checkpoints 4–6 start at `06295b65a2f8c79825b154249cf6e7869f66e9cb`)
 - **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Evidence / tests:** STEP 90 consolidated **380 passed / 0 failed**; Ruff lint/format PASS (12 files); strict mypy PASS (23 files); **10 import contracts kept / 0 broken**. Exact T1/T2 Oracle equality; 44×26, 8 regions, 7 doors, 4 open edges, 1,144 singly covered lighting cells. Wheel resource inclusion/byte equality and isolated wheel loading PASS. Earlier checkpoint evidence retained in worklog.
+- **Notes:** Checkpoints 4–6 add backend lighting/S7 predicates, declarative initial house, strict isolated runtime reader and consolidated validation. No production wiring, object catalog, pathfinder/walkability engine, API, renderer, schema, Oracle or simulation-pin change. Final owner acceptance and integration pending; no commit/push/merge in STEP 90. R1A-03–R1A-20 TODO; desk-capability conflict remains deferred to R1A-03/06.
+- **Last updated:** 2026-10-10 (STEP 90; final review preparation)
+- **Detailed task plan:** [R1A-02 world model breakdown](maple-room-r1a-02-world-model.md)
 
 ### R1A-03 — Object catalog and capability metadata
 
