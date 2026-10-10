@@ -293,3 +293,54 @@ def test_host_stops_on_service_identity_change(
         assert "--clear-groups" in launched[0]
         assert "--bounding-set=-all" in launched[0]
         assert "-B" in launched[0] and "--inside" in launched[0]
+
+
+@pytest.mark.parametrize(
+    ("groups", "valid"), [("979", True), ("", True), ("979 27", False), ("0", False)]
+)
+def test_service_group_validation(
+    monkeypatch: pytest.MonkeyPatch, groups: str, valid: bool
+) -> None:
+    monkeypatch.setitem(
+        sys.modules,
+        "pwd",
+        SimpleNamespace(getpwnam=lambda _: SimpleNamespace(pw_uid=995, pw_gid=979)),
+    )
+    monkeypatch.setattr(probe.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(probe.socket, "gethostname", lambda: "paolo-core")
+    monkeypatch.setattr(probe, "snapshot", lambda _: (1395361, "100", "/release", "mnt:[42]"))
+    status = STATUS.replace("Uid:\t996\t996\t996\t996", "Uid:\t995\t995\t995\t995")
+    status = status.replace("Gid:\t996\t996\t996\t996", "Gid:\t979\t979\t979\t979")
+    status = status.replace("Groups:\t", f"Groups:\t{groups}")
+    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: status)
+    monkeypatch.setattr(
+        cb,
+        "parse_listeners",
+        lambda text, ipv6: [] if ipv6 else [("127.0.0.1", 8470, 995), ("127.0.0.1", 8471, 997)],
+    )
+    launched: list[bool] = []
+    monkeypatch.setattr(probe, "run_child", lambda *args: launched.append(True))
+    if valid:
+        probe.host("a" * 40)
+        assert launched == [True]
+    else:
+        with pytest.raises(RuntimeError, match="process has no supplementary groups"):
+            probe.host("a" * 40)
+        assert not launched
+
+
+@pytest.mark.parametrize("groups", [[], [979], [979, 27], [0]])
+def test_helper_still_requires_empty_groups(
+    monkeypatch: pytest.MonkeyPatch, groups: list[int]
+) -> None:
+    monkeypatch.setattr(probe.os, "geteuid", lambda: 995, raising=False)
+    monkeypatch.setattr(probe.os, "getegid", lambda: 979, raising=False)
+    monkeypatch.setattr(probe.os, "getgroups", lambda: groups, raising=False)
+
+    def stop_after_group_check(*args: Any) -> Any:
+        raise RuntimeError("passed group gate; stop before any namespace or file access")
+
+    monkeypatch.setattr(Path, "readlink", stop_after_group_check)
+    expected = "helper supplementary groups are not empty" if groups else "passed group gate"
+    with pytest.raises(RuntimeError, match=expected):
+        probe.inside("mnt:[42]", 995, 979)
