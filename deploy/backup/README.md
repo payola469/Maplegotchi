@@ -129,6 +129,16 @@ diff -u /usr/local/sbin/paolo-core-backup.pre-maple /usr/local/sbin/paolo-core-b
 
 ## Verify
 
+**Restore evidence, 2026-10-10:** the owner completed isolated restores of the
+October 10 and October 1 snapshots, restic verification, SQLite integrity checks,
+an equality-only identity comparison, and exact-path cleanup. The Pre-R1 Restore
+Test is **PASS / CLOSED**. Full snapshot IDs, archived paths, results and limits:
+[`maple-room-r1a-worklog.md`](../../docs/implementation/maple-room-r1a-worklog.md).
+This is not proof of original identity provenance, uninterrupted continuity,
+production database replacement or service restart/recovery. The legacy examples
+below are not an execution transcript; the completed exercise used explicit
+snapshot/path selection and no identity-value output or recursive cleanup.
+
 ```bash
 # helper on its own (Maple has run ≥ 1 heartbeat)
 sudo /usr/local/sbin/maple-db-snapshot stage --source /data/maple/maple.db --dest /root/maple-check.db

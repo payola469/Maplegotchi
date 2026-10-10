@@ -17,7 +17,7 @@ This file describes the designed and contract-tested production boundary.
 
 **Boundary verification update (2026-10-10):**
 - **Inside-service runtime probe:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
-- **A restore test remains OPEN.**
+- **Isolated Restore Test: PASS / CLOSED (2026-10-10).** Owner-restored schema v10 database opens and passes integrity verification; historical/current archived identity equality and exact-path cleanup passed. Evidence and limitations: `docs/implementation/maple-room-r1a-worklog.md`. Production replacement and restart/recovery were not tested; R-01 remains OPEN and R1a has not started.
 
 See `docs/architecture.md` → Deployment state. The v0.2 companions have their own
 units and runbooks: `maple-brain` (`deploy/brain/`, ADR-0033) and `maple-discord`

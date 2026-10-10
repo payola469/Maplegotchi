@@ -93,8 +93,8 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 > - **Status line:** the line at the top of this block ("Stage C … and Phase 8 NOT authorized", 2026-09-30) is kept as the historical record. The Stage C part is superseded by the owner decision of 2026-10-09 above (retroactive authorization; Stage C still open).
 > - **Phase 8:** no authorization and no 72-hour trial are recorded. Status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed (above).
 > - **Inside-service runtime boundary probe:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
->   - Stage C remains open pending restore; R-01 remains open. R1a has not started.
-> - **Restore:** no restore test from the restic backup is recorded.
+>   - The outstanding OD-01 evidence is now satisfied by the separate restore closure below; R-01 remains open. R1a has not started. No M3 or Phase 8 authorization is claimed.
+> - **Restore: PASS / CLOSED (2026-10-10).** Owner-executed isolated restic restores opened and passed SQLite integrity checks; archived identity equality and exact-path cleanup passed. Evidence and limitations: `docs/implementation/maple-room-r1a-worklog.md`. Original identity provenance/birth date not independently authenticated; no uninterrupted-continuity, production replacement or restart/recovery claim. Pre-R1 remains BLOCKED by R-01 and missing R1a authorization. This supersedes the earlier pending-restore status; historical decisions above are preserved.
 >
 > **Known open technical issue (documented, not fixed; active in production):** the journal Brain (`/generate`) is called inside the single-writer lock with a 30 s timeout. Production runs `MAPLE_BRAIN=antigravity`, so this applies to the live service. See `docs/security-model.md` → Known limitations.
 > Do not start the next phase until the owner approves it.

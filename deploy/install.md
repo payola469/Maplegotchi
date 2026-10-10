@@ -181,7 +181,9 @@ restore or restart-continuity claim.
 hashes, expected deployed release, printed PID/start-time/namespace, PASS/FAIL
 lines, exit codes, resolved OWNER_CHECKs and cleanup outcome. No response bodies,
 tokens, environment contents or raw application state. Update the Pre-R1
-checklist/worklog after owner review; restore and R-01 stay OPEN, R1A items TODO.
+checklist/worklog after owner review; this boundary probe alone cannot close the
+restore item or R-01. Restore separately passed on 2026-10-10 (worklog);
+R-01 stays OPEN and R1A items TODO.
 
 ## 7. Restart continuity (separate owner-authorized work)
 

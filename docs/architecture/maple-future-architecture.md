@@ -81,7 +81,7 @@ Also verified on the live host:
 - Tailscale Serve and Funnel are tailnet-only.
 - The nightly backup ran successfully on 2026-10-08, with the Maple DB snapshot staged (restic snapshot `8b7bea38`).
 
-**Updated 2026-10-10:** inside-service boundary probe PASS / CLOSED from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md` for evidence and limitations. Restore remains OPEN.
+**Updated 2026-10-10:** inside-service boundary probe PASS / CLOSED from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md` for evidence and limitations. Isolated Restore Test also PASS / CLOSED, recorded 2026-10-10 in the same worklog; R-01 remains OPEN and R1a has not started.
 
 See `docs/architecture.md` → Deployment state.
 
@@ -180,7 +180,7 @@ These items were found during this review. A documentation-only update on 2026-1
 > **Pointer — current status (owner decisions 2026-10-09).** The "unverified" wording in this section is the dated 2026-10-08 record and is kept as history. Since then:
 > - **Stage C authorization: resolved.** The Stage C install of release `160ed4f…` is retroactively authorized. Stage C stays **open** until the boundary probe and the restore test pass; M3 is not claimed.
 > - **Phase 8: resolved as a status.** Not authorized, not started, deferred until Stage C is closed. It blocks neither R1a nor R1b (ADR-0009).
-> - **Update 2026-10-10:** boundary probe PASS / CLOSED. **Still open:** restore (remaining OD-01 evidence, §19) and R-01 (§21). See `docs/implementation/maple-room-r1a-worklog.md` for production evidence and limitations; R1a has not started.
+> - **Update 2026-10-10:** boundary probe PASS / CLOSED. **Restore Test also PASS / CLOSED:** isolated restore evidence satisfies the remaining OD-01 requirement (§19). **Still open:** R-01 (§21). See `docs/implementation/maple-room-r1a-worklog.md` for production evidence and limitations; R1a has not started.
 
 | Where | Drift |
 |---|---|
@@ -1513,7 +1513,7 @@ STEP 18    R6 (final art can be produced continuously from STEP 2a onward, integ
 
 | # | Decision | Recommendation |
 |---|---|---|
-| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Boundary probe PASS / CLOSED recorded 2026-10-10:** owner-supplied production evidence and limitations in `docs/implementation/maple-room-r1a-worklog.md`. **Still open:** a restore test. | owner tests a restore before roadmap work; boundary-probe evidence recorded |
+| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Boundary probe PASS / CLOSED recorded 2026-10-10:** owner-supplied production evidence and limitations in `docs/implementation/maple-room-r1a-worklog.md`. **Restore Test PASS / CLOSED recorded 2026-10-10:** isolated restore opens and passes integrity; archived identity equality and exact-path cleanup PASS. Full evidence and limitations in the same worklog; no original-provenance or production replacement/restart claim. | OD-01 evidence satisfied; R-01 and R1a authorization remain blockers |
 | OD-02 | Meaning of "Inventory" (R3) | **Decided 2026-10-08 (B4, ADR-0039):** Storage, derived, no game mechanics |
 | OD-03 | Owner authentication for editor and approvals | **Decided 2026-10-08 (B3, ADR-0038):** dedicated owner secret → owner session + Origin + Tailscale identity; Serve header spike pending |
 | OD-04 | Initial room set and sizes | **Room set decided (B2, ADR-0040):** 5 open + 3 closed placeholders. Room **sizes and door positions** remain intentionally undecided until the Room Final Design Spec (B15); the 2026-10-09 spike locked only the wall, door and window conventions. |
@@ -1585,7 +1585,7 @@ The owner should require all of the following before R1 code starts. Later subsy
 
 **Before R1:**
 1. OD-01 resolved: an inside-service boundary probe and a restore test are recorded for the running release (hardening-loaded, Tailscale and backup creation are already verified), and the authorization status is clarified. §2.7 docs drift: done 2026-10-08. R-01 fixed or explicitly accepted.
-   - *Status updated 2026-10-10:* authorization clarified; boundary probe **PASS / CLOSED**. Stage C remains open; Phase 8 not authorized, deferred. **Open:** restore test and R-01. R1a has not started.
+   - *Status updated 2026-10-10:* authorization clarified; boundary probe and isolated Restore Test **PASS / CLOSED** (worklog evidence and limitations). Phase 8 remains not authorized/not started; M3 not claimed. **Open:** R-01; Pre-R1 Gate BLOCKED and R1a authorization not given. R1a has not started.
 2. Room Final Design Spec approved (roadmap STEP 1): room list, sizes, door positions, furniture list per room.
 3. **Technical lock spike done** and its values recorded by an owner decision under ADR-0041. **Done 2026-10-09**, except the owner face blind test (face size) and the Serve header spike (`docs/spikes/2026-10-room-art-spike.md`):
    - tile size, Maple frame, feet anchor, `FEET_IN_TILE` and face-overlay readability/sizes validated together;

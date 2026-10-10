@@ -77,7 +77,7 @@ denies every action to `maple-svc`. Evidence on the host comes from
 
 **Boundary verification update (2026-10-10):**
 - **Inside-service runtime boundary behaviour:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
-- **Restore** from backup remains unverified / OPEN.
+- **Isolated Restore Test: PASS / CLOSED (2026-10-10)** from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md`. No production replacement or restart/recovery test; archived identity equality does not authenticate original provenance or prove uninterrupted continuity. R-01 remains OPEN; R1a has not started.
 
 See `docs/architecture.md` → Deployment state.
 
