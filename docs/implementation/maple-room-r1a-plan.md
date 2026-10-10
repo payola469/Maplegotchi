@@ -7,7 +7,7 @@
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
 > - **R1a is NOT authorized.** This document plans R1a; it does not authorize it. Implementation starts only after an explicit owner authorization.
-> - **Pre-R1 gate (§9): three items are OPEN and are BLOCKERS before R1A-01:** the OD-01 inside-service boundary probe, the OD-01 restore test, and R-01 (fixed or explicitly accepted). Stage C authorization and Phase 8 status were resolved on 2026-10-09.
+> - **Pre-R1 gate (§9): two items remain OPEN and are BLOCKERS before R1A-01:** the OD-01 restore test and R-01 (fixed or explicitly accepted). The boundary probe is **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied evidence (worklog). Stage C authorization and Phase 8 status were resolved on 2026-10-09.
 > - This is a planning document. It records **no** implementation result. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
 
@@ -622,7 +622,7 @@ Classification: **BLOCKER** (prevents starting R1a work) · **REQUIRED BEFORE R1
 | 14 | Turn penalty yields walk lengths different from spec T6 | REQUIRED BEFORE R1A ACCEPTANCE | Recorded as a decision in R1A-05; spec unchanged unless the stop rule applies. |
 | 15 | Tailscale Serve identity-header spike | NON-BLOCKING / DEFERRED → before **R4** (ADR-0038 §3) | Not needed for R1a (no owner endpoints). |
 
-**BLOCKER:** none among the design and technical items above. The blockers are the three OPEN pre-R1 gate items (OD-01 boundary probe, OD-01 restore test, R-01) and R1a authorization, all in §9.
+**BLOCKER:** none among the design and technical items above. The blockers are the two OPEN pre-R1 gate items (OD-01 restore test, R-01) and R1a authorization, all in §9.
 
 ---
 
@@ -709,18 +709,18 @@ Plan current work item
 
 ## 9. Pre-R1 gate and authorization preconditions
 
-Status as of 2026-10-09 (owner decisions recorded in `CLAUDE.md` and `docs/architecture.md`). Preference recorded by the owner: known pre-R1 architectural gates are resolved **before** R1a.
+Status updated 2026-10-10 (boundary probe PASS; prior owner decisions recorded in `CLAUDE.md` and `docs/architecture.md`). Preference recorded by the owner: known pre-R1 architectural gates are resolved **before** R1a.
 
 | Precondition | Status | Classification |
 |---|---|---|
 | **Pre-R1 gate** (future-architecture §22 item 1) | | |
 | OD-01: Stage C authorization record | **RESOLVED** 2026-10-09: install of `160ed4f…` retroactively authorized; Stage C stays open; M3 not claimed | — |
 | OD-01: Phase 8 status | **RESOLVED** 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b (ADR-0009) | — |
-| OD-01: inside-service boundary probe (`check_boundaries.py` / `sandbox_probe.sh` for the deployed release) | **OPEN** | **BLOCKER** before R1A-01 |
+| OD-01: inside-service boundary probe (`check_boundaries.py` / `sandbox_probe.sh` for the deployed release) | **RESOLVED** — PASS / CLOSED, recorded 2026-10-10; evidence and limitations in worklog | Met |
 | OD-01: restore test (restic restore; restored `maple.db` opens and passes `integrity_check`) | **OPEN** | **BLOCKER** before R1A-01 |
 | R-01: journal Brain call inside the writer lock — fixed (separate small PR, §17 M-0) or explicitly accepted by the owner | **OPEN** | **BLOCKER** before R1A-01 |
 | **R1a authorization** | | |
-| Owner authorization of R1a | **Not given.** BLOCKED until the three OPEN pre-R1 items are resolved | **BLOCKER** for starting R1A-01 |
+| Owner authorization of R1a | **Not given.** BLOCKED until the two OPEN pre-R1 items are resolved | **BLOCKER** for starting R1A-01 |
 | **Design baseline** | | |
 | Room Final Design Spec approved | Approved in principle (2026-10-09) | Met |
 | Technical lock (ADR-0041 L1–L22, C1–C8) | Locked 2026-10-09 | Met |

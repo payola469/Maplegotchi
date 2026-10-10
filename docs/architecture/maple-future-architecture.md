@@ -81,9 +81,7 @@ Also verified on the live host:
 - Tailscale Serve and Funnel are tailnet-only.
 - The nightly backup ran successfully on 2026-10-08, with the Maple DB snapshot staged (restic snapshot `8b7bea38`).
 
-**Not verified:**
-- the inside-service runtime boundary probe, which was not re-run (the verify scripts are not in the deployed release);
-- restore.
+**Updated 2026-10-10:** inside-service boundary probe PASS / CLOSED from owner-supplied evidence; see `docs/implementation/maple-room-r1a-worklog.md` for evidence and limitations. Restore remains OPEN.
 
 See `docs/architecture.md` → Deployment state.
 
@@ -177,12 +175,12 @@ These rules are enforced by seven import-linter contracts plus the AST forbidden
 
 ### 2.7 Documentation drift found during this review
 
-These items were found during this review. A documentation-only update on 2026-10-08 reconciled the docs and docstrings listed below. The current runtime on paolo-core has since been **verified** from owner-supplied live evidence and is recorded in `CLAUDE.md` and `docs/architecture.md`: `maplegotchi`, `maple-brain` and `maple-discord` are active at release `160ed4f…`, the schema is v10, and the listeners are 127.0.0.1:8470 and :8471. Hardening (loaded), the AI configuration, Tailscale and backup creation were verified later the same day. The Stage C authorization record, Phase 8, the inside-service boundary probe and restore stay unverified (OD-01, narrowed). No code behaviour was changed.
+These items were found during this review. A documentation-only update on 2026-10-08 reconciled the docs and docstrings listed below. The current runtime on paolo-core has since been **verified** from owner-supplied live evidence and is recorded in `CLAUDE.md` and `docs/architecture.md`: `maplegotchi`, `maple-brain` and `maple-discord` are active at release `160ed4f…`, the schema is v10, and the listeners are 127.0.0.1:8470 and :8471. Hardening (loaded), the AI configuration, Tailscale and backup creation were verified later the same day. At that historical checkpoint, Stage C authorization, Phase 8, boundary probe and restore remained unverified; subsequent updates below supersede that status. No code behaviour was changed.
 
 > **Pointer — current status (owner decisions 2026-10-09).** The "unverified" wording in this section is the dated 2026-10-08 record and is kept as history. Since then:
 > - **Stage C authorization: resolved.** The Stage C install of release `160ed4f…` is retroactively authorized. Stage C stays **open** until the boundary probe and the restore test pass; M3 is not claimed.
 > - **Phase 8: resolved as a status.** Not authorized, not started, deferred until Stage C is closed. It blocks neither R1a nor R1b (ADR-0009).
-> - **Still open:** the inside-service boundary probe and the restore test (OD-01, §19), and R-01 (§21). See `CLAUDE.md` and `docs/architecture.md` for the current record.
+> - **Update 2026-10-10:** boundary probe PASS / CLOSED. **Still open:** restore (remaining OD-01 evidence, §19) and R-01 (§21). See `docs/implementation/maple-room-r1a-worklog.md` for production evidence and limitations; R1a has not started.
 
 | Where | Drift |
 |---|---|
@@ -192,7 +190,7 @@ These items were found during this review. A documentation-only update on 2026-1
 | `api/stream.py` docstring | Lists 6 SSE kinds. `movement` and `life` are also published. |
 | `docs/api.md` | "Three append-only stores", but its table lists seven. |
 | `docs/sensors.md` | Says the survey has "not yet run". `deploy/survey/findings.md` records that it has. |
-| `CLAUDE.md` status | Said Stage C / Phase 8 are not authorized while a deployment was running. **Reconciled 2026-10-08:** the current runtime is verified (all three services active at `160ed4f…`, schema v10). The 2026-09-30 authorization line is kept as history. Loaded hardening (1.1 OK), the AI switches, Tailscale tailnet-only and nightly backup creation are also verified. Stage C authorization, Phase 8, the inside-service boundary probe and restore remain unverified (OD-01). *(Superseded in part on 2026-10-09: see the pointer above this table.)* |
+| `CLAUDE.md` status | Said Stage C / Phase 8 are not authorized while a deployment was running. **Reconciled 2026-10-08:** the current runtime is verified (all three services active at `160ed4f…`, schema v10). The 2026-09-30 authorization line is kept as history. Loaded hardening (1.1 OK), the AI switches, Tailscale tailnet-only and nightly backup creation are also verified. Stage C authorization, Phase 8, the inside-service boundary probe and restore remain unverified (OD-01). *(Superseded in part on 2026-10-09 and 2026-10-10: see the pointer above this table.)* |
 
 ---
 
@@ -1515,7 +1513,7 @@ STEP 18    R6 (final art can be produced continuously from STEP 2a onward, integ
 
 | # | Decision | Recommendation |
 |---|---|---|
-| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Still open:** an inside-service runtime boundary probe (the verify scripts are not in the deployed release); a restore test. | owner records the authorization, ships or runs the boundary probe for the deployed release, and tests a restore before roadmap work |
+| OD-01 | *Narrowed 2026-10-08:* verified so far — the current runtime (main/Brain/Discord active at `160ed4f…`, schema v10, loopback 8470/8471), the loaded hardening (`systemd-analyze security` 1.1 OK), the AI switches = antigravity, Tailscale Serve and Funnel tailnet-only, and nightly backup creation (incl. the Maple DB snapshot). *Stage C authorization recorded 2026-10-09 (owner): the install of `160ed4f…` is retroactively authorized; Stage C stays open until the boundary probe and the restore test pass; M3 not claimed. Phase 8 status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b.* **Boundary probe PASS / CLOSED recorded 2026-10-10:** owner-supplied production evidence and limitations in `docs/implementation/maple-room-r1a-worklog.md`. **Still open:** a restore test. | owner tests a restore before roadmap work; boundary-probe evidence recorded |
 | OD-02 | Meaning of "Inventory" (R3) | **Decided 2026-10-08 (B4, ADR-0039):** Storage, derived, no game mechanics |
 | OD-03 | Owner authentication for editor and approvals | **Decided 2026-10-08 (B3, ADR-0038):** dedicated owner secret → owner session + Origin + Tailscale identity; Serve header spike pending |
 | OD-04 | Initial room set and sizes | **Room set decided (B2, ADR-0040):** 5 open + 3 closed placeholders. Room **sizes and door positions** remain intentionally undecided until the Room Final Design Spec (B15); the 2026-10-09 spike locked only the wall, door and window conventions. |
@@ -1587,7 +1585,7 @@ The owner should require all of the following before R1 code starts. Later subsy
 
 **Before R1:**
 1. OD-01 resolved: an inside-service boundary probe and a restore test are recorded for the running release (hardening-loaded, Tailscale and backup creation are already verified), and the authorization status is clarified. §2.7 docs drift: done 2026-10-08. R-01 fixed or explicitly accepted.
-   - *Status 2026-10-09:* the authorization status is clarified (Stage C retroactively authorized but still open; Phase 8 not authorized, deferred). **Open:** the inside-service boundary probe, the restore test, and R-01.
+   - *Status updated 2026-10-10:* authorization clarified; boundary probe **PASS / CLOSED**. Stage C remains open; Phase 8 not authorized, deferred. **Open:** restore test and R-01. R1a has not started.
 2. Room Final Design Spec approved (roadmap STEP 1): room list, sizes, door positions, furniture list per room.
 3. **Technical lock spike done** and its values recorded by an owner decision under ADR-0041. **Done 2026-10-09**, except the owner face blind test (face size) and the Serve header spike (`docs/spikes/2026-10-room-art-spike.md`):
    - tile size, Maple frame, feet anchor, `FEET_IN_TILE` and face-overlay readability/sizes validated together;

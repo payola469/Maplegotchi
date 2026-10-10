@@ -75,9 +75,9 @@ denies every action to `maple-svc`. Evidence on the host comes from
 - **Backup creation is verified:** the 2026-10-08 nightly run succeeded, the Maple DB snapshot was staged, and restic snapshot `8b7bea38` was saved.
 - **External Brain in production:** `MAPLE_BRAIN`, `MAPLE_DIRECTOR` and `MAPLE_REPLIER` are all `antigravity`. Known limitation 1 below therefore applies to the live service.
 
-**Still unverified:**
-- **Inside-service runtime boundary behaviour.** The probe was not re-run for this release: `check_boundaries.py` and `sandbox_probe.sh` are not present in the deployed release. The controls above are verified as *loaded*. The effective behaviour inside the service's namespace has **not** been re-verified end to end on the host. That behaviour covers: writable only `/data/maple`, `/data` siblings, homes and the Docker socket inaccessible, process credentials, and polkit denial.
-- **Restore** from backup.
+**Boundary verification update (2026-10-10):**
+- **Inside-service runtime boundary behaviour:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
+- **Restore** from backup remains unverified / OPEN.
 
 See `docs/architecture.md` → Deployment state.
 

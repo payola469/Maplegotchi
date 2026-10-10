@@ -15,9 +15,9 @@ This file describes the designed and contract-tested production boundary.
 - Tailscale Serve is tailnet-only (`/` → `http://127.0.0.1:8470`), and Funnel status reports tailnet-only.
 - The nightly backup works. The latest observed run, on 2026-10-08, finished 0/SUCCESS, staged the Maple DB snapshot and saved restic snapshot `8b7bea38`.
 
-**Not verified for this release:**
-- **The inside-service runtime probe.** `deploy/verify/check_boundaries.py` and `sandbox_probe.sh` are not present in the deployed release and were not re-run. The namespace and runtime behaviour described below is designed, contract-tested, and backed by the loaded properties, but has not been re-verified end to end.
-- **A restore test.**
+**Boundary verification update (2026-10-10):**
+- **Inside-service runtime probe:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
+- **A restore test remains OPEN.**
 
 See `docs/architecture.md` → Deployment state. The v0.2 companions have their own
 units and runbooks: `maple-brain` (`deploy/brain/`, ADR-0033) and `maple-discord`

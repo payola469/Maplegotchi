@@ -168,3 +168,18 @@ Example format (illustrative only; this did **not** happen):
 - **Evidence:** targeted group-validation, helper-group and service-identity-change tests: **11 passed, 19 deselected**. Covers observed primary-only membership, empty service membership under the existing validator, mixed primary/extra group and unrelated privileged group rejection, plus strict empty helper groups. Targeted Ruff lint/format and strict mypy (`--platform linux --follow-imports=silent`) passed on the changed helper/test files. No full suite run.
 - **Status:** production probe attempted by owner; false FAIL discovered; probe tooling bug identified and fixed. OD-01 boundary probe remains **OPEN pending rerun**. Restore test and R-01 untouched; all R1A-01 through R1A-20 remain TODO. R1a has not started.
 - **Production / next step:** no production commands run by this agent and no production changes. Commit/push this fix branch as authorized; owner rerun and accepted evidence are still required before OD-01 closure.
+
+### 2026-10-10 (+07) — Pre-R1 gate (no R1A item) — OD-01 boundary probe PASS / CLOSED
+
+- **Branch / baseline:** `v0.2-development` at `a3edcf10dc3584bb2322a8ca5a5850458338e187`.
+- **Before:** boundary probe OPEN pending owner rerun after the primary-group false FAIL fix.
+- **Change:** record the owner's successful manual production evidence and close the **boundary-probe item only**. The separate OD-01 restore item remains OPEN; historical attempts and failures above are preserved.
+- **Evidence source:** owner-supplied paolo-core results, recorded 2026-10-10. Exact execution timestamp and script hashes were not supplied; this is not an agent-executed or independently repeated probe.
+- **Expected deployed release:** `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`.
+- **Checker:** `check_boundaries.py`: **59 checks, 0 failed, 0 warnings, 1 OWNER_CHECK**. Owner resolved that check: `/etc/polkit-1/rules.d/50-maplegotchi-deny.rules` was `root:root 644`, matching expected metadata.
+- **Sandbox result:** `sandbox_probe: PASS`. Verified correct `maple-svc` identity, no unexpected supplementary groups, empty capabilities, `NoNewPrivs=1`, `Seccomp=2`, port 8470 loopback-only, protected filesystem creation attempts denied with `EROFS`, successful `/data/maple` marker round-trip and exact-path cleanup, and stable service PID/start time/release.
+- **Exposure:** both `tailscale serve status` and `tailscale funnel status` reported `https://paolo-core.tail4bfe27.ts.net (tailnet only)`, with `/` proxying to `http://127.0.0.1:8470`. Interpretation: tailnet-only exposure, no public Funnel exposure.
+- **Limitations:** polkit rule ownership/mode is metadata evidence, **not active polkit-denial proof**. No cgroup network-filter enforcement claim. Safe live GET/CORS-header checks are **not live POST Origin-denial proof**.
+- **Validation:** documentation/static checks only: scoped diff review, unchanged restore/R-01 rows and R1a TODO statuses, append-only worklog verification, and `git diff --check`. No implementation tests required for this documentation-only update.
+- **Final Pre-R1 status:** boundary probe **PASS / CLOSED** (`RESOLVED` in checklist vocabulary); restore test **OPEN**; R-01 **OPEN**; R1a authorization **BLOCKED / not given**. Stage C remains open, M3 not claimed. All R1A-01 through R1A-20 remain TODO; R1a has NOT started.
+- **Production / next step:** no production commands run by this agent, no implementation/configuration/schema changes, no restore or R-01 work. Commit/push this evidence update as authorized; remaining gates must be resolved before R1a authorization.

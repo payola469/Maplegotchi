@@ -89,13 +89,11 @@ This file guides Claude Code (and humans) working in this repository. Read it fu
 > - It is **deferred until Stage C is closed**. Stage C is closed only after the inside-service boundary probe passes and the restore test passes.
 > - Phase 8 currently blocks **neither R1a nor R1b**. It gates only the stable-release label (ADR-0009).
 >
-> **HISTORICAL AUTHORIZATION / TEST EVIDENCE — still UNVERIFIED:**
+> **AUTHORIZATION / TEST EVIDENCE — updated 2026-10-10:**
 > - **Status line:** the line at the top of this block ("Stage C … and Phase 8 NOT authorized", 2026-09-30) is kept as the historical record. The Stage C part is superseded by the owner decision of 2026-10-09 above (retroactive authorization; Stage C still open).
 > - **Phase 8:** no authorization and no 72-hour trial are recorded. Status clarified 2026-10-09 (owner): not authorized, not started, deferred until Stage C is closed (above).
-> - **Inside-service runtime boundary probe:** not re-run for this release.
->   - `deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh` exist in the repository but are **not present in the deployed release**.
->   - The hardening controls are verified as *loaded* (above).
->   - The resulting namespace/runtime behaviour has **not** been re-verified end to end: writes only to `/data/maple`, hidden `/data` siblings and homes, inaccessible Docker socket, process credentials.
+> - **Inside-service runtime boundary probe:** **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim.
+>   - Stage C remains open pending restore; R-01 remains open. R1a has not started.
 > - **Restore:** no restore test from the restic backup is recorded.
 >
 > **Known open technical issue (documented, not fixed; active in production):** the journal Brain (`/generate`) is called inside the single-writer lock with a 30 s timeout. Production runs `MAPLE_BRAIN=antigravity`, so this applies to the live service. See `docs/security-model.md` → Known limitations.

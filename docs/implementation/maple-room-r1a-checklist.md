@@ -8,16 +8,16 @@
 
 ## Pre-R1 Gate
 
-Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last updated 2026-10-09.
+Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last updated 2026-10-10.
 
 | Gate item | Status | Notes |
 |---|---|---|
 | Stage C authorization | **RESOLVED** | 2026-10-09: install of `160ed4f…` retroactively authorized; Stage C stays open; M3 not claimed |
 | Phase 8 status | **RESOLVED** | 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b |
-| Boundary probe (OD-01) | **OPEN** | inside-service probe for the deployed release; BLOCKER before R1A-01. 2026-10-10: owner reports production probe attempted; false FAIL on primary-only Groups discovered; tooling bug identified and fixed, **pending production rerun**. No accepted probe PASS yet |
+| Boundary probe (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied production evidence; worklog contains results and limitations |
 | Restore test (OD-01) | **OPEN** | restic restore; restored `maple.db` passes `integrity_check`; BLOCKER before R1A-01 |
 | R-01 | **OPEN** | fixed (separate small PR) or explicitly accepted by the owner; BLOCKER before R1A-01 |
-| R1a authorization | **BLOCKED** | until the three OPEN items above are resolved |
+| R1a authorization | **BLOCKED** | until the two OPEN items above are resolved |
 
 Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item statuses below.
 
@@ -84,7 +84,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 - **Start commit:** —
 - **End commit:** —
 - **Evidence / tests:** —
-- **Notes:** Cannot start until the Pre-R1 Gate is closed (boundary probe, restore test, R-01) and R1a is authorized.
+- **Notes:** Cannot start until the Pre-R1 Gate is closed (remaining: restore test, R-01; boundary probe PASS) and R1a is authorized.
 - **Last updated:** 2026-10-09 (planning framework created)
 - **Detailed task plan:** — (created only when this item starts)
 

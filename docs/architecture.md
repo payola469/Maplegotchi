@@ -18,7 +18,7 @@ built; this file collects longer-form notes as each phase lands.
 - the services **are installed and active** on paolo-core at release `160ed4f…` (verified current runtime, see "Deployment state" below);
 - verified on the live service: the systemd hardening is loaded, Tailscale Serve and Funnel are tailnet-only, and nightly backup creation works (including the Maple DB snapshot);
 - **authorization:** the install of release `160ed4f…` was retroactively authorized by the owner on 2026-10-09 (status clarification only);
-- **Stage C stays open** until the inside-service boundary probe and a restore test pass; M3 is not claimed |
+- **Stage C stays open** pending restore; boundary probe PASS recorded 2026-10-10; M3 is not claimed |
 | 8. Trial run | **Owner decision 2026-10-09:** not authorized, not started; deferred until Stage C is closed (boundary probe and restore test pass). Blocks neither R1a nor R1b; gates only the stable-release label (ADR-0009). |
 
 ### v0.2 (branch `v0.2-development`, pushed; schema v10)
@@ -80,7 +80,7 @@ The runtime evidence above shows what is running and configured. It does not pro
 |---|---|
 | Stage C owner authorization | **Recorded 2026-10-09 (owner decision):** the Stage C install of release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d` is retroactively authorized. Stage C is **not complete**: it stays open until the inside-service boundary probe and the restore test (below) pass, and M3 is not claimed. The 2026-09-30 "not authorized" line in `CLAUDE.md` is kept as history. |
 | Phase 8 (72 h trial) | **Status clarified 2026-10-09 (owner decision):** not authorized, not started, deferred until Stage C is closed (boundary probe and restore test pass). It blocks neither R1a nor R1b and gates only the stable-release label (ADR-0009). |
-| Inside-service runtime boundary probe | **Not re-run for this release.** `deploy/verify/check_boundaries.py` and `deploy/verify/sandbox_probe.sh` exist in the repository but are not present in the deployed release. The hardening controls are verified as *loaded*; the resulting namespace and runtime behaviour has **not** been re-verified end to end. That behaviour covers: writes only to `/data/maple`, `/data` siblings and homes hidden, Docker socket inaccessible, process credentials (caps, no_new_privs, seccomp), and the listening sockets as seen from inside the service. |
+| Inside-service runtime boundary probe | **PASS / CLOSED (recorded 2026-10-10, owner-supplied production evidence)** for release `160ed4fb9f2534a4609d826d9c4535cc7863ae3d`. See `docs/implementation/maple-room-r1a-worklog.md` (OD-01 boundary probe PASS). No active polkit-denial, cgroup network-filter enforcement or live POST Origin-denial claim. |
 | Restore verification | **Unverified.** No restore from restic (including `maple.db` at schema v10) has been tested. |
 
 Notes on this evidence:
