@@ -28,7 +28,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - name: ruff (stdlib deploy tools: survey, backup staging, verification)
+      - name: "ruff (stdlib deploy tools: survey, backup staging, verification)"
         run: |
           uv run ruff check --config pyproject.toml ../deploy/survey ../deploy/backup ../deploy/verify
           uv run ruff format --check --config pyproject.toml ../deploy/survey ../deploy/backup ../deploy/verify
