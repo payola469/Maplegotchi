@@ -7,7 +7,7 @@ it may write is the optional `--record` file you name (for the restart check).
 
     python3 check_boundaries.py                         # everything below
     python3 check_boundaries.py --record /tmp/maple-before.json
-    sudo systemctl restart maplegotchi                  # (owner, separately)
+    # Restart continuity is separate, owner-authorized work; never part of OD-01.
     python3 check_boundaries.py --compare /tmp/maple-before.json
 
 Protected paths (the env file under /etc/maplegotchi 0750, Maple's database
@@ -20,7 +20,7 @@ exist (ENOENT from a readable parent) is a FAIL.
 Checks: account and groups, file ownership/modes (code, config, data), release
 integrity, the running process (uid, groups, capabilities, no_new_privs,
 seccomp), listening sockets (loopback only), HTTP (health, frontend, headers,
-Origin refusal), the live snapshot (heartbeat, host metrics, service map), and
+absence of CORS permissions), the live snapshot (heartbeat, host metrics, service map), and
 identity continuity across a restart. The mount-namespace view (what Maple can
 and cannot see) is checked by sandbox_probe.sh, which needs nsenter (root).
 """
@@ -530,58 +530,67 @@ def check_sockets(uid: int) -> list[Result]:
     return evaluate_listeners(listeners, uid)
 
 
-def _get(
-    path: str, headers: Mapping[str, str] | None = None, method: str = "GET"
-) -> tuple[int, dict[str, str], bytes]:
-    request = urllib.request.Request(BASE + path, headers=dict(headers or {}), method=method)  # noqa: S310
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str
+    ) -> None:
+        return None
+
+
+def _get(path: str, headers: Mapping[str, str] | None = None) -> tuple[int, dict[str, str], bytes]:
+    if path not in {"/api/health", "/", "/api/docs", "/api/snapshot"}:
+        raise ValueError("not an allowlisted read-only endpoint")
+    request = urllib.request.Request(BASE + path, headers=dict(headers or {}), method="GET")  # noqa: S310
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+        with opener.open(request, timeout=10) as response:
             return (
                 response.status,
                 {k.lower(): v for k, v in response.headers.items()},
                 response.read(),
             )
     except urllib.error.HTTPError as err:
-        return err.code, {k.lower(): v for k, v in err.headers.items()}, err.read()
+        with err:
+            return err.code, {k.lower(): v for k, v in err.headers.items()}, b""
 
 
 def check_http() -> tuple[list[Result], dict[str, Any] | None]:
     results = []
     try:
-        code, _, body = _get("/api/health")
-        results.append(ok("GET /api/health", code == 200, body.decode(errors="replace")[:80]))
-        code, headers, body = _get("/")
+        code, _, _ = _get("/api/health")
+        results.append(ok("GET /api/health", code == 200, str(code)))
+        code, headers, body = _get("/", {"Origin": "https://evil.example"})
         results.append(
             ok(
                 "frontend served by the backend",
                 code == 200 and b"<" in body[:64],
-                headers.get("content-type", ""),
             )
         )
         for name, value in REQUIRED_HEADERS.items():
-            results.append(
-                ok(f"header {name}", headers.get(name) == value, headers.get(name, "missing"))
-            )
+            results.append(ok(f"header {name}", headers.get(name) == value))
         results.append(
             ok(
                 "header content-security-policy",
                 "default-src 'self'" in headers.get("content-security-policy", ""),
             )
         )
-        code, _, _ = _get(
-            "/api/interactions/greet",
-            {"Origin": "https://evil.example", "Content-Type": "application/json"},
-            "POST",
+        # GET does NOT prove POST Origin rejection. Isolated tests cover that:
+        # test_untrusted_origins_are_refused_without_side_effects
+        # test_production_origin_is_the_configured_one_only
+        results.append(
+            ok(
+                "untrusted Origin receives no CORS permission headers",
+                not any(k.startswith("access-control-") for k in headers),
+            )
         )
-        results.append(ok("untrusted Origin refused", code == 403, str(code)))
         code, _, body = _get("/api/docs")
         results.append(ok("no API docs in production", code == 404, str(code)))
         code, _, body = _get("/api/snapshot")
         snapshot: dict[str, Any] = json.loads(body)
         results.append(ok("GET /api/snapshot", code == 200))
         return results, snapshot
-    except (OSError, ValueError) as exc:
-        results.append(Result("FAIL", "HTTP on 127.0.0.1:8470", str(exc)))
+    except (OSError, ValueError):
+        results.append(Result("FAIL", "HTTP on 127.0.0.1:8470", "request or decoding failed"))
         return results, None
 
 
@@ -600,8 +609,9 @@ def run_all(record: Path | None, compare: Path | None) -> list[Result]:
     results += http
     if snapshot is not None:
         results += evaluate_snapshot(snapshot)
-        current = identity_record(snapshot)
-        results.append(Result("INFO", "identity", json.dumps(current)))
+        # Identity is private evidence for explicit record/compare work only.
+        # Do not print its fields during an ordinary production boundary check.
+        current = identity_record(snapshot) if record is not None or compare is not None else {}
         if record is not None:
             record.write_text(json.dumps(current), encoding="utf-8")
             results.append(Result("INFO", "recorded identity", str(record)))

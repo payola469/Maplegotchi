@@ -125,3 +125,37 @@ Example format (illustrative only; this did **not** happen):
 - **Remaining risks:** OD-01 now has only two open evidence items (boundary probe, restore test). R-01 remains separately open. The bootstrap entry's "only blocker is R1a authorization" is superseded by this entry.
 - **Next step:** resolve the three OPEN pre-R1 items (owner-run probe and restore on paolo-core; R-01 fix or explicit acceptance), then request R1a authorization and write the R1A-01 breakdown.
 - **Deployment status:** no production behaviour changed; nothing deployed; no production command run. R1a has not started.
+
+### 2026-10-10 (+07) — Pre-R1 gate (no R1A item) — Boundary probe safety patch prepared
+
+- **Work item(s):** none; pre-R1 OD-01 tooling safety only.
+- **Branch:** `pre-r1/boundary-probe-safety`
+- **Starting commit:** `f497cf70210b330d93f0bf7d4211e6f3d6f27ee3`; verified against `origin/v0.2-development` before branching.
+- **Ending commit:** uncommitted, not pushed (owner instruction).
+- **Before:** the existing shell probe used a predictable temporary file with truncating creation and no robust cleanup. The live HTTP checker sent a production interaction POST that could mutate application state if the Origin guard failed. The runbook instructed stopping Maple after a failed probe.
+- **Changes made:**
+  - Shell entry point delegates to a stdlib Python helper for random exclusive probe-only paths, exact-path cleanup, explicit denial errno handling and mode/marker verification.
+  - Parent pins PID/start time/release/mount namespace and checks actual service credentials/capabilities/seccomp and listeners before/after; namespace child clears groups/capabilities. Catchable signals defer registration and permit cleanup; parent waits for child completion.
+  - Removed mutating production POST. Live HTTP is restricted to allowlisted GETs without proxies/redirects or response-body output; GET CORS absence explicitly does not prove POST Origin rejection.
+  - Updated manual runbook with sudo scope, artifacts, cleanup, PASS/STOP criteria, evidence and limitations. No automated service remediation.
+- **Files changed:** `deploy/verify/sandbox_probe.sh`, new `deploy/verify/sandbox_probe.py`, `deploy/verify/check_boundaries.py`, `deploy/install.md`, new `backend/tests/deploy/test_probe_safety.py`, checklist, this worklog.
+- **Tests run:** from `backend`, `python -m pytest tests/deploy/test_check_boundaries.py tests/deploy/test_probe_safety.py --basetemp=../var/probe-tests-2 -q --tb=short`: **51 passed, 1 skipped**. The skipped existing test needs POSIX permissions and a non-root user. All tests used isolated local files or mocked HTTP/process calls.
+- **Static checks:** targeted Ruff lint and format check passed on the two Python probe files and new test module; targeted strict mypy (`--platform linux --follow-imports=silent`) passed on those three files; `bash -n deploy/verify/sandbox_probe.sh` and `git diff --check` passed. No full suite was run.
+- **Problems found:** initial pytest temporary-directory access failed in the Windows sandbox; failed tests were retried with a workspace-local temporary directory. The sentinel test exposed Windows text-mode newline conversion, fixed with binary exclusive creation. No production failures or evidence are implied.
+- **Evidence / results:** local tooling validation only; **no production execution yet**. The two existing isolated POST Origin-denial tests remain the documented behavior coverage; they were not rerun because application code is unchanged.
+- **Checklist status changes:** tooling safety patch prepared / pending production execution. OD-01 boundary probe **OPEN**, restore **OPEN**, R-01 **OPEN**, R1a authorization **BLOCKED**. R1A-01 through R1A-20 remain TODO; counters unchanged.
+- **Remaining risks:** Linux namespace/identity behavior still requires owner-run verification. SIGKILL/power loss can prevent cleanup; exact-path recovery is required. No claim of polkit denial, cgroup network-filter enforcement, live POST rejection, restore success or restart continuity.
+- **ADR / spec impact:** none; existing R1a plan not rewritten.
+- **Next step:** owner review, then manual execution of `deploy/install.md` section 6 with reviewed scripts; record evidence before considering OD-01 closure.
+- **Deployment status:** nothing deployed; no production, service/configuration, database or network-exposure changes. R1a has not started.
+
+### 2026-10-10 (+07) — Pre-R1 gate (no R1A item) — Final boundary-probe safety review
+
+- **Branch / baseline:** `pre-r1/boundary-probe-safety`, based on `f497cf70210b330d93f0bf7d4211e6f3d6f27ee3`.
+- **Before:** prepared tooling had passed isolated validation, but the ordinary checker still emitted snapshot identity fields and cleanup did not detect replacement of a created file.
+- **Change:** removed ordinary identity-field output; identity extraction is limited to explicit record/compare work. Cleanup now verifies device/inode identity and rejects replacement files/symlinks. Added two focused regression tests and aligned the runbook.
+- **Evidence:** final targeted `test_check_boundaries.py` + `test_probe_safety.py` run: **53 passed, 1 skipped** (existing POSIX/non-root permissions test on Windows). Targeted Ruff lint/format, strict mypy with Linux platform, and shell syntax checks passed. No full suite or live production probe was run.
+- **Review verdict:** clean after the two fixes. Scope is exactly the seven probe/tooling, test, runbook, checklist and worklog files named above; no application feature, schema, migration, service/configuration or spike changes.
+- **Commit authorization:** owner now authorizes committing as `pre-r1: harden boundary probe safety` and pushing this branch only, superseding the earlier no-commit/no-push instruction. This entry is included in that commit; its SHA and push outcome are reported after Git confirms them. No merge authorized.
+- **Status:** tooling **prepared / pending production execution**. Boundary probe OD-01 **OPEN**; restore **OPEN**; R-01 **OPEN**; all R1A-01 through R1A-20 **TODO**. No production commands run; R1a has not started.
+- **Remaining limits / next step:** owner review and manual Linux execution per runbook; SIGKILL/power-loss cleanup recovery remains possible. No polkit-denial, cgroup-filter enforcement or live POST Origin-denial claim. Record accepted production evidence before closing OD-01.
