@@ -36,6 +36,7 @@ The roadmap wants the room to grow with what Maple makes (R3, R5), and Maple to 
 - **Each slot defines** what it `accepts` (size or category class), its `capacity`, and `maple_may_place`.
   - Catalog defaults are set per type.
   - The owner may override them per instance in Edit Mode.
+- **STEP 97 owner amendment (2026-10-11):** explicit per-instance, per-named-slot `approach` and/or `facing` overrides are also allowed under the narrow geometry/validation rules in [ADR-0036 §2](0036-object-catalog-and-capabilities.md#2-furniture-registry-catalog-plus-instances-a3). Slot identity, type defaults and other policy/ownership values are retained; this does not authorize placement execution or implicit geometry overrides.
 - **Core validates every placement.** A slot placement never affects walkability and never blocks doors or interactions.
 - **Room growth:** if Maple needs more display capacity, Paolo adds or rearranges slot-bearing furniture in Edit Mode.
 - **Free-standing placement zones are deferred until after R5.** They are revisited only if real usage shows slots are too restrictive.

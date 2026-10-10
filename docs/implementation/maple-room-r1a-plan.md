@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01 DONE / OWNER ACCEPTED / MERGED (2026-10-10). R1A-02 REVIEW / PENDING FINAL OWNER ACCEPTANCE: Checkpoints 1–6 implemented in isolation, 4–6 uncommitted; R1A-03–R1A-20 TODO.
+**Status:** AUTHORIZED — R1A-01 DONE / OWNER ACCEPTED / MERGED (2026-10-10). R1A-02 REVIEW / PENDING FINAL OWNER ACCEPTANCE: repository integration verified through PR #2 at `3779456` (recorded acceptance status retained); R1A-03 REVIEW / PENDING OWNER ACCEPTANCE (STEP 97); R1A-04–R1A-20 TODO.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 DONE / OWNER ACCEPTED / MERGED**. STEP 90 authorizes R1A-02 Checkpoints 4–6 implementation/validation only; these now await final owner acceptance with no commit/push/merge or production activation authorized; R1A-03–R1A-20 remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 DONE / OWNER ACCEPTED / MERGED**. STEP 90 authorizes R1A-02 Checkpoints 4–6 implementation/validation only; these now await final owner acceptance with no commit/push/merge or production activation authorized; STEP 97 advances R1A-03 to REVIEW / PENDING OWNER ACCEPTANCE; R1A-04–R1A-20 remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -132,6 +132,12 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (03–13). **Blocks R1b:** yes.
 
 ### R1A-03 — Object catalog and capability metadata
+
+**Decision readiness (STEP 95, 2026-10-11):** TODO; detailed planning may use the merged R1A-02 baseline (`3779456`, PR #2). Owner-approved Option A fixes Writing Desk capabilities/point provides to `{writing_surface}` and Computer Desk to `{computer}`; `write` requires `writing_surface` only. S15 stays disjoint; `sit_write` / `sit_monitor` and all geometry remain unchanged ([ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4)). Before Oracle-dependent catalog validation, separately authorize/review the five T3/T4/T6 snapshot-cell amendments listed in the [worklog](maple-room-r1a-worklog.md); do not regenerate the Oracle or weaken its guard. R1A-06 consumes the same amended requirement. No catalog or resolver implementation is authorized by STEP 95.
+
+**STEP 96 follow-up:** the five-cell Oracle reconciliation is authorized/completed; **76 affected tests passed**. [Detailed R1A-03 plan](maple-room-r1a-03-object-catalog.md) is DRAFT / BLOCKED pending the side-table slot approach override/variant policy. R1A-03 remains TODO; no catalog implementation has begun. This supersedes STEP 95's pending-Oracle gate, not its desk decision.
+
+**STEP 97 current status:** REVIEW / PENDING OWNER ACCEPTANCE. Owner approved explicit slot approach/facing overrides; Stages B–E complete. Frozen catalog/instance metadata and isolated resource reader, 15 types/28 instances/17 points/12 slots, exact T3/T4/T5 equality and 510 focused tests PASS; strict mypy/Ruff/10 import contracts and wheel packaging/loading PASS. The preceding STEP 95/96 gate statements are historical, superseded by this resolution. No production wiring, later-workstream behavior or commit/push/merge. See [detailed plan](maple-room-r1a-03-object-catalog.md) and worklog.
 
 - **Objective:** the release-shipped object-type catalog and the initial-house instances, with capability, point and slot metadata.
 - **Scope:**
@@ -629,6 +635,8 @@ Classification: **BLOCKER** (prevents starting R1a work) · **REQUIRED BEFORE R1
 | 15 | Tailscale Serve identity-header spike | NON-BLOCKING / DEFERRED → before **R4** (ADR-0038 §3) | Not needed for R1a (no owner endpoints). |
 
 **R1A-02 planning note (STEP 78):** no geometry blocker identified. ADR-0036 §3 / spec S15 disjoint desk capabilities conflict with the shared `seat` in spec T3/T4. Owner clarification is required before catalog/capability validation in R1A-03/06; no accepted source or Oracle is changed. See the R1A-02 detailed plan.
+
+**Resolution (STEP 95, 2026-10-11):** the historical STEP 78 conflict above is resolved by owner-approved Option A in [ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4). The accepted spec is amended; the approved Oracle remains unchanged pending separate review. See R1A-03 decision readiness above.
 
 **BLOCKER:** none among the geometry items above. Owner cleared Pre-R1 and authorized R1a (§9); R1A-01 baseline/harness evidence is owner accepted on 2026-10-10; separate original-base CI execution remains unverified and complete raw baseline gate details remain unavailable, both explicitly acknowledged by owner. PR #1 merged into `v0.2-development` at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`; R1A-01 repository integration is complete. R1A-01 stays DONE / OWNER ACCEPTED / MERGED.
 

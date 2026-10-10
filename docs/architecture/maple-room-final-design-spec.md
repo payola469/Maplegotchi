@@ -9,6 +9,7 @@
 
 - **Status:** owner-approved in principle. It becomes binding geometry for R1b when R1a/R1b are authorized and the implementation reproduces it under the validation rules of §S. Changes before then need an owner decision.
 - **Date:** 2026-10-09
+- **Owner amendment:** 2026-10-11, STEP 95 Option A — desk capabilities/point provides are `writing_surface` only and `computer` only, respectively; `write` requires `writing_surface` alone. S15 and all seated poses/geometry are preserved. See [ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4) and the [decision / pending Oracle follow-up](../implementation/maple-room-r1a-worklog.md).
 - **Baseline:** `v0.2-development` @ `081a037`, schema v10.
 - **Inputs:**
   - ADR-0035 (world model), ADR-0036 (catalog and capabilities), ADR-0037 (persistence, v11, legacy projection), ADR-0038 (Edit Mode), ADR-0039 (Storage and slots), ADR-0040 (view transition and gate), ADR-0041 (art contract and locked values);
@@ -147,7 +148,7 @@
 | `bedroom` | `sleep_spot`, `window_view`, display (`display_shelf`, `display_wall`) |
 | `living_room` | `seat`, `seat_soft`, `window_view`, `plant`, `quiet_spot`, `light_source`, display |
 | `library` | `reading_spot`, `book_source`, `book_storage`, `seat`, `window_view`, `light_source`, display |
-| `work_studio` | `writing_surface`, `computer`, `seat`, `window_view`, `display_shelf`, `project_board` (hook) |
+| `work_studio` | `writing_surface`, `computer`, `window_view`, `display_shelf`, `project_board` (hook) |
 | `central_hall` | `open_floor`, `display_wall` |
 | `future_space` | none now; later capability **UNDECIDED** |
 | `creation_room` | none now; later creation/project display types (`project_board`, creation-display furniture) |
@@ -337,6 +338,8 @@ The full list is table T3 (§T).
 
 ## L. Placement slots (SPEC)
 
+**STEP 97 owner decision (2026-10-11):** use catalog slot defaults with explicit per-instance/per-slot `approach` and/or `facing` overrides as defined by [ADR-0036 §2](../adr/0036-object-catalog-and-capabilities.md#2-furniture-registry-catalog-plus-instances-a3). `furniture.side_table/top` defaults to local `(0,1)`, up; `bedside.bedroom/top` explicitly overrides to `(1,0)`, left. Living/library retain the default approach/facing; existing accepts/capacity overrides follow ADR-0039. T3/T5, identities, orientations and geometry are unchanged. These metadata checks do not complete runtime reachability/keep-clear validation.
+
 The full list is table T5 (§T).
 - **Active slots** exist now and accept an eligible item as soon as one exists.
   - `maple_may_place = true` (ADR-0039 B5): only `movable_by: maple` objects, walk first, core-validated, audited, rate-limited, with a cooldown after owner removal.
@@ -357,7 +360,7 @@ The full list is table T5 (§T).
 | `rest` | `seat_soft` | `sofa.living/seat` | (12,6) facing up → `sit_rest` facing down | not allowed |
 | `think` | `window_view` ∨ `quiet_spot` | `window.living/view`, `plant.living/think`, `window.{bedroom,library,studio}/view` | approach, facing up → `stand_think` on the tile | not allowed |
 | `read` | `reading_spot` | 4 shelf fronts; `armchair.library/seat` | facing up → `stand_read` on the tile; armchair: `sit_read` facing down | not allowed |
-| `write` | `writing_surface` ∧ `seat` | `desk.writing/chair` | (34,5) facing up → `sit_write` facing up | not allowed |
+| `write` | `writing_surface` | `desk.writing/chair` | (34,5) facing up → `sit_write` facing up | not allowed |
 | `observe_server` | `system_console` ∨ `computer` | `desk.computer/operator` | (39,5) facing up → `sit_monitor` facing up | not allowed |
 | `idle`, `walk` | `open_floor` | `idle.hall_{west,center,east}` | on the tile, facing down → `idle` | not allowed |
 
@@ -577,8 +580,8 @@ window.library,window.north_2w,library,band x25-26,wall 2,-,window_view;light_so
 armchair.library,furniture.armchair,library,22;7,1x1,all,reading_spot;seat,-
 side_table.library,furniture.side_table,library,23;7,1x1,all,display_shelf,-
 lamp.library,furniture.lamp_floor,library,21;7,1x1,all,light_source,-
-desk.writing,furniture.writing_desk,work_studio,33;3,3x2,all,writing_surface;seat,-
-desk.computer,furniture.computer_desk,work_studio,38;3,3x2,all,computer;seat,-
+desk.writing,furniture.writing_desk,work_studio,33;3,3x2,all,writing_surface,-
+desk.computer,furniture.computer_desk,work_studio,38;3,3x2,all,computer,-
 window.studio,window.north_2w,work_studio,band x36-37,wall 2,-,window_view;light_source,8
 shelf.studio,furniture.shelf_low,work_studio,41;3,2x1,all,display_shelf,-
 board.studio,decor.project_board,work_studio,band x32-33,wall 2,-,project_board;display_wall,28
@@ -605,8 +608,8 @@ bookshelf.library_1/front_r,22;4,up,null,stand_read,up,reading_spot;book_source
 bookshelf.library_2/front_l,23;4,up,null,stand_read,up,reading_spot;book_source
 bookshelf.library_2/front_r,24;4,up,null,stand_read,up,reading_spot;book_source
 armchair.library/seat,22;8,up,8;-4,sit_read,down,reading_spot;seat
-desk.writing/chair,34;5,up,24;-6,sit_write,up,writing_surface;seat
-desk.computer/operator,39;5,up,24;-6,sit_monitor,up,computer;seat
+desk.writing/chair,34;5,up,24;-6,sit_write,up,writing_surface
+desk.computer/operator,39;5,up,24;-6,sit_monitor,up,computer
 idle.hall_west/idle,10;15,down,null,idle,down,open_floor
 idle.hall_center/idle,21;15,down,null,idle,down,open_floor
 idle.hall_east/idle,32;15,down,null,idle,down,open_floor
@@ -636,7 +639,7 @@ sleep,sleep_spot,bed.bedroom/sleep,bedroom
 rest,seat_soft,sofa.living/seat,living_room
 think,window_view|quiet_spot,window.living/view;plant.living/think;window.bedroom/view;window.library/view;window.studio/view,living_room>library>others
 read,reading_spot,bookshelf.library_1/front_l;bookshelf.library_1/front_r;bookshelf.library_2/front_l;bookshelf.library_2/front_r;armchair.library/seat,library>living_room
-write,writing_surface&seat,desk.writing/chair,work_studio
+write,writing_surface,desk.writing/chair,work_studio
 observe_server,system_console|computer,desk.computer/operator,system_room>work_studio
 idle|walk,open_floor,idle.hall_west/idle;idle.hall_center/idle;idle.hall_east/idle,central_hall
 ```

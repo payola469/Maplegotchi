@@ -1,0 +1,1210 @@
+{
+  "types": [
+    {
+      "id": "furniture.bed_single",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        2,
+        3
+      ],
+      "blocks": [
+        "##",
+        "##",
+        "##"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "sleep_spot"
+      ],
+      "points": [
+        {
+          "id": "sleep",
+          "approach": [
+            2,
+            1
+          ],
+          "facing": "left",
+          "occupy": [
+            16,
+            -10
+          ],
+          "pose": "lie_sleep",
+          "occupy_direction": "up",
+          "provides": [
+            "sleep_spot"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.bed_single"
+    },
+    {
+      "id": "furniture.side_table",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "#"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "display_shelf"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "id": "top",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "shares_point": null,
+          "accepts": [
+            "creation.small"
+          ],
+          "capacity": 1,
+          "maple_may_place": true,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.side_table"
+    },
+    {
+      "id": "window.north_2w",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        2,
+        1
+      ],
+      "blocks": [
+        ".."
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "window_view",
+        "light_source"
+      ],
+      "points": [
+        {
+          "id": "view",
+          "approach": [
+            1,
+            3
+          ],
+          "facing": "up",
+          "occupy": null,
+          "pose": "stand_think",
+          "occupy_direction": "up",
+          "provides": [
+            "window_view"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "north_band",
+      "mount_y_px": 8,
+      "art_id": "window.north_2w"
+    },
+    {
+      "id": "decor.wall_frame_small",
+      "category": "decorative",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "."
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "display_wall"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "id": "artwork",
+          "approach": [
+            0,
+            3
+          ],
+          "facing": "up",
+          "shares_point": null,
+          "accepts": [
+            "creation.flat"
+          ],
+          "capacity": 1,
+          "maple_may_place": true,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "north_band",
+      "mount_y_px": 28,
+      "art_id": "decor.wall_frame_small"
+    },
+    {
+      "id": "furniture.sofa",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        3,
+        1
+      ],
+      "blocks": [
+        "###"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "seat",
+        "seat_soft"
+      ],
+      "points": [
+        {
+          "id": "seat",
+          "approach": [
+            1,
+            1
+          ],
+          "facing": "up",
+          "occupy": [
+            24,
+            -4
+          ],
+          "pose": "sit_rest",
+          "occupy_direction": "down",
+          "provides": [
+            "seat",
+            "seat_soft"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.sofa"
+    },
+    {
+      "id": "furniture.lamp_floor",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "#"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "light_source"
+      ],
+      "points": [],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.lamp_floor"
+    },
+    {
+      "id": "furniture.rug",
+      "category": "decorative",
+      "geometry_version": 1,
+      "footprint": [
+        3,
+        2
+      ],
+      "blocks": [
+        "...",
+        "..."
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [],
+      "points": [],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.rug"
+    },
+    {
+      "id": "furniture.plant_tall",
+      "category": "decorative",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "#"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "plant",
+        "quiet_spot"
+      ],
+      "points": [
+        {
+          "id": "think",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "occupy": null,
+          "pose": "stand_think",
+          "occupy_direction": "up",
+          "provides": [
+            "plant",
+            "quiet_spot"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.plant_tall"
+    },
+    {
+      "id": "furniture.bookshelf_tall",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        2,
+        1
+      ],
+      "blocks": [
+        "##"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "reading_spot",
+        "book_source",
+        "book_storage"
+      ],
+      "points": [
+        {
+          "id": "front_l",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "occupy": null,
+          "pose": "stand_read",
+          "occupy_direction": "up",
+          "provides": [
+            "reading_spot",
+            "book_source"
+          ],
+          "capacity": 1
+        },
+        {
+          "id": "front_r",
+          "approach": [
+            1,
+            1
+          ],
+          "facing": "up",
+          "occupy": null,
+          "pose": "stand_read",
+          "occupy_direction": "up",
+          "provides": [
+            "reading_spot",
+            "book_source"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [
+        {
+          "id": "books",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "shares_point": "front_l",
+          "accepts": [
+            "library.book"
+          ],
+          "capacity": 4,
+          "maple_may_place": false,
+          "status": "hook (derived fullness)"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.bookshelf_tall"
+    },
+    {
+      "id": "furniture.armchair",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "#"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "reading_spot",
+        "seat"
+      ],
+      "points": [
+        {
+          "id": "seat",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "occupy": [
+            8,
+            -4
+          ],
+          "pose": "sit_read",
+          "occupy_direction": "down",
+          "provides": [
+            "reading_spot",
+            "seat"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.armchair"
+    },
+    {
+      "id": "furniture.writing_desk",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        3,
+        2
+      ],
+      "blocks": [
+        "###",
+        "###"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "writing_surface"
+      ],
+      "points": [
+        {
+          "id": "chair",
+          "approach": [
+            1,
+            2
+          ],
+          "facing": "up",
+          "occupy": [
+            24,
+            -6
+          ],
+          "pose": "sit_write",
+          "occupy_direction": "up",
+          "provides": [
+            "writing_surface"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [
+        {
+          "id": "desktop",
+          "approach": [
+            1,
+            2
+          ],
+          "facing": "up",
+          "shares_point": "chair",
+          "accepts": [
+            "project.active",
+            "creation.small"
+          ],
+          "capacity": 2,
+          "maple_may_place": true,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.writing_desk"
+    },
+    {
+      "id": "furniture.computer_desk",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        3,
+        2
+      ],
+      "blocks": [
+        "###",
+        "###"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "computer"
+      ],
+      "points": [
+        {
+          "id": "operator",
+          "approach": [
+            1,
+            2
+          ],
+          "facing": "up",
+          "occupy": [
+            24,
+            -6
+          ],
+          "pose": "sit_monitor",
+          "occupy_direction": "up",
+          "provides": [
+            "computer"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.computer_desk"
+    },
+    {
+      "id": "furniture.shelf_low",
+      "category": "functional",
+      "geometry_version": 1,
+      "footprint": [
+        2,
+        1
+      ],
+      "blocks": [
+        "##"
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "display_shelf"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "id": "display",
+          "approach": [
+            0,
+            1
+          ],
+          "facing": "up",
+          "shares_point": null,
+          "accepts": [
+            "creation.small"
+          ],
+          "capacity": 3,
+          "maple_may_place": true,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": "furniture.shelf_low"
+    },
+    {
+      "id": "decor.project_board",
+      "category": "decorative",
+      "geometry_version": 1,
+      "footprint": [
+        2,
+        1
+      ],
+      "blocks": [
+        ".."
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "project_board",
+        "display_wall"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "id": "cards",
+          "approach": [
+            0,
+            3
+          ],
+          "facing": "up",
+          "shares_point": null,
+          "accepts": [
+            "project.card"
+          ],
+          "capacity": 4,
+          "maple_may_place": false,
+          "status": "hook (planned projects)"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "north_band",
+      "mount_y_px": 28,
+      "art_id": "decor.project_board"
+    },
+    {
+      "id": "marker.idle_spot",
+      "category": "structural",
+      "geometry_version": 1,
+      "footprint": [
+        1,
+        1
+      ],
+      "blocks": [
+        "."
+      ],
+      "orientations": [
+        "south"
+      ],
+      "capabilities": [
+        "open_floor"
+      ],
+      "points": [
+        {
+          "id": "idle",
+          "approach": [
+            0,
+            0
+          ],
+          "facing": "down",
+          "occupy": null,
+          "pose": "idle",
+          "occupy_direction": "down",
+          "provides": [
+            "open_floor"
+          ],
+          "capacity": 1
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "movable_by": [
+        "owner"
+      ],
+      "deletable_by": [
+        "owner"
+      ],
+      "surface": "floor",
+      "mount_y_px": null,
+      "art_id": null
+    }
+  ],
+  "instances": [
+    {
+      "id": "bed.bedroom",
+      "type": "furniture.bed_single",
+      "room": "bedroom",
+      "origin": [
+        1,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "bedside.bedroom",
+      "type": "furniture.side_table",
+      "room": "bedroom",
+      "origin": [
+        3,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [
+        {
+          "slot": "top",
+          "approach": [
+            1,
+            0
+          ],
+          "facing": "left"
+        }
+      ],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "window.bedroom",
+      "type": "window.north_2w",
+      "room": "bedroom",
+      "origin": [
+        5,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "frame.bedroom",
+      "type": "decor.wall_frame_small",
+      "room": "bedroom",
+      "origin": [
+        8,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "sofa.living",
+      "type": "furniture.sofa",
+      "room": "living_room",
+      "origin": [
+        11,
+        5
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "side_table.living",
+      "type": "furniture.side_table",
+      "room": "living_room",
+      "origin": [
+        10,
+        5
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "lamp.living",
+      "type": "furniture.lamp_floor",
+      "room": "living_room",
+      "origin": [
+        14,
+        5
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "rug.living",
+      "type": "furniture.rug",
+      "room": "living_room",
+      "origin": [
+        11,
+        6
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "window.living",
+      "type": "window.north_2w",
+      "room": "living_room",
+      "origin": [
+        17,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "plant.living",
+      "type": "furniture.plant_tall",
+      "room": "living_room",
+      "origin": [
+        19,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "frame.living",
+      "type": "decor.wall_frame_small",
+      "room": "living_room",
+      "origin": [
+        12,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "bookshelf.library_1",
+      "type": "furniture.bookshelf_tall",
+      "room": "library",
+      "origin": [
+        21,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "bookshelf.library_2",
+      "type": "furniture.bookshelf_tall",
+      "room": "library",
+      "origin": [
+        23,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "window.library",
+      "type": "window.north_2w",
+      "room": "library",
+      "origin": [
+        25,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "armchair.library",
+      "type": "furniture.armchair",
+      "room": "library",
+      "origin": [
+        22,
+        7
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "side_table.library",
+      "type": "furniture.side_table",
+      "room": "library",
+      "origin": [
+        23,
+        7
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [
+        {
+          "slot": "top",
+          "accepts": [
+            "creation.small",
+            "document.stack"
+          ],
+          "capacity": 2
+        }
+      ],
+      "link": null
+    },
+    {
+      "id": "lamp.library",
+      "type": "furniture.lamp_floor",
+      "room": "library",
+      "origin": [
+        21,
+        7
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "desk.writing",
+      "type": "furniture.writing_desk",
+      "room": "work_studio",
+      "origin": [
+        33,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "desk.computer",
+      "type": "furniture.computer_desk",
+      "room": "work_studio",
+      "origin": [
+        38,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "window.studio",
+      "type": "window.north_2w",
+      "room": "work_studio",
+      "origin": [
+        36,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "shelf.studio",
+      "type": "furniture.shelf_low",
+      "room": "work_studio",
+      "origin": [
+        41,
+        3
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "board.studio",
+      "type": "decor.project_board",
+      "room": "work_studio",
+      "origin": [
+        32,
+        0
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "rug.hall",
+      "type": "furniture.rug",
+      "room": "central_hall",
+      "origin": [
+        20,
+        14
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "idle.hall_west",
+      "type": "marker.idle_spot",
+      "room": "central_hall",
+      "origin": [
+        10,
+        15
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "idle.hall_center",
+      "type": "marker.idle_spot",
+      "room": "central_hall",
+      "origin": [
+        21,
+        15
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "idle.hall_east",
+      "type": "marker.idle_spot",
+      "room": "central_hall",
+      "origin": [
+        32,
+        15
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "frame.hall_west",
+      "type": "decor.wall_frame_small",
+      "room": "central_hall",
+      "origin": [
+        10,
+        10
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    },
+    {
+      "id": "frame.hall_east",
+      "type": "decor.wall_frame_small",
+      "room": "central_hall",
+      "origin": [
+        31,
+        10
+      ],
+      "orientation": "south",
+      "state": "default",
+      "owner": "paolo",
+      "slot_overrides": [],
+      "slot_policies": [],
+      "link": null
+    }
+  ]
+}

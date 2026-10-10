@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03 is REVIEW / PENDING OWNER ACCEPTANCE (STEP 97); R1A-04–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 18 | 0 | 0 | 1 | 1 | 0 |
+| 20 | 17 | 0 | 0 | 2 | 1 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -56,7 +56,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 |---|---|---|---|---|
 | R1A-01 | Baseline and test harness | DONE / OWNER ACCEPTED / MERGED | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
 | R1A-02 | Canonical world model and final house geometry | REVIEW / PENDING OWNER ACCEPTANCE | 01 (DONE) | 2026-10-10 |
-| R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
+| R1A-03 | Object catalog and capability metadata | REVIEW | 02 | 2026-10-11 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
 | R1A-05 | Deterministic A* pathfinding | TODO | 04 (completion: 17 tuning evidence) | 2026-10-09 |
 | R1A-06 | Interaction and capability resolution | TODO | 03, 05 | 2026-10-09 |
@@ -97,21 +97,21 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 - **Start commit:** `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (workstream baseline; Checkpoints 4–6 start at `06295b65a2f8c79825b154249cf6e7869f66e9cb`)
 - **End commit:** —
 - **Evidence / tests:** STEP 90 consolidated **380 passed / 0 failed**; Ruff lint/format PASS (12 files); strict mypy PASS (23 files); **10 import contracts kept / 0 broken**. Exact T1/T2 Oracle equality; 44×26, 8 regions, 7 doors, 4 open edges, 1,144 singly covered lighting cells. Wheel resource inclusion/byte equality and isolated wheel loading PASS. Earlier checkpoint evidence retained in worklog.
-- **Notes:** Checkpoints 4–6 add backend lighting/S7 predicates, declarative initial house, strict isolated runtime reader and consolidated validation. No production wiring, object catalog, pathfinder/walkability engine, API, renderer, schema, Oracle or simulation-pin change. Final owner acceptance and integration pending; no commit/push/merge in STEP 90. R1A-03–R1A-20 TODO; desk-capability conflict remains deferred to R1A-03/06.
+- **Notes:** Checkpoints 4–6 add backend lighting/S7 predicates, declarative initial house, strict isolated runtime reader and consolidated validation. No production wiring, object catalog, pathfinder/walkability engine, API, renderer, schema, Oracle or simulation-pin change. Final owner acceptance and integration pending; no commit/push/merge in STEP 90. R1A-03–R1A-20 TODO; desk-capability conflict was resolved by owner-approved STEP 95 Option A; the five-cell Oracle reconciliation completed in STEP 96 and catalog metadata reached REVIEW in STEP 97. STEP 90 test evidence predates this spec amendment.
 - **Last updated:** 2026-10-10 (STEP 90; final review preparation)
 - **Detailed task plan:** [R1A-02 world model breakdown](maple-room-r1a-02-world-model.md)
 
 ### R1A-03 — Object catalog and capability metadata
 
-- **Status:** TODO
-- **Dependencies:** 02
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW
+- **Dependencies:** 02 (PR #2 merged; baseline `37794564d921e69e29b90f47ea8d437d24bd704e`)
+- **Branch:** `codex/r1a-03-desk-capability-decision`
+- **Start commit:** `37794564d921e69e29b90f47ea8d437d24bd704e`
+- **End commit:** — (uncommitted)
+- **Evidence / tests:** STEP 97 **510 passed / 0 failed**, including 130 new catalog cases. Ruff lint/format PASS (3 Python files), strict mypy PASS (25 files), 10 import contracts kept / 0 broken; wheel resource byte equality and isolated loading PASS. Exact T3/T4/T5 equality; T1/T2 unaffected; five-cell Oracle correction only.
+- **Notes:** 15 types / 28 instances / 17 points / 12 slots / 34 blocking tiles; Option A desk sets/poses and explicit per-instance slot geometry overrides preserved. No production activation or later workstream. Full reachability/keep-clear/resolution/placement/art delivery checks remain deferred to their assigned items. Owner acceptance/integration pending; no commit/push/PR/merge authorization.
+- **Last updated:** 2026-10-11 (STEP 97; Stages B–E PASS, owner review pending)
+- **Detailed task plan:** [Object catalog breakdown](maple-room-r1a-03-object-catalog.md)
 
 ### R1A-04 — Walkability, collision and recovery
 
