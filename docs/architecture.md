@@ -3,6 +3,21 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
+## R1A-01 test infrastructure (2026-10-10)
+
+R1A-01 is OWNER ACCEPTED / MERGE PENDING (owner decision 2026-10-10);
+PR #1 integration is not complete. R1A-02–R1A-20 remain TODO. This adds
+only `tests/world/` (T1–T7 oracle, approved snapshot, deterministic scratch fixtures,
+evidence conventions and negative contract tests), plus docstring-only package
+markers at `core/world/` and `world_catalog/`. Runtime will load the future catalog
+and pass frozen values to core (ADR-0036); no loader or catalog content exists yet.
+Three new import-linter contracts and AST tests enforce these boundaries through
+existing CI discovery. Oracle/spec geometry stays test-only; packaging includes
+only `src/maplegotchi`. No world behavior, production view, schema or deployment
+changes. Details and evidence: `implementation/maple-room-r1a-01-baseline.md` and
+`../backend/tests/world/README.md`. Historical phase/runtime records below remain
+historical; current gate clearance and authorization are recorded in the R1a checklist.
+
 ## Phase status
 
 | Phase | Status |

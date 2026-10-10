@@ -19,6 +19,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
+from typing import TYPE_CHECKING
 
 PROTECTED = tuple(
     map(
@@ -48,7 +49,7 @@ SIGNALS = tuple(
 @contextmanager
 def creation_window() -> Iterator[None]:
     # Registration must finish before a catchable signal triggers cleanup.
-    if hasattr(signal, "pthread_sigmask"):
+    if sys.platform != "win32" and hasattr(signal, "pthread_sigmask"):
         previous = signal.pthread_sigmask(signal.SIG_BLOCK, SIGNALS)
         try:
             yield
@@ -154,49 +155,56 @@ def interrupted(signum: int, frame: FrameType | None) -> None:
 
 
 def inside(namespace: str, uid: int, gid: int) -> None:
-    require(os.geteuid() == uid and os.getegid() == gid, "wrong helper identity")
-    require(not os.getgroups(), "helper supplementary groups are not empty")
-    require(str(Path("/proc/self/ns/mnt").readlink()) == namespace, "wrong mount namespace")
-    os.umask(0o077)
-    owned = ProbeFiles()
-    for sig in SIGNALS:
-        signal.signal(sig, interrupted)
-    try:
-        require(
-            sorted(p.name for p in Path("/data").iterdir()) == ["maple", "monitor"],
-            "unexpected /data visibility",
-        )
-        for path in ("/home/paolo", "/root", "/run/docker.sock", "/var/run/docker.sock"):
-            require(
-                not os.access(path, os.R_OK) and not os.access(path, os.W_OK),
-                f"accessible protected path: {path}",
-            )
-        require(not Path("/proc/1/status").exists(), "other users' processes visible")
-        require(
-            stat.S_ISSOCK(Path("/run/dbus/system_bus_socket").stat().st_mode),
-            "system D-Bus socket missing (not a polkit denial test)",
-        )
-        for path in ("/data/monitor/metrics.db", "/etc/maplegotchi/maplegotchi.env"):
-            require(
-                os.access(path, os.R_OK) and not os.access(path, os.W_OK),
-                f"expected read-only permission: {path}",
-            )
-        # EACCES alone does not prove a read-only mount.
-        for directory in PROTECTED:
-            require(directory.is_dir(), f"missing protected directory: {directory}")
-            require(
-                bool(os.statvfs(directory).f_flag & os.ST_RDONLY),
-                f"mount not read-only: {directory}",
-            )
-            require(not os.access(directory, os.W_OK), f"writable protected directory: {directory}")
-            owned.denied(directory)
-        require(not (os.statvfs("/data/maple").f_flag & os.ST_RDONLY), "data mount read-only")
-        owned.round_trip(Path("/data/maple"))
-    finally:
+    require(sys.platform.startswith("linux"), "Linux only")
+    # Keep Unix-only APIs inside the platform boundary for static checking.
+    if TYPE_CHECKING and sys.platform != "linux":
+        raise RuntimeError("Linux only")
+    else:
+        require(os.geteuid() == uid and os.getegid() == gid, "wrong helper identity")
+        require(not os.getgroups(), "helper supplementary groups are not empty")
+        require(str(Path("/proc/self/ns/mnt").readlink()) == namespace, "wrong mount namespace")
+        os.umask(0o077)
+        owned = ProbeFiles()
         for sig in SIGNALS:
-            signal.signal(sig, signal.SIG_IGN)
-        owned.cleanup()
-    print("[PASS] namespace checks and exact-path cleanup")
+            signal.signal(sig, interrupted)
+        try:
+            require(
+                sorted(p.name for p in Path("/data").iterdir()) == ["maple", "monitor"],
+                "unexpected /data visibility",
+            )
+            for path in ("/home/paolo", "/root", "/run/docker.sock", "/var/run/docker.sock"):
+                require(
+                    not os.access(path, os.R_OK) and not os.access(path, os.W_OK),
+                    f"accessible protected path: {path}",
+                )
+            require(not Path("/proc/1/status").exists(), "other users' processes visible")
+            require(
+                stat.S_ISSOCK(Path("/run/dbus/system_bus_socket").stat().st_mode),
+                "system D-Bus socket missing (not a polkit denial test)",
+            )
+            for path in ("/data/monitor/metrics.db", "/etc/maplegotchi/maplegotchi.env"):
+                require(
+                    os.access(path, os.R_OK) and not os.access(path, os.W_OK),
+                    f"expected read-only permission: {path}",
+                )
+            # EACCES alone does not prove a read-only mount.
+            for directory in PROTECTED:
+                require(directory.is_dir(), f"missing protected directory: {directory}")
+                require(
+                    bool(os.statvfs(directory).f_flag & os.ST_RDONLY),
+                    f"mount not read-only: {directory}",
+                )
+                require(
+                    not os.access(directory, os.W_OK), f"writable protected directory: {directory}"
+                )
+                owned.denied(directory)
+            require(not (os.statvfs("/data/maple").f_flag & os.ST_RDONLY), "data mount read-only")
+            owned.round_trip(Path("/data/maple"))
+        finally:
+            for sig in SIGNALS:
+                signal.signal(sig, signal.SIG_IGN)
+            owned.cleanup()
+        print("[PASS] namespace checks and exact-path cleanup")
 
 
 def command(args: list[str]) -> str:
@@ -240,72 +248,79 @@ def run_child(args: list[str], source: str) -> None:
 
 
 def host(expected: str) -> None:
-    import pwd
+    require(sys.platform.startswith("linux"), "Linux only")
+    # Keep Unix-only APIs inside the platform boundary for static checking.
+    if TYPE_CHECKING and sys.platform != "linux":
+        raise RuntimeError("Linux only")
+    else:
+        import pwd
 
-    import check_boundaries as cb
+        import check_boundaries as cb
 
-    require(os.geteuid() == 0, "owner must explicitly run with sudo; no automatic escalation")
-    require(socket.gethostname().split(".")[0] == "paolo-core", "wrong host")
-    require(re.fullmatch(r"[0-9a-f]{40}", expected) is not None, "expected release must be 40 hex")
-    account = pwd.getpwnam("maple-svc")
-    before = snapshot(expected)
-    print(
-        f"[EVIDENCE] pid={before[0]} start={before[1]} release={before[2]} mnt={before[3]}",
-        flush=True,
-    )
+        require(os.geteuid() == 0, "owner must explicitly run with sudo; no automatic escalation")
+        require(socket.gethostname().split(".")[0] == "paolo-core", "wrong host")
+        require(
+            re.fullmatch(r"[0-9a-f]{40}", expected) is not None, "expected release must be 40 hex"
+        )
+        account = pwd.getpwnam("maple-svc")
+        before = snapshot(expected)
+        print(
+            f"[EVIDENCE] pid={before[0]} start={before[1]} release={before[2]} mnt={before[3]}",
+            flush=True,
+        )
 
-    def runtime() -> None:
-        status = cb.parse_proc_status(Path(f"/proc/{before[0]}/status").read_text())
-        results = cb.evaluate_process(status, account.pw_uid, account.pw_gid)
-        # evaluate_process permits only the primary GID in Groups (or an empty
-        # list). The namespace helper separately requires --clear-groups.
-        listeners = []
-        for name, v6 in (("tcp", False), ("tcp6", True)):
-            listeners.extend(cb.parse_listeners(Path(f"/proc/net/{name}").read_text(), ipv6=v6))
-        results.extend(cb.evaluate_listeners(listeners, account.pw_uid))
-        for port in (8470, 8471):
-            addresses = [a for a, p, _ in listeners if p == port]
-            require(
-                bool(addresses) and all(cb.is_loopback(a) for a in addresses),
-                f"port {port} missing or exposed beyond loopback",
-            )
-        for result in results:
-            print(result, flush=True)
-            require(result.status == "PASS", result.check)
+        def runtime() -> None:
+            status = cb.parse_proc_status(Path(f"/proc/{before[0]}/status").read_text())
+            results = cb.evaluate_process(status, account.pw_uid, account.pw_gid)
+            # evaluate_process permits only the primary GID in Groups (or an empty
+            # list). The namespace helper separately requires --clear-groups.
+            listeners = []
+            for name, v6 in (("tcp", False), ("tcp6", True)):
+                listeners.extend(cb.parse_listeners(Path(f"/proc/net/{name}").read_text(), ipv6=v6))
+            results.extend(cb.evaluate_listeners(listeners, account.pw_uid))
+            for port in (8470, 8471):
+                addresses = [a for a, p, _ in listeners if p == port]
+                require(
+                    bool(addresses) and all(cb.is_loopback(a) for a in addresses),
+                    f"port {port} missing or exposed beyond loopback",
+                )
+            for result in results:
+                print(result, flush=True)
+                require(result.status == "PASS", result.check)
 
-    runtime()
-    require(snapshot(expected) == before, "service changed before namespace entry")
-    # Drop groups/capabilities before Python. No source file installed on the host.
-    run_child(
-        [
-            "/usr/bin/nsenter",
-            "--target",
-            str(before[0]),
-            "--mount",
-            "--",
-            "/usr/bin/setpriv",
-            f"--reuid={account.pw_uid}",
-            f"--regid={account.pw_gid}",
-            "--clear-groups",
-            "--bounding-set=-all",
-            "--inh-caps=-all",
-            "--ambient-caps=-all",
-            "--no-new-privs",
-            "/usr/bin/python3",
-            "-I",
-            "-B",
-            "-",
-            "--inside",
-            before[3],
-            str(account.pw_uid),
-            str(account.pw_gid),
-        ],
-        Path(__file__).read_text(encoding="utf-8"),
-    )
-    require(snapshot(expected) == before, "service changed during probe")
-    runtime()
-    require(snapshot(expected) == before, "service changed during final checks")
-    print("sandbox_probe: PASS (no polkit denial or cgroup network filtering claim)")
+        runtime()
+        require(snapshot(expected) == before, "service changed before namespace entry")
+        # Drop groups/capabilities before Python. No source file installed on the host.
+        run_child(
+            [
+                "/usr/bin/nsenter",
+                "--target",
+                str(before[0]),
+                "--mount",
+                "--",
+                "/usr/bin/setpriv",
+                f"--reuid={account.pw_uid}",
+                f"--regid={account.pw_gid}",
+                "--clear-groups",
+                "--bounding-set=-all",
+                "--inh-caps=-all",
+                "--ambient-caps=-all",
+                "--no-new-privs",
+                "/usr/bin/python3",
+                "-I",
+                "-B",
+                "-",
+                "--inside",
+                before[3],
+                str(account.pw_uid),
+                str(account.pw_gid),
+            ],
+            Path(__file__).read_text(encoding="utf-8"),
+        )
+        require(snapshot(expected) == before, "service changed during probe")
+        runtime()
+        require(snapshot(expected) == before, "service changed during final checks")
+        print("sandbox_probe: PASS (no polkit denial or cgroup network filtering claim)")
 
 
 def main() -> int:

@@ -2,8 +2,8 @@
 
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
-- **Baseline:** `v0.2-development` @ `dfd5972`
-- **R1a authorization:** **NOT GIVEN.** No item may leave TODO until the Pre-R1 Gate below is closed and the owner authorizes R1a (plan §9).
+- **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 is limited to baseline and test infrastructure; R1A-02–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -16,8 +16,9 @@ Not an R1A work item. Source: plan §9; future-architecture §22 item 1. Last up
 | Phase 8 status | **RESOLVED** | 2026-10-09: not authorized, not started, deferred until Stage C is closed; blocks neither R1a nor R1b |
 | Boundary probe (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10 from owner-supplied production evidence; worklog contains results and limitations |
 | Restore test (OD-01) | **RESOLVED** | **PASS / CLOSED**, recorded 2026-10-10: owner-executed isolated restic restore; restored `maple.db` opens and passes `integrity_check`; evidence and limitations in worklog |
-| R-01 | **RESOLVED** | **PASS / CLOSED (repository level)** 2026-10-10: owner accepted `3c90e78` + `6f3239f` and authorized merge without another independent review; worklog evidence; not deployed |
-| R1a authorization | **BLOCKED** | R-01 repository criteria satisfied; separate Pre-R1 Gate clearance and explicit R1a authorization still required |
+| R-01 | **RESOLVED** | **PASS / CLOSED**; repository acceptance recorded; owner confirms production deployment completed and HTTP Health PASS (2026-10-10). Exact deployed SHA / detailed acceptance transcript not supplied |
+| Pre-R1 Gate clearance | **RESOLVED** | **APPROVED / CLEAR** by explicit owner decision, 2026-10-10; does not imply release-gate/CI PASS |
+| R1a authorization | **RESOLVED** | **AUTHORIZED** by owner, 2026-10-10; R1A-01 baseline/test infrastructure only |
 
 Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item statuses below.
 
@@ -25,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 20 | 0 | 0 | 0 | 0 | 0 |
+| 20 | 19 | 0 | 0 | 1 | 0 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -34,7 +35,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | **TODO** | Not started. |
 | **IN PROGRESS** | Detailed task plan written; implementation under way on the recorded branch. |
 | **BLOCKED** | Cannot proceed. Must state the blocking dependency or decision. |
-| **REVIEW** | Implementation complete; acceptance evidence or review still pending. |
+| **REVIEW** | Implementation complete; acceptance/review or repository integration pending. OWNER ACCEPTED / MERGE PENDING is a REVIEW substate until merge. |
 | **DONE** | Completion criteria met, evidence recorded, reviewed and merged. |
 | **DEFERRED** | Moved out of R1a. Must state the explicit destination phase or gate. |
 
@@ -42,7 +43,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 1. Status changes are committed **with** the implementation or change that caused them.
 2. No item may be marked **DONE** without evidence (tests, measurements or review records named in "Evidence / tests").
-3. **REVIEW** means implementation is complete but acceptance evidence or review is still pending.
+3. **REVIEW** means implementation is complete but acceptance evidence, review or repository integration is still pending. Owner acceptance alone does not mean merged or DONE.
 4. **BLOCKED** must state the blocking dependency.
 5. **DEFERRED** requires an explicit destination phase or gate.
 6. The checklist must match **repository truth, not intention**.
@@ -53,7 +54,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | ID | Title | Status | Dependencies (start) | Last updated |
 |---|---|---|---|---|
-| R1A-01 | Baseline and test harness | TODO | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-09 |
+| R1A-01 | Baseline and test harness | REVIEW — OWNER ACCEPTED / MERGE PENDING | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
 | R1A-02 | Canonical world model and final house geometry | TODO | 01 | 2026-10-09 |
 | R1A-03 | Object catalog and capability metadata | TODO | 02 | 2026-10-09 |
 | R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
@@ -78,15 +79,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-01 — Baseline and test harness
 
-- **Status:** TODO
+- **Status:** OWNER ACCEPTED / MERGE PENDING (REVIEW; not DONE)
 - **Dependencies:** Pre-R1 Gate closed + owner authorization of R1a
-- **Branch:** —
-- **Start commit:** —
+- **Branch:** `codex/r1a-01-baseline`
+- **Start commit:** `5c6db41c0139e1da6a2178b36d838e4da57074b1`
 - **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** Cannot start until the Pre-R1 Gate is closed (remaining: separate owner gate-clearance decision; R-01 repository-level, boundary probe and restore PASS) and R1a is authorized.
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Evidence / tests:** Approved base `5c6db41c0139e1da6a2178b36d838e4da57074b1`; previously verified isolated Docker release gate PASS and baseline counts retained. Owner-verified 30-day simulation: 8,640 ticks; computed digest `458d6cb4035329a008105f8f2055d5f35b61cc1f537df3e04eabfcfe52d25917`. PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`: [GitHub Actions run 38062574000](https://github.com/payola469/Maplegotchi/actions/runs/38062574000), Backend Ubuntu / Backend Windows / Frontend / ShellCheck PASS. PR-head CI is not separate original-base CI evidence.
+- **Notes:** Oracle/Harness: 48 new focused tests passed; 635 cells and 49 walk values; 10 import contracts kept / 0 broken. Owner explicitly APPROVES R1A-01 acceptance on 2026-10-10, acknowledging that run `38062574000` validates PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`, not a separate CI run on base `5c6db41c0139e1da6a2178b36d838e4da57074b1`, and complete raw baseline Docker gate details are unavailable. PR #1 merge remains pending; repository integration is not complete. No World Model or Engine behavior; R1A-02–R1A-20 TODO.
+- **Last updated:** 2026-10-10 (STEP 71; owner accepted, merge pending)
+- **Detailed task plan:** [R1A-01 baseline and focused task plan](maple-room-r1a-01-baseline.md)
 
 ### R1A-02 — Canonical world model and final house geometry
 

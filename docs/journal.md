@@ -167,7 +167,7 @@ ExternalHttpBrain through the separately hardened loopback companion. Output
 remains advisory; only the built-in RuleBrain may claim rule kind. Brain labels
 come from the accepted implementation, never external output.
 
-**R-01 PASS / CLOSED at repository level (owner accepted 2026-10-10); not deployed:**
+**R-01 PASS / CLOSED; owner confirms production deployment and HTTP Health PASS (2026-10-10).** Exact deployed SHA / detailed post-deployment evidence not supplied; no new agent production verification. Implementation and limitations:
 
 - Rule/Director decisions, arrival, heartbeat and accepted interactions prepare
   context and a candidate transition under the writer lock. External composition
@@ -203,9 +203,10 @@ come from the accepted implementation, never external output.
 Schema/stored formats stay v10. Same-schema code rollback (`docs/deployment.md`)
 preserves the database, discards memory-only attempts and restores the older
 release's R-01 limitation. Deployment/rollback execution need separate owner
-authorization. R-01 repository criteria are satisfied; Pre-R1 remains BLOCKED pending
-separate owner gate clearance and R1a authorization. R1a not started. Evidence: R1a
-worklog.
+authorization. Owner has approved Pre-R1 clearance and authorized R1a (2026-10-10);
+R1A-01 is OWNER ACCEPTED / MERGE PENDING, other items TODO. Baseline Docker release-gate PASS and computed simulation are recorded; PR-head CI
+PASS (run `38062574000`, HEAD `26aed831…`) is not a separate CI execution of the
+original base. R1A-01 remains OWNER ACCEPTED / MERGE PENDING. Owner explicitly approved acceptance on 2026-10-10, acknowledging PR-head-only CI provenance and unavailable complete raw baseline Docker gate details. PR #1 is not merged; repository integration is pending. Evidence: R1a worklog and R1A-01 baseline record.
 
 ## Demo
 

@@ -80,6 +80,33 @@ filterwarnings = ["error"]
 # by tests/security/test_forbidden_apis.py.
 [tool.importlinter]
 root_package = "maplegotchi"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "world: pure core consumes values, never catalog files or implementations"
+type = "forbidden"
+source_modules = ["maplegotchi.core.world"]
+forbidden_modules = [
+  "maplegotchi.world_catalog", "maplegotchi.brain", "maplegotchi.runtime",
+  "maplegotchi.storage", "maplegotchi.sensors", "maplegotchi.api",
+  "maplegotchi.config", "maplegotchi.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "world: catalog data is loaded only by runtime"
+type = "forbidden"
+source_modules = [
+  "maplegotchi.core", "maplegotchi.brain", "maplegotchi.storage",
+  "maplegotchi.sensors", "maplegotchi.api", "maplegotchi.config", "maplegotchi.cli",
+]
+forbidden_modules = ["maplegotchi.world_catalog"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "world: runtime must never depend on test oracle or fixtures"
+type = "forbidden"
+source_modules = ["maplegotchi"]
+forbidden_modules = ["tests"]
 
 [[tool.importlinter.contracts]]
 name = "core is pure: no sensors/storage/api/runtime/config/cli"
