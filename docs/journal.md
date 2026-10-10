@@ -204,8 +204,9 @@ Schema/stored formats stay v10. Same-schema code rollback (`docs/deployment.md`)
 preserves the database, discards memory-only attempts and restores the older
 release's R-01 limitation. Deployment/rollback execution need separate owner
 authorization. Owner has approved Pre-R1 clearance and authorized R1a (2026-10-10);
-R1A-01 baseline preparation is IN PROGRESS, other items TODO. Baseline release-gate
-and CI PASS remain unverified. Evidence: R1a worklog and R1A-01 baseline record.
+R1A-01 is OWNER ACCEPTED / MERGE PENDING, other items TODO. Baseline Docker release-gate PASS and computed simulation are recorded; PR-head CI
+PASS (run `38062574000`, HEAD `26aed831…`) is not a separate CI execution of the
+original base. R1A-01 remains OWNER ACCEPTED / MERGE PENDING. Owner explicitly approved acceptance on 2026-10-10, acknowledging PR-head-only CI provenance and unavailable complete raw baseline Docker gate details. PR #1 is not merged; repository integration is pending. Evidence: R1a worklog and R1A-01 baseline record.
 
 ## Demo
 

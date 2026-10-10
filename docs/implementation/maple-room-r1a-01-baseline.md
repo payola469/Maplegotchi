@@ -1,6 +1,6 @@
 # R1A-01 — Kickoff baseline and focused task plan
 
-**Status:** IN PROGRESS — baseline and test infrastructure only (2026-10-10, +07).
+**Status:** OWNER ACCEPTED / MERGE PENDING — R1A-01 only (2026-10-10, +07).
 Master Plan: `maple-room-r1a-plan.md` §3 R1A-01, §7–§9. Live status:
 `maple-room-r1a-checklist.md`; history: `maple-room-r1a-worklog.md`.
 
@@ -18,9 +18,9 @@ Master Plan: `maple-room-r1a-plan.md` §3 R1A-01, §7–§9. Live status:
 | Exact-start-commit release gate | **PASS**, exit code **0**, for `5c6db41c0139e1da6a2178b36d838e4da57074b1` | Previously verified result supplied by owner for this reconciliation (2026-10-10): isolated Docker environment on paolo-core, not Windows or GitHub CI. Not rerun; raw transcript/container details not supplied here |
 | Gate checks | Ruff, mypy, import contracts, ShellCheck and frontend build **PASS** | Same owner-supplied full-gate evidence; not new local execution |
 | Earlier Windows attempt | Git Bash startup failed (`NtCreateDirectoryObject`, `0xC0000022`), before any gate stage; uv unavailable on PATH | Historical local failure preserved; does not invalidate the separate Docker gate PASS or establish Windows compatibility |
-| CI | Exact-start-commit Ubuntu / Windows backend and Ubuntu frontend results **unavailable** | GitHub rechecked 2026-10-10: combined-status lookup returned `statuses: []`; workflow lookup returned `workflow_runs: []`. Workflow tool filters to PR-triggered runs / first page only; neither response proves that no other runs exist. `.github/workflows/ci.yml` defines the matrix, not execution evidence |
+| PR-head CI | **PASS**: Backend Ubuntu, Backend Windows, Frontend, ShellCheck | Owner-verified [GitHub Actions run 38062574000](https://github.com/payola469/Maplegotchi/actions/runs/38062574000), PR #1 HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`. This passing PR run is not a separate CI execution of original base `5c6db41c0139e1da6a2178b36d838e4da57074b1`; earlier empty lookup results are preserved in the worklog |
 | Existing test counts | Backend **1,510 passed / 1 skipped**; Discord **22 passed**; Brain **28 passed**; frontend **204 passed** | Owner-supplied Docker full-gate summary for exact starting commit; skip reason and per-test output unavailable. Historical 389 R-01 tests overlap the backend suite and are not additive |
-| Pinned 30-day simulation digest | `458d6cb4035329a008105f8f2055d5f35b61cc1f537df3e04eabfcfe52d25917` | Read from `backend/tests/core/test_simulation.py::test_thirty_day_digest_is_pinned`; expected regression value, not a newly computed result or identity fingerprint |
+| Computed 30-day simulation | **8,640 ticks**, digest `458d6cb4035329a008105f8f2055d5f35b61cc1f537df3e04eabfcfe52d25917` | Owner-verified evidence supplied for this update; matches the unchanged pin in `backend/tests/core/test_simulation.py::test_thirty_day_digest_is_pinned`. No rerun here; not an identity fingerprint |
 | Approved route reference | Final Design Spec §T6, "Walk lengths between the canonical activity points"; T4 points and T7 legacy projection | Source located/read only; no new route computation or oracle validation. Longest documented walk: 53 steps |
 | Schema / view | Repository latest schema v10; legacy production default retained | No schema, runtime or view changes in this step; prior owner production schema evidence v10, not freshly measured |
 
@@ -29,7 +29,8 @@ Master Plan: `maple-room-r1a-plan.md` §3 R1A-01, §7–§9. Live status:
 - Pinned simulation expectation: `backend/tests/core/test_simulation.py:48-51`,
   `test_thirty_day_digest_is_pinned`. Master Plan §3 / R1A-01 requires recording it;
   the literal is in the regression test, not a separate digest literal in the design
-  spec. It remains an expected value, not a new computed-output record.
+  spec. The owner-verified computed result above now matches this expectation;
+  the earlier expected-only record remains historical in the worklog.
 - Simulation fixture: the same file's `START`, `DAYS`, `run()` and cached `baseline()`
   define 30 days from 2026-01-01 UTC, default parameters, daily owner routine and
   explicit behavior inputs. `backend/tests/core/support.py` supplies synthetic test
@@ -54,11 +55,11 @@ This breaks down the existing workstream; it does not change its acceptance crit
 
 1. **Kickoff (this change):** record owner decisions, branch, starting baseline and
    evidence gaps; update checklist/counters and append worklog. No engine or oracle code.
-2. **Baseline evidence reconciliation:** exact-start-commit full gate and counts are
-   recorded from owner-supplied isolated Docker evidence; no gate rerun needed for
-   reconciliation. Collect missing CI/platform evidence and separately captured computed
-   digest output when available. Preserve the earlier Windows attempt and retained
-   paolo-core build environment; local check-environment readiness remains unverified.
+2. **Baseline evidence reconciliation (recorded):** exact-start-commit Docker full
+   gate and counts remain owner-supplied evidence. Computed 30-day simulation evidence
+   and passing PR-head CI are now recorded; neither was rerun for this update. The PR
+   run does not establish a separate CI execution of the original base. Preserve the
+   earlier Windows attempt and retained paolo-core build environment.
 3. **Test-side spec oracle (prepared):** `backend/tests/world/` covers T1–T7 and the
    T6 walk matrix as immutable test input, with parsing and deliberate-mutation
    rejection tests. It must never become runtime geometry data.
@@ -74,12 +75,27 @@ This breaks down the existing workstream; it does not change its acceptance crit
 
 ## Completion gaps and safeguards
 
-Full baseline gate PASS and suite counts are now reconciled from owner-supplied
-Docker evidence. Still missing: complete CI/platform evidence, separately captured
-computed digest output, review/acceptance of the prepared harness and actual
-CI execution of the new contracts. Harness/fixture conventions are now documented. The gate summary supports the pinned assertion only
-to the extent it was included in the suite; no individual test transcript or newly
-computed digest is claimed. Owner clearance does not waive completion requirements.
+Baseline Docker gate PASS, computed simulation, oracle/harness results and passing
+PR-head CI are recorded. Master Plan §3 / R1A-01 completion review:
+
+| Criterion | Evidence / remaining action |
+|---|---|
+| Baseline recorded | Approved base, prior Docker PASS/counts, computed digest and route reference recorded. Separate original-base GitHub CI execution remains unverified; PR-head CI is explicitly distinguished. |
+| Harness usable by R1A-02 | 48 focused oracle/contract/fixture tests passed; conventions documented. Owner accepted 2026-10-10; PR #1 merge pending; R1A-02 remains TODO. |
+| Contracts enforced in CI | 10 kept / 0 broken; passing Ubuntu and Windows backend jobs at PR HEAD include the existing import-linter and pytest checks. |
+| No runtime behaviour changed | Oracle/harness remain test infrastructure. CI fixes initialize API schemas earlier, add probe platform guards, and preserve installer guard semantics; no API contract, world behavior or schema change. |
+
+**OWNER ACCEPTED / MERGE PENDING — 2026-10-10 (STEP 71).** The owner
+explicitly APPROVES R1A-01 acceptance and acknowledges that GitHub run
+`38062574000` validates PR HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`,
+not a separate CI execution of original baseline
+`5c6db41c0139e1da6a2178b36d838e4da57074b1`. Baseline Docker Release Gate
+PASS remains recorded, with complete raw gate details unavailable and explicitly
+acknowledged. These evidence limitations are accepted; no rerun is claimed.
+
+Outstanding action: PR #1 merge under existing policy. R1A-01 is not DONE and
+repository integration is not complete until merge succeeds. No merge is performed
+or authorized by this documentation step. R1A-02–R1A-20 remain TODO.
 
 ADR-locked values > accepted ADR rules > Final Design Spec > PROPOSED text.
 Keep schema v10 and the legacy default view; no production deployment/restart,
@@ -87,7 +103,11 @@ database/backup changes, R-01 rework or paolo-core build-environment removal.
 Any architecture conflict follows Master Plan §8's stop rule. Test Oracle and
 harness are prepared; no World Model or Engine behavior is implemented.
 
-## Test infrastructure evidence (2026-10-10)
+## Historical test infrastructure preparation evidence (2026-10-10)
+
+This section preserves the preparation-stage environment and results. Its missing-CI
+and computed-digest statements describe that stage and are superseded by the
+acceptance evidence above and the STEP 69 worklog entry.
 
 - **Oracle:** `backend/tests/world/approved_tables.json` transcribes all columns/rows
   of T1–T7 at approved base `5c6db41`; independently checked against the base spec.
@@ -120,3 +140,17 @@ harness are prepared; no World Model or Engine behavior is implemented.
   remains owner-supplied Docker evidence; CI and computed-digest gaps remain.
   New package markers have no executable world behavior; schema, legacy view,
   existing simulation pin and dependencies are unchanged. No commit/push/merge.
+
+## Acceptance evidence — STEP 69, owner accepted STEP 71 (2026-10-10, +07)
+
+Owner-verified evidence: base `5c6db41c0139e1da6a2178b36d838e4da57074b1`; previously verified
+baseline Docker release gate **PASS**; 30-day simulation **8,640 ticks**, computed
+digest `458d6cb4035329a008105f8f2055d5f35b61cc1f537df3e04eabfcfe52d25917`; Oracle/Harness
+**48 new focused tests passed**, **635 cells + 49 walk-matrix values**; import
+contracts **10 kept / 0 broken**. PR #1 HEAD `26aed831b82eebf2db8e73ff9b04f60a436b9a38`:
+[GitHub Actions run 38062574000](https://github.com/payola469/Maplegotchi/actions/runs/38062574000) **PASS** for Backend Ubuntu, Backend Windows,
+Frontend and ShellCheck. This is PR-head evidence, not a separate CI execution of
+the original base SHA. No tests, simulation or release gate rerun for this update.
+
+R1A-01 remains **OWNER ACCEPTED / MERGE PENDING**; R1A-02–R1A-20 remain
+**TODO**. Earlier failed attempts and evidence limitations remain in the worklog.

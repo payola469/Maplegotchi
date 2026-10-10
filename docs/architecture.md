@@ -5,7 +5,8 @@ built; this file collects longer-form notes as each phase lands.
 
 ## R1A-01 test infrastructure (2026-10-10)
 
-Owner-authorized R1A-01 is IN PROGRESS; R1A-02–R1A-20 remain TODO. This adds
+R1A-01 is OWNER ACCEPTED / MERGE PENDING (owner decision 2026-10-10);
+PR #1 integration is not complete. R1A-02–R1A-20 remain TODO. This adds
 only `tests/world/` (T1–T7 oracle, approved snapshot, deterministic scratch fixtures,
 evidence conventions and negative contract tests), plus docstring-only package
 markers at `core/world/` and `world_catalog/`. Runtime will load the future catalog

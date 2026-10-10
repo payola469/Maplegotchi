@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01 IN PROGRESS (baseline and test infrastructure only; 2026-10-10). World/engine implementation not started; R1A-02–R1A-20 TODO.
+**Status:** AUTHORIZED — R1A-01 OWNER ACCEPTED / MERGE PENDING (2026-10-10). World/engine implementation not started; R1A-02–R1A-20 TODO.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -9,7 +9,7 @@
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
 > - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 authorized to start**. R1A-01 baseline/test infrastructure is in progress; other items remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
-> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; Windows / GitHub CI remains unverified (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
+> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merge remains pending (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document. It records **no** implementation result. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
 
@@ -624,7 +624,7 @@ Classification: **BLOCKER** (prevents starting R1a work) · **REQUIRED BEFORE R1
 | 14 | Turn penalty yields walk lengths different from spec T6 | REQUIRED BEFORE R1A ACCEPTANCE | Recorded as a decision in R1A-05; spec unchanged unless the stop rule applies. |
 | 15 | Tailscale Serve identity-header spike | NON-BLOCKING / DEFERRED → before **R4** (ADR-0038 §3) | Not needed for R1a (no owner endpoints). |
 
-**BLOCKER:** none among the design and technical items above. Owner cleared Pre-R1 and authorized R1a (§9); R1A-01 baseline/harness completion evidence remains required.
+**BLOCKER:** none among the design and technical items above. Owner cleared Pre-R1 and authorized R1a (§9); R1A-01 baseline/harness evidence is owner accepted on 2026-10-10; separate original-base CI execution remains unverified and complete raw baseline gate details remain unavailable, both explicitly acknowledged by owner. PR #1 merge remains pending; repository integration is not complete. R1A-01 stays OWNER ACCEPTED / MERGE PENDING.
 
 ---
 
