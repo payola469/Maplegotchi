@@ -433,7 +433,7 @@ All coordinates are object-local. `approach` is in tiles relative to the footpri
   "id": "chair",
   "approach": {"tx": 1, "ty": 2, "facing": "up"},            // tile Maple walks to
   "occupy":   {"px": [24, -6], "pose": "sit", "direction": "up"}, // where Maple's anchor is drawn while using
-  "provides": ["writing_surface", "seat"],
+  "provides": ["writing_surface"],
   "capacity": 1
 }]
 ```
@@ -459,7 +459,7 @@ All coordinates are object-local. `approach` is in tiles relative to the footpri
 
 ```jsonc
 "category": "functional",                   // functional | decorative | creation_display | structural
-"capabilities": ["writing_surface", "seat"],
+"capabilities": ["writing_surface"],
 "movable_by": ["owner"], "deletable_by": ["owner"]
 ```
 
@@ -563,14 +563,14 @@ Maple's canvas, anchor and safe area in Ex.1 are LOCKED. The furniture footprint
  "placement": {"surface": "floor", "against_wall": "north_optional"},
  "points": [{"id": "chair", "approach": {"tx": 1, "ty": 2, "facing": "up"},
              "occupy": {"px": [24, -6], "pose": "sit", "direction": "up"},
-             "provides": ["writing_surface", "seat"], "capacity": 1}],
+             "provides": ["writing_surface"], "capacity": 1}],
  "slots": [{"id": "desktop", "px": [12, -30], "accepts": ["project.active", "creation.small"],
             "capacity": 2, "spacing_px": 14, "maple_may_place": true}],
- "category": "functional", "capabilities": ["writing_surface", "seat"],
+ "category": "functional", "capabilities": ["writing_surface"],
  "shadow": "shadow.rect_3x2", "fallback": "placeholder.floor_3x2"}
 ```
 
-*The Writing Desk and the Computer Desk stay separate assets with different capabilities: a fixed owner decision.*
+*The Writing Desk and the Computer Desk stay separate assets with disjoint capabilities. STEP 95 Option A (2026-10-11) fixes their capabilities and point provides to `writing_surface` only and `computer` only, respectively. See [ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4). These reference examples do not replace the Final Design Spec T4 `sit_write` / `sit_monitor` poses or change geometry.*
 
 ### Ex.4 Bookshelf: `furniture.bookshelf_tall`
 

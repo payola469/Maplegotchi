@@ -3,6 +3,22 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
+## R1A-03 catalog metadata status (STEP 97, 2026-10-11)
+
+REVIEW / PENDING OWNER ACCEPTANCE. Pure `core/world/catalog.py` owns frozen type,
+instance, point, slot and explicit override metadata, deterministic transforms,
+S6/S7 geometry and static S8/S9/S15/S16/S17 checks. Catalog defaults and named-slot
+instance geometry overrides follow amended ADR-0036/0039; policy overrides remain
+separate. Declarative `world_catalog/initial_catalog.json` is loaded only by the
+isolated `runtime/world_catalog.py` reader. No production entry point calls it.
+Exact T3/T4/T5 equality, 15 types/28 instances/17 points/12 slots, 510 focused tests,
+strict mypy/Ruff, 10 import contracts and offline wheel loading PASS. Full pathing,
+reachability, keep-clear, resolution, placement and delivered-art validation stay
+with later workstreams. R1A-04–20 TODO; no production/schema/default-view change.
+See [detailed plan](implementation/maple-room-r1a-03-object-catalog.md) and worklog.
+Earlier STEP 90/96 sections describe historical evidence and pending gates;
+R1A-02 is present in the merged baseline `3779456` (PR #2).
+
 ## R1A-02 current implementation status (STEP 90, 2026-10-10)
 
 REVIEW / PENDING FINAL OWNER ACCEPTANCE; Checkpoints 1–6 implemented, 4–6

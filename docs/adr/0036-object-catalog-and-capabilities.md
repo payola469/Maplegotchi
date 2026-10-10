@@ -31,6 +31,8 @@ Today an activity maps to exactly one location (`SPECS[activity].locations[0]`).
 
 **Object instances** live in the layout (ADR-0037). Each instance has: `id` (stable across layout revisions), `type`, `tx`/`ty`, `orientation`, `state`, `owner` (`paolo | maple`) and an optional soft `link`.
 
+**Owner amendment, 2026-10-11 (STEP 97, Option A):** catalog types own default slot templates. A layout instance may explicitly override only `approach` and/or character `facing` per named slot; never infer an override from position or mutate the type. Retain slot identity, accepts, capacity, placement permissions and ownership unless independently authorized by ADR-0039 §2. Validate strict local coordinates/direction, orientation transform, grid/host-room bounds and declared same-host point reuse. Full walkability/collision/reachability/keep-clear remain with R1A-04/05/07. Preserve T5: bedside `top` local `(1,0)`, left; living/library `top` local `(0,1)`, up. No new type or named variant. This is instance layout metadata; type geometry/version is unchanged by an instance override (type template changes still require geometry-version review).
+
 ### 3. Capability-based interaction (A4)
 - Each activity has **capability requirements** (any-of groups), held in a core table versioned with the activity set.
 - Interaction points on placed instances **provide** capabilities.
@@ -41,6 +43,7 @@ Today an activity maps to exactly one location (`SPECS[activity].locations[0]`).
   4. Ties are broken by the seeded `decision` RNG stream, never by set order.
 - **No candidate means the activity is not allowed now.** The Director's `allowed.actions` lists only activities with a reachable candidate.
 - **The Writing Desk and the Computer Desk** remain distinct types with disjoint capabilities (D26).
+  - **Owner amendment, 2026-10-11 (STEP 95, Option A):** `furniture.writing_desk` capabilities and `desk.writing/chair` provides are exactly `{writing_surface}`; `furniture.computer_desk` capabilities and `desk.computer/operator` provides are exactly `{computer}`. Neither desk nor its interaction point provides `seat`. The `write` requirement is `writing_surface` alone; seating is expressed by the preserved `sit_write` / `sit_monitor` occupy poses, not a shared capability. Approaches, occupy offsets, orientations, directions, footprints, IDs and room layout are unchanged. This reconciles Final Design Spec S15 and T3/T4/T6 without weakening disjointness. Decision and pending Oracle reconciliation: [R1a worklog](../implementation/maple-room-r1a-worklog.md).
 - **Adding an activity** needs only: an enum/lookup row (ADR-0037), a requirement row, capabilities on the relevant types, and art keys with fallbacks (ADR-0041). It needs no movement code. Each new activity still needs owner approval: the activity set is FIXED by policy.
 
 ### 4. Approach and occupy interaction points (A9, B9)

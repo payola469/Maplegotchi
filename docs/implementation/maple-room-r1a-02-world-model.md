@@ -405,13 +405,16 @@ reader boundary, diagnostics and half-open internal ranges above are implementat
 proposals for review; they do not change accepted geometry. The plan does not
 choose movement tuning, face size, phase tints or default zoom.
 
-**Reported cross-source conflict, outside this item:** ADR-0036 §3 says the Writing
-Desk and Computer Desk have disjoint capabilities (also spec S15), while spec T3
-and T4 list `seat` for both; T6 requires `writing_surface&seat`. Literal disjoint
-sets and those rows cannot both hold. Do not silently remove `seat`, rewrite the
-Oracle or reinterpret disjointness. Record for owner/ADR/spec clarification before
-R1A-03/06 capability validation; no catalog/capability behavior is implemented by
-R1A-02, and no later detailed plan is started here.
+**Resolved cross-source conflict, outside this item (STEP 95, 2026-10-11):**
+At STEP 78, ADR-0036 §3 / S15 disjointness conflicted with shared desk `seat` in
+T3/T4 and the T6 writing requirement. The owner now approves Option A: Writing
+Desk capabilities/point provides `{writing_surface}`, Computer Desk `{computer}`;
+`write` requires `writing_surface` alone. S15, `sit_write` / `sit_monitor` and all
+geometry stay unchanged. See [ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4).
+No R1A-02 behavior changes. The approved Oracle is untouched; five T3/T4/T6 cells
+need separately authorized review before Oracle-dependent R1A-03/06 validation
+([worklog](maple-room-r1a-worklog.md)). Historical STEP 90 evidence above predates
+this spec amendment and is not a claim that the amended spec passes that Oracle.
 
 Geometry risks to guard explicitly: inclusive source ranges vs half-open internal
 ranges; deduplicating shared walls without losing ownership; confusing floor room

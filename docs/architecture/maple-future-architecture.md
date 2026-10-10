@@ -388,11 +388,11 @@ Each row needs an explicit owner decision or ADR amendment.
   "footprint": {"w": 3, "h": 2},             // tiles, at orientation "south"
   "blocks": ["###", "###"],                  // collision mask rows (# blocks walking)
   "orientations": ["south", "east", "west", "north"],
-  "capabilities": ["writing_surface", "seat"],
+  "capabilities": ["writing_surface"],
   "points": [                                // interaction point templates, object-local tiles
     {"id": "chair", "approach": {"tx": 1, "ty": 2, "facing": "up"},   // character direction (B9)
      "occupy": {"px": [24, -6], "pose": "sit", "direction": "up"},    // px values PROVISIONAL (ADR-0041)
-     "provides": ["writing_surface", "seat"], "capacity": 1}
+     "provides": ["writing_surface"], "capacity": 1}
   ],
   "slots": [{"id": "desktop", "accepts": ["creation.small", "project.active"], "capacity": 2,
              "maple_may_place": true}],      // B5/B11 (ADR-0039)
@@ -442,7 +442,7 @@ The roadmap R2 principle is: **Activity** = broad behavior; **Task** = what Mapl
 | sleep | `sleep_spot` | |
 | rest | `seat_soft` ∨ `sleep_spot` | sofa, armchair, bed |
 | read | `reading_spot` | bookshelf front, armchair, sofa, library desk |
-| write | `writing_surface` ∧ `seat` | Writing Desk |
+| write | `writing_surface` | Writing Desk |
 | observe_server | `system_console` ∨ `computer` | Computer Desk, System Room console |
 | think | `window_view` ∨ `quiet_spot` | window, plant corner |
 | idle / walk | `open_floor` | any free walkable tile flagged by the room as open area, or an `open_floor` point |
@@ -455,7 +455,7 @@ The roadmap R2 principle is: **Activity** = broad behavior; **Task** = what Mapl
 5. No candidate → the activity is not allowed now. The Director context lists only activities with at least one reachable candidate (extending today's `allowed.actions`).
 
 Consequences:
-- **Writing Desk ≠ Computer Desk (D26)** is preserved: they are distinct types with disjoint capabilities.
+- **Writing Desk ≠ Computer Desk (D26)** is preserved: they are distinct types with disjoint capabilities. STEP 95 Option A (2026-10-11) fixes capabilities and point provides to `writing_surface` only / `computer` only; `write` requires only `writing_surface`. See [ADR-0036 §3](../adr/0036-object-catalog-and-capabilities.md#3-capability-based-interaction-a4). Final Design Spec T4 preserves `sit_write` / `sit_monitor` and all geometry; generic art examples here do not override those poses.
 - A new activity (e.g. `code`) is: an activity enum row, a requirement row, capabilities on the relevant types, and poses in the art manifest with fallbacks. No movement code changes.
 - **Task** stays `core/tasks.py`'s `Task`. Its target namespace grows: `library:`, `document:`, `file:`, `project:`, `artifact:`, `inv:`. A task never names an object instance. The object is resolved by capability, and the chosen point is recorded on the action (`decision.executed_point` already exists).
 
