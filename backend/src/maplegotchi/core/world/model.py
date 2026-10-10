@@ -71,3 +71,36 @@ class Region:
             raise ValueError("region floor must be Rect")
         if not isinstance(self.status, RegionStatus):
             raise ValueError("region status must be RegionStatus")
+
+
+class DoorState(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+@dataclass(frozen=True, slots=True)
+class Door:
+    """A north-south archway rectangle; adjacency is validated against regions."""
+
+    id: str
+    north_room: str
+    south_room: str
+    passage: Rect
+    state: DoorState
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("id", self.id),
+            ("north_room", self.north_room),
+            ("south_room", self.south_room),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"S3: door {label} must be nonempty text")
+        if self.north_room == self.south_room:
+            raise ValueError(f"S3: door {self.id} cannot link a room to itself")
+        if not isinstance(self.passage, Rect):
+            raise ValueError(f"S3: door {self.id} passage must be Rect")
+        if (self.passage.w, self.passage.h) != (2, 3):
+            raise ValueError(f"S3: door {self.id} must be 2 columns by 3 rows")
+        if not isinstance(self.state, DoorState):
+            raise ValueError(f"S3: door {self.id} state must be DoorState")

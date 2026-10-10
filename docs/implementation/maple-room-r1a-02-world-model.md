@@ -1,6 +1,6 @@
 # R1A-02 — Canonical World Model and Final House Geometry
 
-**Status:** IN PROGRESS / CHECKPOINT 2 IMPLEMENTED — review pending. STEP 84 authorizes wall structure only; Checkpoints 3–6 require separate authorization. Checkpoint 1 review PASS (STEP 82), committed/pushed as `3d389d1fd68838a708cf0c0d6471a82a6426bd5c` (STEP 83).
+**Status:** IN PROGRESS / CHECKPOINT 3 IMPLEMENTED — review pending. STEP 87 authorizes doors and room topology only; Checkpoints 4–6 require separate authorization. Checkpoint 2 acceptance review PASS (STEP 85), owner accepted and committed/pushed as `312c81dae03f503368e2379600407acfe454dd1c` (STEP 86).
 **Date:** 2026-10-10 (+07), STEP 78.
 **Workspace:** `/Users/paolo_cu/GitHub Desktop/Maplegotchi-r1a-02-world-model`
 **Branch / starting HEAD:** `feat/r1a-02-world-model` / `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`.
@@ -9,7 +9,7 @@
 
 Produce an isolated, pure-domain representation of the approved initial house,
 with derived structure, topology and lighting ownership, validated before use.
-This document defines the implementation breakdown. Checkpoints 1 and 2 add isolated foundational values and derived wall structure. No production activation or Checkpoint 3–6 implementation is authorized.
+This document defines the implementation breakdown. Checkpoints 1–3 add isolated foundational values, derived wall structure and validated doorway/topology values. No production activation or Checkpoint 4–6 implementation is authorized.
 R1A-01 is DONE / OWNER ACCEPTED / MERGED through [PR #1](https://github.com/payola469/Maplegotchi/pull/1)
 into `v0.2-development` at the starting HEAD above. Its two acknowledged evidence
 limitations remain: run `38062574000` validates `26aed831…`, not a separate original-base
@@ -308,6 +308,41 @@ diagnostic; it was corrected to the first uncovered-cell diagnostic, retaining
 the invalid fixture and rejection requirement. No production wiring, Oracle,
 Harness, snapshot, simulation pin, API, schema or renderer changes. Checkpoint 2
 is ready for review; Checkpoints 3–6 have not begun.
+
+## Checkpoint 3 evidence (STEP 87, 2026-10-10)
+
+`model.py` adds frozen Door/DoorState values: named north/south regions, a
+grid-contained Rect of exactly 2×3 cells, open/closed state and explicit rejection
+of malformed values or self-links. Existing Checkpoint 1 types are unchanged.
+`topology.py` derives frozen Passage, RoomNode and Topology values, independently
+revalidating S1/S2 structure before checking S3. Door IDs must be unique; named
+rooms must exist with floor immediately north/south across both columns. Every
+passage cell must be in the southern room's north band; overlaps are rejected
+in either state. Passage cells remain southern-owned in both states and are
+separate from the uncarved structure. No tile walkability permission is inferred.
+
+Graph nodes, neighbor lists and passages have canonical ID order; only open
+doors add undirected edges, and repeated neighbors are deduplicated. S4 requires
+connectivity among open rooms; closed rooms remain represented but cannot bridge
+that component (consistent with their inaccessibility, spec S5 / ADR-0035 §2).
+Closed rooms are exempt from connectivity; a single open room needs no edge.
+No topology edges are authored independently or persisted.
+
+**182 distinct focused cases passed, 0 failed:** 52 new topology + 65 Checkpoint 1
++ 38 Checkpoint 2 + 24 contract + 3 security cases. The initial combined run
+passed 179 cases; after three extra topology cases and test-only regex lint fixes,
+the final topology-only run passed 52 cases, reusing the unaffected 130 passes.
+Tests cover valid edge openings, six-cell passages, ownership/state, invalid
+dimensions/locations/endpoints, missing/duplicate IDs, overlaps, nonadjacent and
+straddled rooms, closed-edge disconnection, transitive connectivity, closed-room
+exemption, deterministic failures and deeply immutable/order-independent results.
+Ruff lint/format PASS; strict targeted mypy PASS (8 files); import contracts
+**10 kept / 0 broken**. Full commands and final scope are in the worklog.
+
+No complete initial-house data or final-house Oracle equality is introduced.
+No lighting/mount predicates, tile pathfinder/walkability engine, API, persistence,
+renderer or production wiring is added. Checkpoint 3 is ready for acceptance
+review; Checkpoints 4–6 have not begun.
 
 ## Acceptance checklist for the complete implementation
 
