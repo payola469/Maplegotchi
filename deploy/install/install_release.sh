@@ -64,7 +64,9 @@ export UV_PYTHON_INSTALL_DIR="$PYTHON_DIR" UV_CACHE_DIR="$CACHE" UV_NO_CONFIG=1 
        UV_PYTHON_PREFERENCE=only-managed UV_LINK_MODE=copy
 "$UV" python install --no-bin --install-dir "$PYTHON_DIR" "$PYTHON_VERSION"
 set -- "$PYTHON_DIR"/cpython-"$PYTHON_VERSION"-linux-x86_64-gnu/bin/python3.12
-[ $# -eq 1 ] && [ -x "$1" ] || die "managed CPython $PYTHON_VERSION not found under $PYTHON_DIR"
+if [ "$#" -ne 1 ] || [ ! -x "$1" ]; then
+    die "managed CPython $PYTHON_VERSION not found under $PYTHON_DIR"
+fi
 PY=$1
 
 # The release venv, built in its final place (venvs are not relocatable).

@@ -311,4 +311,7 @@ def create_app(
     # Unknown /api/* paths get FastAPI's JSON 404; the frontend fallback refuses them too.
     if settings.static_dir is not None:
         install_frontend(app, settings.static_dir)
+    # Build included route schemas before concurrent requests can initialize them.
+    # FastAPI/Pydantic schema construction uses process-wide warning contexts.
+    app.openapi()
     return app

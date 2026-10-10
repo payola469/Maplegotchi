@@ -28,6 +28,34 @@ sys.modules[spec.name] = probe
 spec.loader.exec_module(probe)
 
 
+@pytest.fixture
+def linux_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise mocked Linux security operations on any test host."""
+    monkeypatch.setattr(probe, "sys", SimpleNamespace(platform="linux"))
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin"])
+@pytest.mark.parametrize("helper", ["host", "inside"])
+def test_direct_helpers_reject_unsupported_platform_before_unix_access(
+    monkeypatch: pytest.MonkeyPatch, platform: str, helper: str
+) -> None:
+    monkeypatch.setattr(probe, "sys", SimpleNamespace(platform=platform))
+    # Importing pwd or reaching the first identity check must fail this test.
+    monkeypatch.setitem(sys.modules, "pwd", None)
+
+    def unexpected_access(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("unsupported platform reached Unix operations")
+
+    monkeypatch.setattr(probe.os, "geteuid", unexpected_access, raising=False)
+    monkeypatch.setattr(Path, "readlink", unexpected_access)
+    monkeypatch.setattr(probe.subprocess, "run", unexpected_access)
+    with pytest.raises(RuntimeError, match=r"^Linux only$"):
+        if helper == "host":
+            probe.host("a" * 40)
+        else:
+            probe.inside("mnt:[42]", 995, 979)
+
+
 def test_exclusive_creation_preserves_existing_file(tmp_path: Path) -> None:
     existing = tmp_path / "sentinel"
     existing.write_bytes(b"real data")
@@ -261,7 +289,7 @@ def test_parent_interruption_waits_for_child_cleanup(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.parametrize("change_at", [1, 2, 3])
 def test_host_stops_on_service_identity_change(
-    monkeypatch: pytest.MonkeyPatch, change_at: int
+    monkeypatch: pytest.MonkeyPatch, change_at: int, linux_probe: None
 ) -> None:
     monkeypatch.setitem(
         sys.modules,
@@ -299,7 +327,7 @@ def test_host_stops_on_service_identity_change(
     ("groups", "valid"), [("979", True), ("", True), ("979 27", False), ("0", False)]
 )
 def test_service_group_validation(
-    monkeypatch: pytest.MonkeyPatch, groups: str, valid: bool
+    monkeypatch: pytest.MonkeyPatch, groups: str, valid: bool, linux_probe: None
 ) -> None:
     monkeypatch.setitem(
         sys.modules,
@@ -331,7 +359,7 @@ def test_service_group_validation(
 
 @pytest.mark.parametrize("groups", [[], [979], [979, 27], [0]])
 def test_helper_still_requires_empty_groups(
-    monkeypatch: pytest.MonkeyPatch, groups: list[int]
+    monkeypatch: pytest.MonkeyPatch, groups: list[int], linux_probe: None
 ) -> None:
     monkeypatch.setattr(probe.os, "geteuid", lambda: 995, raising=False)
     monkeypatch.setattr(probe.os, "getegid", lambda: 979, raising=False)
