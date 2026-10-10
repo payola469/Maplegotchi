@@ -1,6 +1,6 @@
 # CLAUDE.md — Maplegotchi
 
-> **Current owner authorization — 2026-10-10:** Pre-R1 Gate clearance APPROVED / CLEAR; R1a preparation and implementation AUTHORIZED. R-01 is implemented, merged and deployed to paolo-core, HTTP Health PASS (owner-confirmed; exact deployed SHA / detailed acceptance transcript not supplied). R1A-01 is IN PROGRESS on `codex/r1a-01-baseline` from `5c6db41c0139e1da6a2178b36d838e4da57074b1`, baseline/documentation preparation only; R1A-02–R1A-20 remain TODO. This supersedes earlier R1a authorization and R-01 deployment/pending-gate statements below. Baseline release gate and CI are not claimed PASS. No production changes are authorized in this kickoff; retained paolo-core build environment must remain intact. See `docs/implementation/maple-room-r1a-01-baseline.md` and worklog. Phase 8/M3 status is unchanged.
+> **Current owner authorization — 2026-10-10:** Pre-R1 Gate clearance APPROVED / CLEAR; R1a preparation and implementation AUTHORIZED. R-01 is implemented, merged and deployed to paolo-core, HTTP Health PASS (owner-confirmed; exact deployed SHA / detailed acceptance transcript not supplied). R1A-01 is IN PROGRESS on `codex/r1a-01-baseline` from `5c6db41c0139e1da6a2178b36d838e4da57074b1`, test infrastructure only; no world behavior; R1A-02–R1A-20 remain TODO. This supersedes earlier R1a authorization and R-01 deployment/pending-gate statements below. Baseline release gate PASS is recorded from owner-supplied isolated Docker evidence; Windows/GitHub CI remains unverified. No production changes are authorized in this kickoff; retained paolo-core build environment must remain intact. See `docs/implementation/maple-room-r1a-01-baseline.md` and worklog. Phase 8/M3 status is unchanged.
 
 This file guides Claude Code (and humans) working in this repository. Read it fully before changing anything.
 
@@ -238,6 +238,8 @@ Maplegotchi/
 │   │   │   presence.py (v0.2 A8: speech bubble from real state)
 │   │   │   conversation.py (v0.2 A9: messages from Paolo, truthful replies)
 │   │   │   brain_health.py (ADR-0034: status rules, Maple-day "today")
+│   │   │   world/        (R1A-01: docstring-only marker; no world behavior)
+│   │   ├── world_catalog/         (R1A-01: data-package marker only; no catalog content)
 │   │   ├── library/               (v0.2 A5: approved read-only documentation, by catalog id)
 │   │   │   journal.py reflection.py                                          (P4)
 │   │   ├── brain/         (P4)       # interface.py (Brain protocol), rule_brain.py — pure
@@ -260,6 +262,7 @@ Maplegotchi/
 │   │   └── cli.py                    # simulate (P1), demo-day (P4), run (P5)
 │   └── tests/
 │       ├── unit/  security/  core/  storage/  runtime/  sensors/
+│       ├── world/                  # R1A-01 test-only spec oracle, scratch fixtures and contracts
 │       └── api/ (P5)
 ├── frontend/
 │   ├── package.json  pnpm-lock.yaml
@@ -308,6 +311,7 @@ Dependency rules (enforced by import-linter + AST tests in CI):
 - `storage` is the only module that opens files for writing, and only inside `MAPLE_DATA_DIR`.
 - `api` never mutates state directly; interactions are submitted to `runtime/life`. `api` does not import `sensors`.
 - `runtime` is the only place concrete implementations (clock, sensors, providers, brain) are chosen.
+- R1A-01 reserves `core/world` and `world_catalog` with docstring-only markers. Three additional import-linter contracts plus `tests/world/contracts.py` enforce world purity, runtime-only catalog loading and no runtime use of the test oracle/spec files. `tests/world/README.md` defines deterministic fixtures and evidence conventions; these are test infrastructure, not a world implementation.
 
 ### 3.4 The life loop, heartbeat, and interactions
 All state mutations go through **one serialized writer** (`runtime/life`), so heartbeats and interactions never race.

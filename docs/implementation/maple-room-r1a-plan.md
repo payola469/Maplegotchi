@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01 IN PROGRESS (baseline preparation only; 2026-10-10). World/engine implementation not started; R1A-02–R1A-20 TODO.
+**Status:** AUTHORIZED — R1A-01 IN PROGRESS (baseline and test infrastructure only; 2026-10-10). World/engine implementation not started; R1A-02–R1A-20 TODO.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,8 +8,8 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 authorized to start**. This step records baseline/docs only; other items remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
-> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline checks and CI are not claimed PASS. Phase 8/M3 status is unchanged.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 authorized to start**. R1A-01 baseline/test infrastructure is in progress; other items remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
+> - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; Windows / GitHub CI remains unverified (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document. It records **no** implementation result. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
 
