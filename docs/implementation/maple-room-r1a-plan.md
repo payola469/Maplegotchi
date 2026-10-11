@@ -161,12 +161,13 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 ### R1A-04 — Walkability, collision and recovery
 
 - **Objective:** the walkable mask, connectivity and the recorded recovery rule.
+- **Detailed plan / current gate:** [R1A-04 breakdown](maple-room-r1a-04-walkability-recovery.md); STEP 104 REVIEW / PENDING OWNER ACCEPTANCE. Emergency recovery and revised dynamic K4 implemented in isolation; focused evidence in the detailed plan.
 - **Scope:**
   - walkable = floors of open rooms + passages of open doors − blocking masks (spec §K);
   - closed floors and passages never walkable;
-  - connectivity of the open component; keep-clear rules K1–K4 (S10);
+  - tile-level connectivity of the open component; protected K1–K3 cells and STEP 104 dynamic K4 connectivity (S10), without a fixed straight corridor;
   - Maple occupies one tile;
-  - recovery: nearest walkable tile by BFS inside the open component, tie-break `(ty, tx)`, producing a `maple_relocated` record (persistence of the event in R1A-08);
+  - prevention-first safe-layout validation and emergency-only recovery under [ADR-0035 STEP 103](../adr/0035-world-model.md#prevention-first-recovery-last-resort--owner-amendment-step-103); deterministic BFS/ties, validated fallback and immutable `maple_relocated` record (persistence in R1A-08);
   - validation S5, S10, S13.
 - **Dependencies:** start — R1A-02, R1A-03.
 - **Outputs:** walkability and recovery in core; validation rules.

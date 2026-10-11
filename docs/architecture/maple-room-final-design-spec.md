@@ -324,17 +324,19 @@ The full list is table T3 (§T).
       - `bookshelf.library_1/books` → `front_l`;
       - `bookshelf.library_2/books` → `front_l`;
       - `desk.writing/desktop` → `chair`.
-- **Keep-clear tiles** (never accept a blocking footprint; non-blocking rugs and markers are allowed):
+- **Keep-clear and connectivity rules** (K1–K3 cells never accept a blocking footprint; non-blocking rugs and markers are allowed):
 
   | Code | Tiles |
   |---|---|
   | **K1** | each door's 2 columns × 2 rows on each side |
   | **K2** | every interaction and slot approach tile |
   | **K3** | Hall rows 14–15 |
-  | **K4** | in each north room, the columns of its door from row 9 up to the room's approach row (the door-to-furniture path) |
+  | **K4** | dynamic four-neighbor connectivity between each open room's door access, all required interaction/slot approaches and the connected open component; no permanently reserved straight corridor |
+
+**Owner amendment, STEP 104:** K4 replaces the former fixed door-to-approach-row strip. A direct route may be blocked when an alternative valid path exists. Revalidate every proposed layout using deterministic four-neighbor tile connectivity, excluding walls, blocking objects, closed doors and closed rooms. Reject disconnected required destinations, isolated Maple, blocked K1–K3 cells or a broken open component. Routes may change with furniture/approaches; there is no arbitrary terminal approach row. R1A-04 supplies pure-core checks; R1A-07 integrates placement acceptance. Initial T1–T5 geometry and Oracle expectations remain unchanged.
 
 - **No-trap condition:** all walkable tiles of open rooms form one component (verified). Dead-end corners are allowed. Isolated pockets are not.
-- **Recovery-safe tile:** `idle.hall_center` (21,15). It is never blocked (K2/K3) and is the canonical fallback. The ADR-0035 BFS searches only the open connected component.
+- **Recovery-safe tile:** `idle.hall_center` (21,15). It is never blocked (K2/K3) and is the canonical fallback. The [ADR-0035 STEP 103 policy](../adr/0035-world-model.md#prevention-first-recovery-last-resort--owner-amendment-step-103) defines prevention-first validation, emergency BFS initialization, fallback and explicit unsafe-fallback failure. After initialization, BFS traverses only valid walkable cells of the open component. Recovery never bypasses rejected layout validation.
 
 ## L. Placement slots (SPEC)
 
@@ -524,7 +526,7 @@ None of these changes the grid, regions, walls, bands or door positions:
    - An undeclared coincidence is an error.
    - Initial house: 29 references on 26 distinct tiles, with exactly 3 declared reuses (T5).
 9. **S9** Every activity in the activity set has ≥ 1 reachable candidate. This carries today's `core/room.py` `_validate_room` invariant forward. A layout removing the last provider is rejected.
-10. **S10** No blocking footprint lies on a keep-clear tile (K1–K4), including the corridors of closed doors.
+10. **S10** No blocking footprint lies on a K1–K3 keep-clear tile, including the corridors of closed doors; K4 dynamic connectivity must remain valid after every proposed layout change.
 11. **S11** Slots never affect walkability. Hook slots have `maple_may_place = false`.
 12. **S12** The lighting zones partition all cells exactly once.
 13. **S13** Maple's tile is walkable. Recovery uses a BFS inside the open component only. `idle.hall_center` exists and is never blocked.

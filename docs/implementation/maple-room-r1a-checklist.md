@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03 is REVIEW / PENDING OWNER ACCEPTANCE (STEP 97); R1A-04–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
+- **R1a authorization:** **AUTHORIZED** by owner, 2026-10-10; Pre-R1 Gate clearance **APPROVED / CLEAR**. R1A-01 baseline/test infrastructure is DONE / OWNER ACCEPTED / MERGED. R1A-02 is REVIEW / PENDING FINAL OWNER ACCEPTANCE (STEP 90 authorizes Checkpoints 4–6 implementation and validation only; commit/push/merge and production activation are not authorized); R1A-03 is REVIEW / PENDING OWNER ACCEPTANCE (STEP 97); R1A-04 is REVIEW / PENDING OWNER ACCEPTANCE (STEP 104; dynamic K4 and emergency recovery validated); R1A-05–R1A-20 remain TODO. Approval does not claim baseline checks or CI PASS.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 17 | 0 | 0 | 2 | 1 | 0 |
+| 20 | 16 | 0 | 0 | 3 | 1 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -57,7 +57,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-01 | Baseline and test harness | DONE / OWNER ACCEPTED / MERGED | Pre-R1 Gate closed + owner authorization of R1a | 2026-10-10 |
 | R1A-02 | Canonical world model and final house geometry | REVIEW / PENDING OWNER ACCEPTANCE | 01 (DONE) | 2026-10-10 |
 | R1A-03 | Object catalog and capability metadata | REVIEW | 02 | 2026-10-11 |
-| R1A-04 | Walkability, collision and recovery | TODO | 02, 03 | 2026-10-09 |
+| R1A-04 | Walkability, collision and recovery | REVIEW | 02, 03 (merged) | 2026-10-11 |
 | R1A-05 | Deterministic A* pathfinding | TODO | 04 (completion: 17 tuning evidence) | 2026-10-09 |
 | R1A-06 | Interaction and capability resolution | TODO | 03, 05 | 2026-10-09 |
 | R1A-07 | Placement slots and Storage hooks | TODO | 03, 04, 05 | 2026-10-09 |
@@ -115,15 +115,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-04 — Walkability, collision and recovery
 
-- **Status:** TODO
-- **Dependencies:** 02, 03
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / PENDING OWNER ACCEPTANCE
+- **Dependencies:** 02, 03 merged; STEP 103/104 decisions approved
+- **Branch:** `codex/r1a-04-walkability-recovery`
+- **Start commit:** `cd382d430c2da41954ffcc072b3525404def3761`
+- **End commit:** — (uncommitted)
+- **Evidence / tests:** STEP 104: 605 passed / 0 failed (95 new); Ruff lint/format PASS (3); strict mypy PASS (29); 10 import contracts kept / 0 broken. Initial 431 cells / one component, 200 closed floors excluded, 26 distinct approaches reachable; recovery/prevention negatives PASS.
+- **Notes:** dynamic K4 replaces fixed strip; K1–K3 unchanged. Pure-core validation and immutable emergency relocation only; no placement execution, persistence or production wiring. Prior 02/03 review entries retain historical evidence; merge prerequisites verified at this baseline.
+- **Last updated:** 2026-10-11 (STEP 104)
+- **Detailed task plan:** [Walkability and recovery breakdown](maple-room-r1a-04-walkability-recovery.md)
 
 ### R1A-05 — Deterministic A* pathfinding
 

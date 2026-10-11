@@ -40,7 +40,21 @@ Rooms, doors and object placements are versioned **data** that core validates, n
   - phase is derived from `now`;
   - rerouting cancels the old destination and plans from Maple's current position.
 - **The route lives in state** as compressed waypoints `(tx, ty, cumulative_steps)`. Travel time is `steps × ms_per_step`. The position at `now` is interpolated with `+ - * /` only.
-- **No teleport (A7).** A destination with no path makes the action invalid (`no_destination`) and rule fallback applies. The only allowed non-walking position change is a **recorded recovery**: if a layout change blocks Maple's current tile, she moves to the nearest walkable tile by BFS with tie-break `(ty, tx)`, and a `maple_relocated` event records it.
+- **No teleport (A7).** A destination with no path makes the action invalid (`no_destination`) and rule fallback applies. Normal movement never teleports. The only allowed non-walking position change is emergency **recorded recovery**, under the owner-approved policy below.
+
+#### Prevention first, recovery last resort — owner amendment, STEP 103
+
+Validate a proposed layout before acceptance. Reject blocked protected door corridors or K1–K3 tiles, broken K4 connectivity, disconnected permitted walkable areas, Maple trapped away from the canonical safe location, unreachable required interaction/slot approaches, and access into closed rooms or through closed doors. Geometric cells need not all be walkable; the permitted walkable area and required targets must remain connected. R1A-04 supplies pure-core validation; R1A-07 integrates placement acceptance. Recovery cannot bypass failed placement validation.
+
+Recovery is emergency-only for exceptional invalid state or an escaped layout inconsistency:
+
+- A valid walkable current tile produces no relocation.
+- A blocked tile within an open-room floor or approved open passage may be used only as the BFS starting point. After initialization, traverse only valid walkable cells using orthogonal adjacency. Never traverse walls, other blocked tiles, closed rooms or closed passages. Select the nearest reachable valid tile by BFS distance, breaking ties by `(ty, tx)`.
+- If no valid candidate is reachable, use the canonical fallback `idle.hall_center` at `(21,15)`. A source inside a closed region, closed passage, wall or outside the grid skips traversal and uses that fallback directly.
+- Validate the fallback as safe and walkable. If unsafe, return an explicit failure; do not relocate to an unsafe position.
+- Every actual relocation produces an immutable `maple_relocated` record containing the original and destination tile and a deterministic reason. Event persistence belongs to R1A-08.
+
+House geometry, K1–K3, S5/S13, fallback coordinates and approved Oracle values remain unchanged. **Subsequent STEP 104 owner decision (including revised S10):** K1–K3 stay protected; K4 is explicitly revised to dynamic four-neighbor connectivity in [Final Spec §K](../architecture/maple-room-final-design-spec.md#k-walkability-spec), replacing the fixed straight corridor. Alternative routes are permitted only after fresh safe-layout validation. It does not authorize live movement, placement execution or persistence.
 
 ### 4. Collision (A8)
 - Walkability = floor tiles − wall tiles − the blocking masks of placed objects + door tiles in `open` state.
