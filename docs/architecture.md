@@ -3,9 +3,9 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 132, 2026-10-11)
+## R1A current repository status (STEP 135, 2026-10-11)
 
-R1A-01–10 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #12 merge `7b45af4d94cd736390a1477e925e137698bc4aac` is the verified integration HEAD and includes PR #11 merge `f7e313cbe16992593d7f387450c9101d1b31f358`. R1A-11 REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING (STEP 132); atlas dependency RESOLVED on the merged tree. Historical PR #12 CI run `38144587116` passed all five jobs, including native Windows PNG/metadata/generated-index reproduction and frontend build. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10, legacy Room default, explicit development fixture preview only. STEP 132 owner acceptance authorizes the eight-file documentation commit, normal push, closure PR and CI inspection. No remaining R1A-11 blockers; closure record integration is pending. No merge, deployment, production access, schema-v11 activation or later-workstream implementation authorized. [Closure evidence](implementation/maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification). Current counters: **11 DONE / 1 REVIEW / 8 TODO**. After closure PR merge: **R1A-11 DONE / OWNER ACCEPTED / CLOSURE VERIFIED; 12 DONE / 8 TODO / 60% complete**.
+R1A-01–11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #13 closure merge `cd328010a71f2cbcb1d0aee9f59ce925132447ae` is the verified baseline; R1A-11 atlas dependency remains resolved. R1A-12 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 135): local camera implementation, automated gates and STEP134B five-DPR browser matrix PASS; reduced-motion and live CDP DPR timing verified. Physical-device/performance QA remains deferred. R1A-13 and R1A-15–20 TODO. Current counters: 20 total / 12 DONE / 1 REVIEW / 7 TODO. Production remains schema v10, legacy Room default and explicit development fixture preview only. STEP135 owner authorization covers reviewed commit, normal push, PR and CI inspection; no merge, deployment, Production access or later-workstream implementation authorized. Default zoom by form factor remains UNDECIDED. [Camera plan/evidence](implementation/maple-room-r1a-12-camera-zoom-dpr.md).
 
 Pure `core/world/legacy_projection.py` accepts explicit immutable development/fixture facts only. T7/S14 reuse existing anchors and the legacy graph with exact canonical travel times; unchanged presentation facts pass through by identity. Unmappable collapsed/mid-edge routes reject explicitly; no invented paths or fallback anchors. See [R1A-09 plan and evidence](implementation/maple-room-r1a-09-legacy-projection.md). There are no production callers. STEP 120 accepts these limitations and defers old-view expansion; R1b must explicitly validate a safe, truthful integration strategy before production cutover uses the projection. The detailed plan tracks this pre-cutover gate.
 
@@ -24,7 +24,7 @@ No live world, Director, placement execution, API, renderer or deployment change
 
 ## Historical R1A-03 catalog metadata status (STEP 97, 2026-10-11)
 
-REVIEW / PENDING OWNER ACCEPTANCE. Pure `core/world/catalog.py` owns frozen type,
+REVIEW / OWNER ACCEPTED / MERGE PENDING. Pure `core/world/catalog.py` owns frozen type,
 instance, point, slot and explicit override metadata, deterministic transforms,
 S6/S7 geometry and static S8/S9/S15/S16/S17 checks. Catalog defaults and named-slot
 instance geometry overrides follow amended ADR-0036/0039; policy overrides remain

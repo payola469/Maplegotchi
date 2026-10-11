@@ -19,7 +19,7 @@ describe("fixture-only DOM preview", () => {
     expect(screen.getByText(/FIXTURE \/ DEMO DATA/)).toBeTruthy();
     expect(screen.getByText(/44 × 26 tiles; 8 regions; 7 doors; 28 objects/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Return to legacy Room" }).getAttribute("href")).toBe("/");
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "walking" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Scenario" }), { target: { value: "walking" } });
     fireEvent.input(screen.getByRole("slider"), { target: { value: "125" } });
     await waitFor(() => expect(f.updates.at(-1)?.timeMs).toBe(Date.parse("2026-10-11T00:00:00Z") + 125));
     expect(f.create).toHaveBeenCalledTimes(1);
@@ -50,10 +50,35 @@ describe("fixture-only DOM preview", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     const f = fake(); render(<WorldPreview createScene={f.create} />);
     await screen.findByText(/Synthetic fixture renderer ready/);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "walking" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Scenario" }), { target: { value: "walking" } });
     expect((screen.getByRole("button", { name: "Play fixture route" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.input(screen.getByRole("slider"), { target: { value: "1000" } });
     expect(screen.getByText(/Reduced motion: playback is disabled/)).toBeTruthy();
     expect(f.updates.at(-1)?.timeMs).toBe(Date.parse("2026-10-11T00:00:01Z"));
   });
+});
+
+it("camera controls update presentation only and room buttons support keyboard activation", async () => {
+  const f = fake(); render(<WorldPreview createScene={f.create} />); await screen.findByText(/Synthetic fixture renderer ready/);
+  const mode = screen.getByRole("combobox", { name: "Camera mode" });
+  const zoom = screen.getByRole("combobox", { name: /Follow zoom/ });
+  expect((zoom as HTMLSelectElement).disabled).toBe(true);
+  fireEvent.change(mode, { target: { value: "follow" } });
+  fireEvent.change(zoom, { target: { value: "4" } });
+  expect(f.updates.at(-1)?.camera).toMatchObject({ mode: "follow", level: 4 });
+  const target = screen.getByRole("button", { name: "Focus creation_room (closed)" });
+  target.focus(); fireEvent.click(target); // Native button Enter/Space activation is browser-verified.
+  expect(document.activeElement).toBe(target);
+  expect(f.updates.at(-1)?.camera).toMatchObject({ mode: "focus", regionId: "creation_room" });
+  expect(f.create).toHaveBeenCalledTimes(1); expect(f.updates.at(-1)?.world.snapshot.maple.position).toEqual(f.updates[0]?.world.snapshot.maple.position);
+  expect(screen.getByText(/Default zoom by form factor is undecided/)).toBeTruthy();
+});
+it("updates reduced-motion camera requests from the subscribed media query and removes listeners", async () => {
+  let notify: () => void = () => undefined;
+  const media = { matches: false, addEventListener: vi.fn((_event: string, cb: () => void) => { notify = cb; }), removeEventListener: vi.fn() };
+  vi.stubGlobal("matchMedia", () => media);
+  const f = fake(); const rendered = render(<WorldPreview createScene={f.create} />); await screen.findByText(/Synthetic fixture renderer ready/);
+  await act(async () => { media.matches = true; notify(); });
+  expect(f.updates.at(-1)?.camera?.reducedMotion).toBe(true);
+  rendered.unmount(); expect(media.removeEventListener).toHaveBeenCalled();
 });

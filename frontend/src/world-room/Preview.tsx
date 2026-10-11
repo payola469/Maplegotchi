@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useReducedMotion } from "../ui/hooks";
 import { fixtureCatalog, fixtureWorlds } from "./fixtures";
+import { currentRegion, type CameraMode, type CameraRequest, type LogicalZoom } from "./camera";
 import { actorSample } from "./presentation";
 import type { CreateWorldScene, WorldScene } from "./scene";
 import "./preview.css";
 
+// Provisional development test setting; no product default is selected here.
+export const PREVIEW_FOLLOW_LEVEL: LogicalZoom = 2;
 const defaultScene: CreateWorldScene = async (host, options) => (await import("./scene")).createWorldScene(host, options);
 export function WorldPreview({ createScene = defaultScene }: { createScene?: CreateWorldScene }) {
   const [scenario, setScenario] = useState<"idle" | "walking">("idle");
@@ -14,12 +17,16 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
   const [status, setStatus] = useState("Loading fixture renderer…");
   const [unavailable, setUnavailable] = useState(false);
   const reduced = useReducedMotion();
+  const [mode, setMode] = useState<CameraMode>("overview");
+  const [level, setLevel] = useState<LogicalZoom>(PREVIEW_FOLLOW_LEVEL);
+  const [regionId, setRegionId] = useState("central_hall");
+  const camera: CameraRequest = { mode, level, regionId, reducedMotion: reduced };
   const host = useRef<HTMLDivElement>(null), scene = useRef<WorldScene | null>(null);
   const route = world.snapshot.maple.route;
   const start = route ? Date.parse(route.departed_at) : Date.parse(world.snapshot.generated_at);
   const duration = route ? Date.parse(route.arrives_at) - start : 0;
   const timeMs = start + Math.min(elapsed, duration);
-  const latest = useRef({ world, timeMs }); latest.current = { world, timeMs };
+  const latest = useRef({ world, timeMs, camera }); latest.current = { world, timeMs, camera };
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -36,7 +43,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
     });
     return () => { controller.abort(); owned?.destroy(); if (scene.current === owned) scene.current = null; };
   }, [createScene]);
-  useEffect(() => { scene.current?.update({ world, timeMs }); }, [world, timeMs]);
+  useEffect(() => { scene.current?.update({ world, timeMs, camera }); }, [world, timeMs, mode, level, regionId, reduced]);
   useEffect(() => {
     if (!playing || reduced || !route) return;
     const began = performance.now(), offset = elapsed;
@@ -51,7 +58,8 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
     // Playback clock begins once per explicit Play; time updates do not restart it.
   }, [playing, reduced, scenario, duration, route]);
   const sample = actorSample(world, timeMs);
-  const room = world.regions.find((r) => sample.x >= r.floor.x * world.grid.tile_size_px && sample.x < (r.floor.x + r.floor.w) * world.grid.tile_size_px && sample.y >= r.floor.y * world.grid.tile_size_px && sample.y < (r.floor.y + r.floor.h) * world.grid.tile_size_px);
+  const roomId = currentRegion(world, sample);
+  const room = world.regions.find((r) => r.id === roomId);
   return <main class="world-preview">
     <h1>Maple Room development preview</h1>
     <p class="world-preview__disclosure"><strong>FIXTURE / DEMO DATA — not live Maple.</strong> Checked-in R1A-10 synthetic data only. No API, database or SSE connection.</p>
@@ -62,16 +70,26 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
       <button type="button" disabled={!route || reduced || elapsed >= duration} onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play fixture route"}</button>
       <button type="button" onClick={() => { setElapsed(0); setPlaying(false); }}>Reset time</button>
     </fieldset>
+    <fieldset><legend>Camera controls (presentation only)</legend>
+      <label>Camera mode <select value={mode} onChange={(e) => setMode(e.currentTarget.value as CameraMode)}><option value="overview">Overview</option><option value="follow">Follow</option><option value="focus">Focus</option></select></label>
+      <label>Follow zoom — provisional test setting <select value={level} disabled={mode !== "follow"} onChange={(e) => setLevel(Number(e.currentTarget.value) as LogicalZoom)}>{([1, 2, 3, 4] as const).map((l) => <option key={l} value={l}>L{l}</option>)}</select></label>
+      <label>Focus region <select value={regionId} disabled={mode !== "focus"} onChange={(e) => setRegionId(e.currentTarget.value)}>{world.regions.map((r) => <option key={r.id} value={r.id}>{r.id} — {r.status}</option>)}</select></label>
+    </fieldset>
+    <p>Overview and Focus select the largest fitting L1–L4. Default zoom by form factor is undecided.</p>
     <p role="status">{status}</p>
     {reduced && <p>Reduced motion: playback is disabled. Select a fixed route time to inspect a snapped frame.</p>}
-    <div ref={host} class="world-preview__host" />
-    {unavailable && <p>Overview cannot fit at locked integer zoom. Use the room list below; camera navigation belongs to R1A-12.</p>}
+    <div class={`world-preview__viewport${unavailable && mode === "overview" ? " world-preview__viewport--fallback" : ""}`}>
+      <div ref={host} class="world-preview__host" />
+      <nav aria-label="Room navigation">
+        <ul aria-label="Canonical rooms">{world.regions.map((r) => <li key={r.id}><button type="button" aria-label={`Focus ${r.id} (${r.status})`} aria-current={r.id === room?.id ? "location" : undefined} onClick={() => { setRegionId(r.id); setMode("focus"); }}>{r.id} — {r.status}{r.id === room?.id ? " — Maple is here" : ""}</button></li>)}</ul>
+      </nav>
+    </div>
+    {unavailable && <p>Overview cannot fit at locked integer zoom. Use the room list; select a room to Focus or switch to Follow.</p>}
     <section aria-label="Accessible fixture description">
       <h2>Canonical house fixture</h2>
       <p>{world.grid.width_tiles} × {world.grid.height_tiles} tiles; {world.regions.length} regions; {world.doors.length} doors; {world.objects.length} objects; {world.points.length} interaction points; {world.slots.length} slots; {world.walkable.length} backend walkable cells.</p>
       <p>Maple: {room?.id ?? "backend passage"}; {sample.facing}; {world.snapshot.maple.expression}; {sample.moving ? "walking" : "stationary"}; feet ({sample.x.toFixed(2)}, {sample.y.toFixed(2)}), frame {sample.moving ? sample.frame : 0}. Fixture time {new Date(timeMs).toISOString()}.</p>
-      <ul>{world.regions.map((r) => <li key={r.id} aria-current={r.id === room?.id ? "location" : undefined}>{r.id} — {r.status}{r.id === room?.id ? " — Maple is here" : ""}</li>)}</ul>
-      <p>Placeholder sprites, face size and palette are provisional. Final production art, camera modes, lighting and interaction behavior remain separate workstreams.</p>
+      <p>Placeholder sprites, face size and palette are provisional. Final production art, lighting and interaction behavior remain separate workstreams.</p>
     </section>
   </main>;
 }

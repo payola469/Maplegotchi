@@ -416,13 +416,21 @@ All values are computed with `Zd = max(1, ⌊L·DPR + 0.25⌋)` in the spike's m
 | tablet | fits at DPR 1.25, 1.5, 2.25 and 2.5; DOM room-list fallback at 1, 1.75, 2, 2.75 and 3 |
 | phone | always the DOM room-list fallback |
 
-**Follow (visible tiles, the same at every DPR):**
+**Follow (reference visible-tile measurements at baseline DPR 1; these values also agree at integer DPR 2 and 3):**
 
 | Form factor | L2 | L3 |
 |---|---|---|
 | desktop | 25.2 × 15.1 | 16.8 × 10.1 |
 | tablet | 20.4 × 12.3 | 13.6 × 8.2 |
 | phone | 10.9 × 6.5 | 7.3 × 4.4 |
+
+**Owner clarification — STEP 134 CONTINUE (2026-10-11):** fractional DPR may change the visible span because effective device zoom is integer-quantized. Compute actual spans from current device-pixel backing dimensions divided by `Zd × T`, using L13 backing selection and unchanged L14 `Zd = max(1, floor(L × DPR + 0.25))`, clamped to [1,12]. Do not adjust zoom to force DPR-invariant spans. For the desktop 806×484 CSS box, rounded-fallback regression examples are:
+
+| DPR | Backing (device px) | L2 Zd / visible tiles | L3 Zd / visible tiles |
+|---|---|---|---|
+| 1 | 806×484 | 2 / 25.19×15.13 | 3 / 16.79×10.08 |
+| 1.25 | 1008×605 | 2 / 31.50×18.91 | 4 / 15.75×9.45 |
+| 1.5 | 1209×726 | 3 / 25.19×15.13 | 4 / 18.89×11.34 |
 
 A north room including its band is at most 13 × 10 tiles, so it is almost entirely visible at desktop L3.
 
