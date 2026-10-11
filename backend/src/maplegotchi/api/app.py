@@ -48,6 +48,7 @@ from maplegotchi.api.security import (
 )
 from maplegotchi.api.static import install_frontend
 from maplegotchi.api.stream import event_stream
+from maplegotchi.api.world_routes import unavailable_world_router
 from maplegotchi.config import Settings
 from maplegotchi.core.conversation import Channel, IncomingMessage, Speaker
 from maplegotchi.core.interactions import Rejected
@@ -308,6 +309,7 @@ def create_app(
         )
 
     app.include_router(api)
+    app.include_router(unavailable_world_router())
     # Unknown /api/* paths get FastAPI's JSON 404; the frontend fallback refuses them too.
     if settings.static_dir is not None:
         install_frontend(app, settings.static_dir)

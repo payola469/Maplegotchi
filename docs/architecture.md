@@ -5,7 +5,7 @@ built; this file collects longer-form notes as each phase lands.
 
 ## R1A current repository status (STEP 120, 2026-10-11)
 
-R1A-01–08 DONE / OWNER ACCEPTED / MERGED; PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13` fetched and verified. R1A-09 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120); R1A-10–20 TODO. Projection is explicit development/fixture-only; shipped startup/schema remain v10 and Production emits native legacy state. STEP 120 authorizes commit, normal push, PR and CI inspection only; no merge or production activation.
+R1A-01–09 DONE / OWNER ACCEPTED / MERGED; PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` fetched and verified. R1A-10 REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING (STEP 123); R1A-11–20 TODO. Schema remains v10; live legacy state is unchanged. New world GETs return truthful 503 in the normal app; separately constructed local synthetic fixtures are explicitly labeled. STEP 123 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation authorized.
 
 Pure `core/world/legacy_projection.py` accepts explicit immutable development/fixture facts only. T7/S14 reuse existing anchors and the legacy graph with exact canonical travel times; unchanged presentation facts pass through by identity. Unmappable collapsed/mid-edge routes reject explicitly; no invented paths or fallback anchors. See [R1A-09 plan and evidence](implementation/maple-room-r1a-09-legacy-projection.md). There are no production callers. STEP 120 accepts these limitations and defers old-view expansion; R1b must explicitly validate a safe, truthful integration strategy before production cutover uses the projection. The detailed plan tracks this pre-cutover gate.
 
@@ -213,3 +213,7 @@ once observations (Phase 3) and the Room UI (Phase 6) exist:
 - **2026-09-30, Phase 1 baseline:** the 30-day demo simulation spends 1,870 of
   8,640 ticks (~156 h, ~22%) writing. Do not retune yet; reassess overall
   activity balance later.
+
+## R1A-10 read-only contract boundary (STEP 122)
+
+[Contract and evidence](implementation/maple-room-r1a-10-world-api-contracts.md): the normal application adds three GET routes but no canonical state loader. Each returns 503 while schema v10 is active. A separate programmatic fixture app has no life service, database, scheduler, static frontend or SSE and rejects production-shaped profiles. Backend DTOs expose canonical geometry and exact supplied-time movement; generated TypeScript and labeled JSON are renderer handoff only. No Director, migration or production activation.

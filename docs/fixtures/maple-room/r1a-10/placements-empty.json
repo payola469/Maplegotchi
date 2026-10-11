@@ -1,0 +1,10 @@
+{
+  "catalog_version": "fixture-sha256:49d2b25a66a244248a43ac0bf797e04560aa86f0c05aef5a6ffe83bd8b915986",
+  "contract_version": "r1a-10.v1",
+  "items": [],
+  "layout_revision": "fixture-sha256:b1d67b24fcf5d0fe4685f7dc221a65f5f1ac17482c22ae83a3295e84523bb60f",
+  "placements": [],
+  "source": "development_fixture",
+  "status": "synthetic",
+  "storage_item_ids": []
+}
