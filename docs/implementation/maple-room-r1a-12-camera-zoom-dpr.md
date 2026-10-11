@@ -1,6 +1,8 @@
 # R1A-12 — Camera, Zoom and DPR Behaviour
 
-**Status: REVIEW / OWNER ACCEPTED / MERGE PENDING — STEP 135, 2026-10-11.** Baseline `cd328010a71f2cbcb1d0aee9f59ce925132447ae` (PR #13 merged); branch `codex/r1a-12-camera-zoom-dpr`, existing isolated worktree. R1A-11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. STEP135 owner-authorized commit, normal push, PR and CI inspection; no merge, deployment or production access.
+**Status: DONE / OWNER ACCEPTED / MERGED — STEP137 reconciliation, 2026-10-11.** Baseline `cd328010a71f2cbcb1d0aee9f59ce925132447ae` (PR #13 merged); branch `codex/r1a-12-camera-zoom-dpr`, existing isolated worktree. R1A-11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. STEP135 owner-authorized commit, normal push, PR and CI inspection; no merge, deployment or production access.
+
+PR14 merged into `v0.2-development` at `48897c8e6b81a674441f089336930ba20ae53913`; verified on STEP137 fetch. STEP135/134B evidence and prior publication status below remain historical. Camera code unchanged by lighting work.
 
 ## Binding inputs and owner clarification
 

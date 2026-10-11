@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #13 closure merge `cd328010a71f2cbcb1d0aee9f59ce925132447ae` is the verified baseline; R1A-11 atlas dependency remains resolved. R1A-12 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 135): local camera implementation, automated gates and STEP134B five-DPR browser matrix PASS; reduced-motion and live CDP DPR timing verified. Physical-device/performance QA remains deferred. R1A-13 and R1A-15–20 TODO. Current counters: 20 total / 12 DONE / 1 REVIEW / 7 TODO. Production remains schema v10, legacy Room default and explicit development fixture preview only. STEP135 owner authorization covers reviewed commit, normal push, PR and CI inspection; no merge, deployment, Production access or later-workstream implementation authorized. Default zoom by form factor remains UNDECIDED. [Camera evidence](maple-room-r1a-12-camera-zoom-dpr.md).
+- **R1a authorization:** R1A-01–12 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #14 merged at `48897c8e6b81a674441f089336930ba20ae53913`; verified integration baseline. R1A-13 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP138,2026-10-12): owner accepts lighting and provisional contrast-safe art corrections and authorizes commit,push,PR and CI inspection. Fresh local integration gates PASS;native Windows atlas reproduction is required on the PR. No merge or deployment authorization. R1A-15–20 TODO. Counters20 total/13 DONE/1 REVIEW/6 TODO (65% integrated). STEP138 authorizes reviewed R1A-13 commit,push,PR and CI inspection only;no merge,deployment,Production access,schema-v11 activation or R1A-15. Default zoom and final lighting colors/strengths remain UNDECIDED. [Lighting evidence](maple-room-r1a-13-lighting-zones.md).
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 7 | 0 | 0 | 1 | 12 | 0 |
+| 20 | 6 | 0 | 0 | 1 | 13 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -65,8 +65,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-09 | Legacy projection compatibility | DONE / OWNER ACCEPTED / MERGED | 05, 06 (merged) | 2026-10-11 |
 | R1A-10 | New Room backend/API contracts | DONE / OWNER ACCEPTED / MERGED | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
 | R1A-11 | Pixi renderer shell | DONE / OWNER ACCEPTED / MERGED | 02 + 10 + 14 merged; atlas dependency resolved | 2026-10-11 |
-| R1A-12 | Camera, zoom and DPR behavior | REVIEW / OWNER ACCEPTED / MERGE PENDING | 11 (merged) | 2026-10-11 |
-| R1A-13 | Lighting zones and emitter hooks | TODO | 11, 02 | 2026-10-09 |
+| R1A-12 | Camera, zoom and DPR behavior | DONE / OWNER ACCEPTED / MERGED | 11 (merged) | 2026-10-11 |
+| R1A-13 | Lighting zones and emitter hooks | REVIEW / OWNER ACCEPTED / MERGE PENDING | 02/11/12/14 merged | 2026-10-12 |
 | R1A-14 | Asset pipeline and atlas integration | DONE / OWNER ACCEPTED / MERGED | 01, 03, 11 shell merged; native Windows PASS | 2026-10-11 |
 | R1A-15 | Feature flag and old/new Room coexistence | TODO | 10, 11 (completion: 12, 13, 14) | 2026-10-09 |
 | R1A-16 | Validators and property tests | TODO | 01 (continuous; completion: 02-14) | 2026-10-09 |
@@ -214,11 +214,11 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-12 — Camera, zoom and DPR behavior
 
-- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 11/14 merged
 - **Branch:** `codex/r1a-12-camera-zoom-dpr`
 - **Start commit:** `cd328010a71f2cbcb1d0aee9f59ce925132447ae`
-- **End commit:** accepted feature change; repository integration pending
+- **End commit:** PR14 merge `48897c8e6b81a674441f089336930ba20ae53913`
 - **Evidence / tests:** STEP135 fresh focused461 Vitest /13 files, ESLint/TypeScript/production build PASS; earlier accepted511 Vitest /21 files PASS (88 new cases), 65 asset/bundle tests, 237 backend/API/security/Oracle/Harness regressions, ten import contracts, TypeScript/ESLint/build and exact API exports PASS. Existing 144 depth ring + two supporting cases preserved.
 - **Notes:** Owner-approved §O clarification; L13/L14 unchanged. Overview/Follow/Focus, 25% dead-zone, oversize Focus, integer device output, reduced-motion snap and accessible fallback implemented in fixture-only preview. STEP134B Playwright DPR1/1.25/1.5/2/3 × L1–L4 PASS; reduced-motion snap and first-frame live CDP DPR updates verified. Physical-device QA remains deferred. Product default remains UNDECIDED; no lighting/coexistence/production implementation.
 - **Last updated:** 2026-10-11 (STEP 135)
@@ -226,15 +226,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-13 — Lighting zones and emitter hooks
 
-- **Status:** TODO
-- **Dependencies:** 11, 02
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Dependencies:** 02/11/12/14 merged
+- **Branch:** `codex/r1a-13-lighting-zones`
+- **Start commit:** `48897c8e6b81a674441f089336930ba20ae53913`
+- **End commit:** reviewed feature change;PR integration pending
+- **Evidence / tests:**549 frontend,66 asset/bundle,237 backend PASS;10 import contracts kept;lint/type/build/export PASS. Night reference hair7.572,skin2.007,shirt/pants2.094;doorway minimum1.802. Five DPRs × four phases validate exact single-tint coverage and edges. Native Windows atlas reproduction required on the PR. STEP138 fresh checks reproduce the stated test counts;browser evidence remains historical.
+- **Notes:** Eight supplied zones/1144 cells,four provisional phases,4 window+2 lamp+1 screen hooks. Owner-approved original placeholder colors only;palette,geometry,metadata,spec and Oracle unchanged. Owner acceptance recorded in STEP138;no merge or R1A-15 authorization.
+- **Last updated:**2026-10-12 (STEP138)
+- **Detailed task plan:** [Lighting architecture and closure evidence](maple-room-r1a-13-lighting-zones.md)
 
 ### R1A-14 — Asset pipeline and atlas integration
 

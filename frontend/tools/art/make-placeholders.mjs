@@ -50,7 +50,7 @@ for (const pose of poses) {
   const frames = ['idle', 'walk'].includes(pose) ? 4 : 2;
   body.animations[pose] = { file: `char.maple--${pose}.png`, rows: directions, frames, ms: Array(frames).fill(pose === 'walk' ? 125 : 400), loop: pose.startsWith('react_') ? 'once' : 'loop', face_anchor: directions.map((d) => Array.from({ length: frames }, (_, f) => d === 'up' ? null : [10, 12 + f % 2])) };
   bodyFiles[`char.maple--${pose}.png`] = image(32 * frames, 48 * 4, (r) => {
-    for (let row = 0; row < 4; row++) for (let f = 0; f < frames; f++) { const x = f * 32, y = row * 48, bob = f % 2; r(x + 7, y + 3 + bob, 18, 18, 0); r(x + 9, y + 10 + bob, 14, 12, 4); r(x + 7, y + 23 + bob, 18, 15, 3); r(x + 9 + (f === 1 ? 2 : 0), y + 38, 5, 9, 0); r(x + 18 - (f === 3 ? 2 : 0), y + 38, 5, 9, 0); if (row === 1 || row === 2) r(x + (row === 1 ? 19 : 7), y + 10 + bob, 6, 12, 0); }
+    for (let row = 0; row < 4; row++) for (let f = 0; f < frames; f++) { const x = f * 32, y = row * 48, bob = f % 2; r(x + 7, y + 3 + bob, 18, 18, 8); r(x + 9, y + 10 + bob, 14, 12, 1); r(x + 7, y + 23 + bob, 18, 15, 0); r(x + 9 + (f === 1 ? 2 : 0), y + 38, 5, 9, 0); r(x + 18 - (f === 3 ? 2 : 0), y + 38, 5, 9, 0); if (row === 1 || row === 2) r(x + (row === 1 ? 19 : 7), y + 10 + bob, 6, 12, 8); }
   });
 }
 deliver(body, bodyFiles);

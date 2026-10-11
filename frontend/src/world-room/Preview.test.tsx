@@ -82,3 +82,13 @@ it("updates reduced-motion camera requests from the subscribed media query and r
   expect(f.updates.at(-1)?.camera?.reducedMotion).toBe(true);
   rendered.unmount(); expect(media.removeEventListener).toHaveBeenCalled();
 });
+
+it("selects four explicitly synthetic lighting phases without remounting",async()=>{
+  const f=fake();render(<WorldPreview createScene={f.create}/>);await screen.findByText(/Synthetic fixture renderer ready/);
+  for(const phase of ["night","morning","afternoon","evening"]){
+    fireEvent.change(screen.getByRole("combobox",{name:/Fixture lighting phase/}),{target:{value:phase}});
+    expect(f.updates.at(-1)?.world.snapshot.day_phase).toBe(phase);
+    expect(f.updates.at(-1)?.world.source).toBe("development_fixture");
+  }
+  expect(f.create).toHaveBeenCalledTimes(1);
+});

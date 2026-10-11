@@ -19,6 +19,7 @@ vi.mock("pixi.js", () => {
     constructor(options?: { label?: string }) { this.label = options?.label ?? ""; this.scale.set(1); }
     get x() { return this.position.x; } get y() { return this.position.y; }
     addChild(...values: Container[]) { this.children.push(...values); return values[0]; }
+    tint = 0xffffff; alpha = 1;
     destroy = vi.fn();
   }
   class Graphics extends Container {
@@ -27,7 +28,6 @@ vi.mock("pixi.js", () => {
     fill() { return this; }
   }
   class Sprite extends Container {
-    tint = 0xffffff;
     constructor(public texture: { width: number; height: number }) { super(); }
     get width() { return this.texture.width; } get height() { return this.texture.height; }
   }
@@ -50,11 +50,13 @@ vi.mock("./assets", () => ({
       floor: () => ({ width: 16, height: 16 }), edge: () => ({ width: 16, height: 16 }),
       object: (type: { art_id: string | null; footprint: { w: number; h: number } }, t: number) => type.art_id === null ? null : ({ texture: { width: type.footprint.w * t, height: type.art_id.startsWith("window.") ? 2 * t : type.footprint.h * t }, anchor: { x: 0, y: type.footprint.h * t }, sortOffsetPx: 0, aboveOccupant: { width: 2, height: 2 } }),
       structural: (id: string, clip?: { w: number; h: number }) => ({ width: clip?.w ?? (id.startsWith("door") || id.startsWith("backdrop") ? 32 : 16), height: clip?.h ?? (id.startsWith("door") ? 48 : id.startsWith("backdrop") ? 32 : 16), assetId: id }),
+      part: (_id: string, name: string) => ({ texture: { width: 32, height: 32 }, anchor: { x: name === "light" ? 8 : 0, y: name === "light" ? 16 : 32 } }),
+      partPosition: (_id: string, name: string, x: number, y: number) => ({ x: x + (name === "light" ? 8 : 0), y: y - (name === "light" ? 16 : 0) }),
       destroy: record.artDestroy,
     };
   }),
 }));
-interface Node { label: string; children: Node[]; zIndex: number; visible: boolean; position: { x: number; y: number }; rects?: number[][]; texture?: { assetId?: string; width: number; height: number } }
+interface Node { alpha: number; tint: number; blendMode: string; label: string; children: Node[]; zIndex: number; visible: boolean; position: { x: number; y: number }; rects?: number[][]; texture?: { assetId?: string; width: number; height: number } }
 interface FakeApp { stage: Node; canvas: HTMLCanvasElement; ticker: { add: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> }; renderer: { resize: ReturnType<typeof vi.fn> }; init: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }
 function app(): FakeApp { return record.apps.at(-1) as FakeApp; }
 function layer(name: string) { const value = app().stage.children[0]?.children.find((c) => c.label === name); if (!value) throw new Error(`Missing ${name}`); return value; }
@@ -180,5 +182,30 @@ describe("R1A-12 camera scene integration", () => {
     expect(app().stage.children[0]?.visible).toBe(true);
     handle.update({ ...s.options.frame, camera: { mode: "focus", level: 2, regionId: "missing", reducedMotion: true } });
     expect(app().stage.children[0]?.visible).toBe(false); handle.destroy();
+  });
+});
+
+
+describe("R1A-13 lighting composition", () => {
+  it("uses eight disjoint supplied rectangles and final emissive order",async()=>{
+    const s=setup(),h=await createWorldScene(s.host,s.options);
+    const names=app().stage.children[0]?.children.map(n=>n.label)??[];
+    expect(names.indexOf("entities")).toBeLessThan(names.indexOf("light_multiply"));
+    expect(names.indexOf("light_multiply")).toBeLessThan(names.indexOf("light_add"));
+    expect(names.indexOf("light_add")).toBeLessThan(names.indexOf("emissive"));
+    const zones=layer("light_multiply").children;
+    expect(zones).toHaveLength(8);expect(zones.every(n=>n.blendMode==="multiply")).toBe(true);
+    expect(zones.flatMap(n=>n.rects??[]).reduce((sum,r)=>sum+(r[2]??0)*(r[3]??0)/256,0)).toBe(1144);
+    expect(layer("light_add").children).toHaveLength(6);expect(layer("emissive").children.map(n=>n.label)).toEqual(["screen:desk.computer"]);
+    h.destroy();expect(record.artDestroy).toHaveBeenCalledTimes(1);
+  });
+  it.each(["night","morning","afternoon","evening"] as const)("updates %s without remount or cumulative tint",async phase=>{
+    const s=setup(),h=await createWorldScene(s.host,s.options),before=JSON.stringify(fixtureWorlds.idle);
+    const frame={...s.options.frame,world:{...fixtureWorlds.idle,snapshot:{...fixtureWorlds.idle.snapshot,day_phase:phase}}};
+    h.update(frame);const snapshot=layer("light_add").children.map(n=>n.alpha);
+    h.update(frame);expect(layer("light_add").children.map(n=>n.alpha)).toEqual(snapshot);
+    if(phase==="night")expect(layer("light_add").children.filter(n=>n.label.startsWith("daylight")).every(n=>n.alpha===0)).toBe(true);
+    const screen=layer("emissive").children[0];expect(screen?.alpha).toBe(1);expect(screen?.tint).toBe(0xffffff);expect(screen?.blendMode).toBe("normal");
+    expect(record.apps).toHaveLength(1);expect(JSON.stringify(fixtureWorlds.idle)).toBe(before);h.destroy();
   });
 });
