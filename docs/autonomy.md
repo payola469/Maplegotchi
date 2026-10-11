@@ -6,7 +6,7 @@ implementation details unless the ADRs fix them.
 
 ## Isolated R1A-06 capability resolution (STEP 110)
 
-R1A-01–05 are merged; R1A-06 is REVIEW / PENDING OWNER ACCEPTANCE.
+R1A-01–06 are merged (PR #6 at `bd6afa40…`, verified STEP 112); R1A-07 is REVIEW / PENDING OWNER ACCEPTANCE.
 `core/world/resolution.py` supplies versioned capability requirements, real A*
 reachability, exact Spec §M integer scores and canonical seeded decision ties.
 Explicit frozen operational inputs and accepted-memory point associations do not
@@ -22,6 +22,19 @@ the resolver's reported draw consumption and R1A-05 no-snap rerouting.
 See [R1A-06 contracts/evidence](implementation/maple-room-r1a-06-capability-resolution.md)
 and [R1A-05 movement evidence](implementation/maple-room-r1a-05-pathfinding.md).
 No migration, production activation or publication is authorized.
+
+## Candidate-only R1A-07 placement gates (STEP 112)
+
+The pure validator reuses slot `maple_may_place` and item `movable_by` metadata,
+requiring accepted class, free capacity, safe/reachable approaches and eligible
+existing display items. Hook targets and functional/structural/system-critical items
+are rejected. Owner authority bypasses autonomous gates, never structural safety.
+Provisional limits: three successful Maple placements per supplied local day and
+seven elapsed days after owner removal matching item OR slot, expiry inclusive.
+Existing local-day helper and supplied UTC times/history avoid hidden clocks.
+No action is selected/executed; walking and effect-on-completion, decision/world-event
+audit, authoritative history and owner authentication remain future adapters.
+See [contracts and evidence](implementation/maple-room-r1a-07-placement-storage.md).
 
 ## Room and movement (A1, ADR-0027)
 

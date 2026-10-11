@@ -1,5 +1,7 @@
 # R1A-06 — Interaction and capability resolution
 
+**Current integration status (STEP 112): DONE / OWNER ACCEPTED / MERGED.** PR #6 merged at `bd6afa40c7ed2efb86e8733a9b4098b3f7d27774`, independently fetched/verified. STEP 110 review/publication-pending statements below retain their original implementation-session context; no production activation follows from merge.
+
 Status: REVIEW / PENDING OWNER ACCEPTANCE (STEP 110, 2026-10-11). Isolated worktree `codex/r1a-06-capability-resolution`, starting at `68fab979df2198342df7c8d0f5f45b4335f67cfb` (PR #5 merge, independently fetched/verified). R1A-01–05 are merged; no publication or production activation is authorized here.
 
 ## Authority and scope

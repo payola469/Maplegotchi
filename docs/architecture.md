@@ -3,18 +3,27 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 110, 2026-10-11)
+## R1A current repository status (STEP 112, 2026-10-11)
 
-R1A-01–05 are DONE / OWNER ACCEPTED / MERGED; PR #5 merge `68fab979…` is verified.
-R1A-06 is REVIEW / PENDING OWNER ACCEPTANCE. Isolated `core/world/resolution.py`
+R1A-01–06 are DONE / OWNER ACCEPTED / MERGED; PR #6 merge `bd6afa40…` is verified.
+R1A-07 is REVIEW / PENDING OWNER ACCEPTANCE. Isolated `core/world/resolution.py`
 consumes validated frozen layouts, derives canonical access, filters points by
 capability/usability/capacity/reachability, and ranks integer scores with private
 seeded decision ties. It retains catalog-owned transformed point metadata and
 R1A-05 routes. Pure allowed-activity derivation and S9 validation are reusable;
 production Director, allowed.actions, legacy movement, schema v10, APIs and
-renderer remain unchanged. No production caller, publication or activation.
+renderer remain unchanged. No production caller or activation; STEP 112 does not authorize publication.
 See [R1A-06 contracts/evidence](implementation/maple-room-r1a-06-capability-resolution.md)
 and the append-only worklog. Earlier dated status sections below are historical.
+
+`core/world/placement.py` independently validates candidate-only display relationships
+against existing catalog slots, structural builders, safe-layout prevention and A*
+reachability. It neither calls the isolated resolver nor supplies blocking masks.
+Storage is eligible existing metadata minus active relationships, not an inventory.
+Owner authority bypasses only Maple-specific permission/rate/cooldown gates; hook,
+class, capacity, duplicate and structural restrictions remain. Supplied history/time
+and provisional tuning are documented in the [R1A-07 plan](implementation/maple-room-r1a-07-placement-storage.md).
+R1A-08–20 remain TODO. No placement execution, audit/persistence or production caller.
 
 ## Historical R1A-03 catalog metadata status (STEP 97, 2026-10-11)
 
