@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–06 DONE / OWNER ACCEPTED / MERGED; PR #6 merge `bd6afa40c7ed2efb86e8733a9b4098b3f7d27774` fetched and verified. R1A-07 REVIEW / PENDING OWNER ACCEPTANCE (STEP 112); R1A-08–20 TODO. Isolated candidate placement validation and derived Storage only; no publication or production activation authorized.
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–07 DONE / OWNER ACCEPTED / MERGED; PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` fetched and verified. R1A-08 REVIEW / PENDING OWNER ACCEPTANCE (STEP 115); R1A-09–20 TODO. Synthetic-only, unshipped v11 preparation; shipped startup/schema remain v10. No publication or production activation authorized.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 13 | 0 | 0 | 1 | 6 | 0 |
+| 20 | 12 | 0 | 0 | 1 | 7 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -60,8 +60,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-04 | Walkability, collision and recovery | DONE / OWNER ACCEPTED / MERGED | 02, 03 (merged) | 2026-10-11 |
 | R1A-05 | Deterministic A* pathfinding | DONE / OWNER ACCEPTED / MERGED | 04 (merged); bounded 17 tuning evidence recorded | 2026-10-11 |
 | R1A-06 | Interaction and capability resolution | DONE / OWNER ACCEPTED / MERGED | 03, 05 (merged) | 2026-10-11 |
-| R1A-07 | Placement slots and Storage hooks | REVIEW | 03, 04, 05 (merged) | 2026-10-11 |
-| R1A-08 | Persistence model / schema-v11 preparation | TODO | 02, 03, 05 (completion: 07) | 2026-10-09 |
+| R1A-07 | Placement slots and Storage hooks | DONE / OWNER ACCEPTED / MERGED | 03, 04, 05 (merged) | 2026-10-11 |
+| R1A-08 | Persistence model / schema-v11 preparation | REVIEW | 02, 03, 05, 07 (merged) | 2026-10-11 |
 | R1A-09 | Legacy projection compatibility | TODO | 05, 06 | 2026-10-09 |
 | R1A-10 | New Room backend/API contracts | TODO | 02 for the fixture draft (completion: 06, 07, 08, 09) | 2026-10-09 |
 | R1A-11 | Pixi renderer shell | TODO | 02 + 10 draft (completion: 10, 14) | 2026-10-09 |
@@ -154,27 +154,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-07 — Placement slots and Storage hooks
 
-- **Status:** REVIEW / PENDING OWNER ACCEPTANCE
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 03, 04, 05 merged; 06 resolver isolation preserved
 - **Branch:** `codex/r1a-07-placement-storage`
 - **Start commit:** `bd6afa40c7ed2efb86e8733a9b4098b3f7d27774`
-- **End commit:** — (uncommitted)
+- **End commit:** `e2a7123a1936a2da9cfe1baacf5a9b5f3786528f`; PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60`
 - **Evidence / tests:** STEP 112: **1,592 passed / 0 failed**, 149 new placement/Storage cases. T5 exact; 12 slots / 17 points / 29 references / 26 tiles / 3 reuses; S8/S11/S16, permissions/capacity, cooldown/rate boundaries and Storage/invariance PASS. Ruff lint/format PASS (2); strict Linux/Windows-target mypy PASS (37 each); 10 import contracts kept; original simulation pin unchanged/PASS.
-- **Notes:** Pure candidate results and existing-item Storage derivation; no mutation, execution, audit creation, schema or production wiring. Provisional supplied-time limits documented. No commit/push/PR/merge authorized.
-- **Last updated:** 2026-10-11 (STEP 112)
+- **Notes:** Pure candidate results and existing-item Storage derivation; no mutation, execution, audit creation, schema or production wiring. Provisional supplied-time limits documented. Owner accepted and PR #7 merged; historical STEP 112 evidence retained.
+- **Last updated:** 2026-10-11 (STEP 115 integration reconciliation)
 - **Detailed task plan:** [Placement and Storage breakdown](maple-room-r1a-07-placement-storage.md)
 
 ### R1A-08 — Persistence model / schema-v11 preparation
 
-- **Status:** TODO
-- **Dependencies:** 02, 03, 05 (completion: 07)
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** Production-safety constraint (plan R1A-08): the v11 conversion must not be reachable from production startup or release activation. Rehearsal on synthetic v10 databases only.
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / PENDING OWNER ACCEPTANCE
+- **Dependencies:** 02, 03, 05, 07 merged
+- **Branch:** `codex/r1a-08-persistence-v11-preparation`
+- **Start commit:** `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60`
+- **End commit:** — (uncommitted)
+- **Evidence / tests:** 2,165 distinct passing cases / 0 unresolved failures: 115 new rehearsal cases plus 2,050 existing storage/migration/backup/world/Oracle/security/legacy regressions. Ruff lint/format PASS (4 files), strict Linux/Windows-target mypy PASS (38 each), 10 import contracts kept, offline wheel exclusion/loading PASS; original simulation pin unchanged/PASS.
+- **Notes:** Only registered, owned temporary synthetic lives can enter the converter. Candidate tables/loaders live under tests, absent from the wheel; shipped registry ends at v10 and normal startup rejects v11. All source history/identity/counters/sequence values preserved; verified snapshot plus one atomic transaction. Not a production migration PASS. Owner snapshot/copy rehearsal/cutover remain R1b.
+- **Last updated:** 2026-10-11 (STEP 115)
+- **Detailed task plan:** [Persistence rehearsal breakdown](maple-room-r1a-08-persistence-v11.md)
 
 ### R1A-09 — Legacy projection compatibility
 

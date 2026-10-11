@@ -1,6 +1,6 @@
 # ADR-0037: World persistence, the R1b schema-v11 migration, and the legacy projection
 
-- **Status:** Accepted — FIXED design (CLAUDE.md D36). **NOT IMPLEMENTED.** No migration is written. Implementation is not yet authorized. Exact table and column shapes are [PROPOSED] and are fixed in the migration PR, which must follow the ADR-0028 R1–R8 discipline.
+- **Status:** Accepted — FIXED design (CLAUDE.md D36). **Production migration NOT IMPLEMENTED / NOT AUTHORIZED.** STEP 115 authorizes only [R1A-08 synthetic, unshipped rehearsal](../implementation/maple-room-r1a-08-persistence-v11.md). This is an implementation-status clarification, not an amendment of the accepted decisions. Exact table and column shapes are [PROPOSED] and are fixed in the migration PR, which must follow the ADR-0028 R1–R8 discipline.
 - **Date:** 2026-10-08
 - **Decided by:** owner, Maple Room review decisions **B10** (R1 staging and cutover), **B13** (baseline A10, A17), together with **B2** and **B8** (the initial house).
 - **Extends:** ADR-0028 (schema policy, rollback/recovery), ADR-0023 (owner migration gate), ADR-0024 (backup). **Related:** ADR-0035, ADR-0036, ADR-0038, ADR-0039, ADR-0040.
