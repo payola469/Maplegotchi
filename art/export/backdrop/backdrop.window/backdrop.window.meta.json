@@ -1,0 +1,28 @@
+{
+  "art_revision": 1,
+  "canvas": [
+    32,
+    32
+  ],
+  "fallback": "backdrop.window",
+  "geometry_version": 1,
+  "id": "backdrop.window",
+  "kind": "backdrop",
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "role": "structural",
+  "states": [
+    "default"
+  ]
+}

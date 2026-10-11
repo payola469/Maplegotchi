@@ -29,3 +29,6 @@ Thumbs.db
 # Secrets (v0.1 needs none; keep them out regardless)
 .env
 .env.*
+
+# R1A-14 generated atlas build artifacts
+frontend/src/world-room/generated/

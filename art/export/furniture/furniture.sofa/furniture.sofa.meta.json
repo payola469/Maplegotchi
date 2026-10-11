@@ -1,0 +1,92 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "###"
+  ],
+  "canvas": [
+    48,
+    32
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        1,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "seat",
+      "occupy": [
+        24,
+        -4
+      ],
+      "occupy_direction": "down",
+      "pose": "sit_rest",
+      "provides": [
+        "seat",
+        "seat_soft"
+      ]
+    }
+  ],
+  "catalog_slots": [],
+  "fallback": "furniture.sofa",
+  "footprint": {
+    "h": 1,
+    "w": 3
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      48,
+      1
+    ],
+    [
+      48,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.sofa",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "cover",
+      "sort": "above_occupant"
+    },
+    {
+      "anchor": [
+        24,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

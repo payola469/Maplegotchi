@@ -1,0 +1,81 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "#"
+  ],
+  "canvas": [
+    16,
+    32
+  ],
+  "catalog_points": [],
+  "catalog_slots": [],
+  "fallback": "furniture.lamp_floor",
+  "footprint": {
+    "h": 1,
+    "w": 1
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      16,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.lamp_floor",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "layer": "emissive",
+      "part": "emissive"
+    },
+    {
+      "anchor": [
+        8,
+        16
+      ],
+      "anchor_role": "light_source_center",
+      "layer": "light",
+      "part": "light"
+    },
+    {
+      "anchor": [
+        8,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

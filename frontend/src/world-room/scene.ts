@@ -1,7 +1,8 @@
 import "pixi.js/unsafe-eval";
-import { Application, Container, Graphics, Sprite } from "pixi.js";
+import { Application, Container, Sprite } from "pixi.js";
 import type { WorldCatalogOut, WorldOut } from "../api/world.generated";
-import { createPlaceholderArt, initializeAssets, MAPLE_ART, type RoomArt } from "./assets";
+import { MAPLE_ART } from "./assets";
+import { loadAtlasArt, type AtlasArt } from "./atlas";
 import { assertFixture } from "./gate";
 import { actorSample, backingSize, depth, floorEdge, floorVariant, LAYERS, mapleSouthEdge, objectSouthEdge, overview, PRIORITY, RENDERER_OPTIONS } from "./presentation";
 
@@ -21,10 +22,10 @@ export type CreateWorldScene = (host: HTMLElement, options: SceneOptions) => Pro
 export const createWorldScene: CreateWorldScene = async (host, options) => {
   assertFixture(options.frame.world, options.catalog);
   if (options.signal.aborted) throw new DOMException("Preview cancelled", "AbortError");
-  await initializeAssets();
-  if (options.signal.aborted) throw new DOMException("Preview cancelled", "AbortError");
+  const loadedArt = await loadAtlasArt();
+  if (options.signal.aborted) { loadedArt.destroy(); throw new DOMException("Preview cancelled", "AbortError"); }
   const app = new Application();
-  let art: RoomArt | undefined;
+  const art: AtlasArt = loadedArt;
   let observer: ResizeObserver | undefined;
   let disposed = false, initialized = false;
   let draw: (() => void) | undefined;
@@ -47,7 +48,6 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
     initialized = true;
     if (options.signal.aborted) throw new DOMException("Preview cancelled", "AbortError");
     options.signal.addEventListener("abort", dispose, { once: true });
-    art = createPlaceholderArt(options.frame.world.grid.tile_size_px);
     const ownedArt = art;
     const viewport = new Container({ label: "world-viewport" });
     app.stage.addChild(viewport);
@@ -82,29 +82,27 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
     for (const cell of world.structure) {
       if (cell.kind === "floor" || passageCells.has(`${cell.tile.tx},${cell.tile.ty}`)) continue;
       const x = cell.tile.tx * t, y = cell.tile.ty * t;
-      const g = new Graphics();
       const hole = cell.kind === "north_band" ? windowHoles.find((r) => x >= r.x && x < r.x + r.w && y < r.y + r.h && y + t > r.y) : undefined;
-      if (hole) {
-        if (hole.y > y) g.rect(x, y, t, hole.y - y);
-        if (hole.y + hole.h < y + t) g.rect(x, hole.y + hole.h, t, y + t - hole.y - hole.h);
-      } else g.rect(x, y, t, cell.kind === "south_cutaway" ? 2 : t);
-      g.fill(cell.kind === "south_cutaway" ? 0x6b665d : 0x6c7167);
-      layers.walls_back.addChild(g);
-      if (cell.kind === "north_band" && cell.tile.ty === bandTop.get(cell.region_id)) {
-        layers.occluders.addChild(new Graphics().rect(x, y, t, 8).fill(0x494f49)); // placeholder cap 8 <= L7 max 13
+      const piece = (offset: number, height: number) => {
+        if (height <= 0) return;
+        const sprite = new Sprite(ownedArt.structural("wall.north", { x: 0, y: (cell.tile.ty - (bandTop.get(cell.region_id) ?? cell.tile.ty)) * t + offset, w: t, h: height }));
+        sprite.position.set(x, y + offset); layers.walls_back.addChild(sprite);
+      };
+      if (cell.kind === "north_band") {
+        if (hole) { piece(0, Math.max(0, hole.y - y)); const offset = Math.max(0, hole.y + hole.h - y); piece(offset, t - offset); }
+        else piece(0, t);
+        if (cell.tile.ty === bandTop.get(cell.region_id)) { const cap = new Sprite(ownedArt.structural("wall.cap")); cap.position.set(x, y); layers.occluders.addChild(cap); }
       } else if (cell.kind === "side_wall") {
-        const cap = new Graphics().rect(x, y, t, 3).fill(0x494f49);
-        cap.zIndex = depth(y + t, PRIORITY.structural); layers.entities.addChild(cap);
-      }
+        const cap = new Sprite(ownedArt.structural("wall.side")); cap.position.set(x, y); cap.zIndex = depth(y + t, PRIORITY.structural); layers.entities.addChild(cap);
+      } else { const edge = new Sprite(ownedArt.structural("wall.south")); edge.position.set(x, y); layers.walls_back.addChild(edge); }
     }
     for (const door of world.doors) {
       const r = door.passage;
-      const floor = new Graphics().rect(r.x * t, r.y * t, r.w * t, r.h * t).fill(door.state === "open" ? 0xa79f89 : 0x727b80);
-      layers.floor.addChild(floor);
-      // Archway sides only, no lintel/cap across the opening.
-      const jamb = new Graphics().rect(r.x * t, r.y * t, 1, r.h * t).rect((r.x + r.w) * t - 1, r.y * t, 1, r.h * t).fill(0x494f49);
-      layers.walls_back.addChild(jamb);
-      if (door.state === "closed") layers.walls_back.addChild(new Graphics().rect(r.x * t + 2, r.y * t + r.h * t - 3, r.w * t - 4, 2).fill(0xb4b7b3));
+      for (let yy = 0; yy < r.h; yy++) for (let xx = 0; xx < r.w; xx++) {
+        const floor = new Sprite(ownedArt.floor(floorVariant(door.south_room, r.x + xx, r.y + yy))); floor.position.set((r.x + xx) * t, (r.y + yy) * t); if (door.state === "closed") floor.tint = 0x727b80; layers.floor.addChild(floor);
+      }
+      const arch = new Sprite(ownedArt.structural("door.north_2w")); arch.position.set(r.x * t, r.y * t); layers.walls_back.addChild(arch);
+      if (door.state === "closed") { const closedLeaf = new Sprite(ownedArt.structural("door.closed")); closedLeaf.position.copyFrom(arch.position); layers.walls_back.addChild(closedLeaf); }
     }
     const objectDepths = new Map<string, number>();
     for (const object of world.objects) {
@@ -125,7 +123,7 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       sprite.position.set(object.origin.tx * t - part.anchor.x, anchorY - part.anchor.y);
       const window = type.art_id?.startsWith("window.") ?? false;
       if (window) {
-        layers.backdrop.addChild(new Graphics().rect(sprite.x, sprite.y, sprite.width, sprite.height).fill(0x688f98));
+        const backdrop = new Sprite(ownedArt.structural("backdrop.window")); backdrop.position.copyFrom(sprite.position); layers.backdrop.addChild(backdrop);
       }
       sprite.zIndex = depth(south, PRIORITY.furniture);
       const flat = type.surface === "floor" && type.blocks.every((row) => !row.includes("#"));
@@ -160,9 +158,10 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       }
       const sample = actorSample(current.world, current.timeMs);
       const frame = sample.moving ? sample.frame : 0;
-      body.texture = ownedArt.body(sample.facing, frame);
-      face.texture = ownedArt.face(current.world.snapshot.maple.expression);
-      const anchor = ownedArt.faceAnchor(sample.facing, frame);
+      const pose = sample.moving ? "walk" : current.world.snapshot.maple.pose;
+      body.texture = ownedArt.body(sample.facing, frame, pose);
+      face.texture = ownedArt.face(current.world.snapshot.maple.expression, sample.facing);
+      const anchor = ownedArt.faceAnchor(sample.facing, frame, pose);
       face.visible = anchor !== null;
       if (anchor) face.position.set(anchor.x, anchor.y);
       // Round only the device-pixel presentation; never alter supplied state.

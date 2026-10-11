@@ -1,0 +1,113 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "##"
+  ],
+  "canvas": [
+    32,
+    32
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        0,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "front_l",
+      "occupy": null,
+      "occupy_direction": "up",
+      "pose": "stand_read",
+      "provides": [
+        "reading_spot",
+        "book_source"
+      ]
+    },
+    {
+      "approach": [
+        1,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "front_r",
+      "occupy": null,
+      "occupy_direction": "up",
+      "pose": "stand_read",
+      "provides": [
+        "reading_spot",
+        "book_source"
+      ]
+    }
+  ],
+  "catalog_slots": [
+    {
+      "accepts": [
+        "library.book"
+      ],
+      "approach": [
+        0,
+        1
+      ],
+      "capacity": 4,
+      "facing": "up",
+      "id": "books",
+      "maple_may_place": false,
+      "shares_point": "front_l",
+      "status": "hook (derived fullness)"
+    }
+  ],
+  "fallback": "furniture.bookshelf_tall",
+  "footprint": {
+    "h": 1,
+    "w": 2
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      32,
+      1
+    ],
+    [
+      32,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.bookshelf_tall",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        16,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

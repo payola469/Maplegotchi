@@ -1,0 +1,92 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "#"
+  ],
+  "canvas": [
+    16,
+    32
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        0,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "seat",
+      "occupy": [
+        8,
+        -4
+      ],
+      "occupy_direction": "down",
+      "pose": "sit_read",
+      "provides": [
+        "reading_spot",
+        "seat"
+      ]
+    }
+  ],
+  "catalog_slots": [],
+  "fallback": "furniture.armchair",
+  "footprint": {
+    "h": 1,
+    "w": 1
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      16,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.armchair",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "cover",
+      "sort": "above_occupant"
+    },
+    {
+      "anchor": [
+        8,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

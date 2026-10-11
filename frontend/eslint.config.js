@@ -3,9 +3,10 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/"] },
+  { ignores: ["dist/", "node_modules/", "src/world-room/generated/"] },
   js.configs.recommended,
   ...tseslint.configs.strict,
+  { files: ["tools/**/*.mjs"], languageOptions: { globals: globals.node } },
   {
     languageOptions: {
       globals: globals.browser,

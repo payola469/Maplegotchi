@@ -1,0 +1,65 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "...",
+    "..."
+  ],
+  "canvas": [
+    48,
+    32
+  ],
+  "catalog_points": [],
+  "catalog_slots": [],
+  "fallback": "furniture.rug",
+  "footprint": {
+    "h": 2,
+    "w": 3
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      48,
+      1
+    ],
+    [
+      48,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.rug",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        24,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

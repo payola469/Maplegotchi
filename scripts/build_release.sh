@@ -32,7 +32,7 @@ BUNDLE="$WORK/bundle"
 rm -rf "$WORK"
 mkdir -p "$WORK/src" "$BUNDLE"
 
-git archive --format=tar "$SHA" backend frontend deploy companion/brain companion/discord | tar -x -C "$WORK/src"
+git archive --format=tar "$SHA" backend frontend deploy companion/brain companion/discord art/export art/palette .gitattributes | tar -x -C "$WORK/src"
 
 (cd "$WORK/src/frontend" && "$PNPM" install --frozen-lockfile && "$PNPM" build)
 

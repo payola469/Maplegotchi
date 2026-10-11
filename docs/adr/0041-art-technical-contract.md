@@ -226,3 +226,7 @@ All except the face overlay size and the frame counts and timings above the engi
 - Numeric values became binding through the recorded owner decision of 2026-10-09 (Locked values). The values still open bind only through a further owner decision.
 - The rule amendments C1–C8 are part of the accepted rule set from 2026-10-09.
 - Nothing is implemented. R1a still needs its own authorization.
+
+## STEP 128 CONTINUE — E8 anchor clarification (owner, 2026-10-11)
+
+The owner narrows the E8 cross-part consistency rule: canonical base, object-attached occupant-covering, emissive and ordinary parts share the object anchor; explicitly declared light-source-centre and shadow floor-centre anchors may differ. Every part remains stable across its own frames/states per orientation. Neither exception moves the canonical object anchor. Trimming/rendering preserve each declared anchor. Contract B.4/C.2/E8 record this clarification; all other L18/L19/L20/L22 and C1–C8 rules remain unchanged.

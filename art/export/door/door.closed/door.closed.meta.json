@@ -1,0 +1,28 @@
+{
+  "art_revision": 1,
+  "canvas": [
+    32,
+    48
+  ],
+  "fallback": "door.closed",
+  "geometry_version": 1,
+  "id": "door.closed",
+  "kind": "tile",
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "role": "structural",
+  "states": [
+    "default"
+  ]
+}
