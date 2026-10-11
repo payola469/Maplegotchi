@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–04 DONE / OWNER ACCEPTED / MERGED; R1A-05 REVIEW / PENDING OWNER ACCEPTANCE (STEP 107). R1A-06–20 TODO. No production activation or publication authorized for R1A-05; prior STEP-specific scope statements remain historical in the worklog.
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–05 DONE / OWNER ACCEPTED / MERGED; R1A-06 REVIEW / PENDING OWNER ACCEPTANCE (STEP 110). R1A-07–20 TODO. No production activation or publication authorized for R1A-06; prior STEP-specific scope statements remain historical in the worklog.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 15 | 0 | 0 | 1 | 4 | 0 |
+| 20 | 14 | 0 | 0 | 1 | 5 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -58,8 +58,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-02 | Canonical world model and final house geometry | DONE / OWNER ACCEPTED / MERGED | 01 (DONE) | 2026-10-11 |
 | R1A-03 | Object catalog and capability metadata | DONE / OWNER ACCEPTED / MERGED | 02 | 2026-10-11 |
 | R1A-04 | Walkability, collision and recovery | DONE / OWNER ACCEPTED / MERGED | 02, 03 (merged) | 2026-10-11 |
-| R1A-05 | Deterministic A* pathfinding | REVIEW | 04 (merged); bounded 17 tuning evidence recorded | 2026-10-11 |
-| R1A-06 | Interaction and capability resolution | TODO | 03, 05 | 2026-10-09 |
+| R1A-05 | Deterministic A* pathfinding | DONE / OWNER ACCEPTED / MERGED | 04 (merged); bounded 17 tuning evidence recorded | 2026-10-11 |
+| R1A-06 | Interaction and capability resolution | REVIEW | 03, 05 (merged) | 2026-10-11 |
 | R1A-07 | Placement slots and Storage hooks | TODO | 03, 04, 05 | 2026-10-09 |
 | R1A-08 | Persistence model / schema-v11 preparation | TODO | 02, 03, 05 (completion: 07) | 2026-10-09 |
 | R1A-09 | Legacy projection compatibility | TODO | 05, 06 | 2026-10-09 |
@@ -130,27 +130,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-05 — Deterministic A* pathfinding
 
-- **Status:** REVIEW / PENDING OWNER ACCEPTANCE
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 04 merged; bounded R1A-17 tuning support recorded (17 remains TODO)
 - **Branch:** `codex/r1a-05-deterministic-pathfinding`
 - **Start commit:** `02efa73964a4f4d611b755970e26d38e0b0b7d31`
-- **End commit:** — (uncommitted)
+- **End commit:** `68fab979df2198342df7c8d0f5f45b4335f67cfb` (PR #5 merge; verified STEP 110)
 - **Evidence / tests:** STEP 107: 1,184 passed / 0 failed (559 new), no warnings reported; T6 49/49 exact at four penalties; strict mypy Linux/Windows targets PASS (33 files each); Ruff lint/format PASS (4); 10 import contracts kept; original simulation pin test unchanged/PASS.
-- **Notes:** provisional 250 ms/step, turn penalty 1. Compressed immutable routes, exact supplied-time integer interpolation, transient mid-edge rerouting and explicit no_destination. No production/persistence/resolution/placement integration. Native cross-platform CI pending separately authorized publication; dedicated grid-tuning digest in detailed plan.
-- **Last updated:** 2026-10-11 (STEP 107)
+- **Notes:** provisional 250 ms/step, turn penalty 1. Compressed immutable routes, exact supplied-time integer interpolation, transient mid-edge rerouting and explicit no_destination. No production/persistence/resolution/placement integration. PR #5 merged; prior local evidence retained; dedicated grid-tuning digest in detailed plan.
+- **Last updated:** 2026-10-11 (STEP 110 merge reconciliation)
 - **Detailed task plan:** [Pathfinding breakdown](maple-room-r1a-05-pathfinding.md)
 
 ### R1A-06 — Interaction and capability resolution
 
-- **Status:** TODO
-- **Dependencies:** 03, 05
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / PENDING OWNER ACCEPTANCE
+- **Dependencies:** 03, 05 merged
+- **Branch:** `codex/r1a-06-capability-resolution`
+- **Start commit:** `68fab979df2198342df7c8d0f5f45b4335f67cfb`
+- **End commit:** — (uncommitted)
+- **Evidence / tests:** STEP 110: **1,443 passed / 0 failed**, 141 new resolver cases; T6 exact candidates, S9 provider-loss rejection, S15 preserved; Ruff lint/format PASS (2); strict Linux/Windows-target mypy PASS (35 files each); 10 import contracts kept; three 384-resolution hash-seed replays agree; original simulation pin PASS unchanged.
+- **Notes:** Isolated pure resolver, integer scoring/private decision ties and transient availability/preference hooks; no live Director/allowed.actions or production activation. Implementation/review complete; no publication authorized.
+- **Last updated:** 2026-10-11 (STEP 110)
+- **Detailed task plan:** [Capability resolution breakdown](maple-room-r1a-06-capability-resolution.md)
 
 ### R1A-07 — Placement slots and Storage hooks
 

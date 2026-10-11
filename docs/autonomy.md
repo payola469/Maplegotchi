@@ -4,17 +4,24 @@ Implementation notes for ADR-0026 (AI Director), ADR-0027 (room and movement)
 and ADR-0028 (activity set v2, events, schema). These are [PROPOSED]
 implementation details unless the ADRs fix them.
 
-## Isolated R1A-05 grid movement (STEP 107)
+## Isolated R1A-06 capability resolution (STEP 110)
 
-R1A-02/03/04 are merged; R1A-05 is REVIEW / PENDING OWNER ACCEPTANCE.
-The new `core/world/pathfinding.py` / `core/world/movement.py` models preserve
-arrival-dependent activity start and exact current-position replanning using
-integer route/time arithmetic. A temporary partial edge is derived from supplied
-time and integer tile endpoints, without fractional-tile persistence. Provisional
-250 ms/step and penalty 1 reproduce all T6 lengths. These modules have no live
-caller; the legacy movement described below remains the running behavior.
-See [contracts and evidence](implementation/maple-room-r1a-05-pathfinding.md).
-No activity resolver, migration, state-machine or production change is included.
+R1A-01–05 are merged; R1A-06 is REVIEW / PENDING OWNER ACCEPTANCE.
+`core/world/resolution.py` supplies versioned capability requirements, real A*
+reachability, exact Spec §M integer scores and canonical seeded decision ties.
+Explicit frozen operational inputs and accepted-memory point associations do not
+create persistence fields or infer preferences from text. Selected outputs retain
+catalog approach/facing/occupy metadata and compressed grid routes. Temporary
+unavailability yields no_candidate; proposed saved layouts fail S9 when their
+last usable provider disappears. Existing prevention checks run first.
+
+The resolver is isolated: production `allowed.actions` and Director transitions
+remain unchanged. R1A-05 supplied-time route interpolation, activity-start-on-arrival
+and exact mid-edge rerouting are preserved; future live integration must coordinate
+the resolver's reported draw consumption and R1A-05 no-snap rerouting.
+See [R1A-06 contracts/evidence](implementation/maple-room-r1a-06-capability-resolution.md)
+and [R1A-05 movement evidence](implementation/maple-room-r1a-05-pathfinding.md).
+No migration, production activation or publication is authorized.
 
 ## Room and movement (A1, ADR-0027)
 
