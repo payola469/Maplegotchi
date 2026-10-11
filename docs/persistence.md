@@ -4,6 +4,19 @@ Status: implemented and approved in the Phase 2 review (2026-09-30). These
 are implementation decisions, not FIXED owner decisions, unless noted inline.
 The one FIXED decision added in this phase is D18 (see *External databases*).
 
+## R1A-07 candidate display contract (STEP 112)
+
+Pure `DisplayItem`, `SlotKey` and `DisplayPlacement` values describe existing item
+identity, host/slot relationship, active flag and optional opaque soft links.
+Canonical relationship-ID ordering is deterministic; inactive relationships reserve
+neither capacity nor item. Storage is derived from eligible items without an active
+placement. Supplied removal/success history is read-only evidence, not fabricated
+audit events. Validation outputs carry reason codes and approach/route only.
+This is a domain contract for later R1A-08, not table/column design or a migration.
+Schema stays v10; no reader, writer, startup or production wiring changes.
+See [R1A-07 plan](implementation/maple-room-r1a-07-placement-storage.md) and
+[ADR-0037](adr/0037-world-persistence-v11-migration-and-legacy-projection.md).
+
 ## Database file and location
 
 | | |
