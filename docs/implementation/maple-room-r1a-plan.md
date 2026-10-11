@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01–06 DONE / OWNER ACCEPTED / MERGED; PR #6 merge `bd6afa40c7ed2efb86e8733a9b4098b3f7d27774` fetched and verified. R1A-07 REVIEW / PENDING OWNER ACCEPTANCE (STEP 112); R1A-08–20 TODO. Isolated candidate placement validation and derived Storage only; no publication or production activation authorized.
+**Status:** AUTHORIZED — R1A-01–07 DONE / OWNER ACCEPTED / MERGED; PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` fetched and verified. R1A-08 REVIEW / PENDING OWNER ACCEPTANCE (STEP 115); R1A-09–20 TODO. Synthetic-only, unshipped v11 preparation; shipped startup/schema remain v10. No publication or production activation authorized.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 112 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. No commit, push, PR, merge or deployment is authorized for R1A-07.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 115 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. No commit, push, PR, merge or deployment is authorized for R1A-08.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -220,7 +220,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-07 — Placement slots and Storage hooks
 
-- **Detailed plan / current status:** [R1A-07 breakdown](maple-room-r1a-07-placement-storage.md), REVIEW / PENDING OWNER ACCEPTANCE (STEP 112). 1,592 focused tests PASS (149 new); Ruff, strict Linux/Windows-target mypy and ten import contracts PASS. Candidate-only validation and derived Storage; no execution/persistence or publication.
+- **Detailed plan / current status:** [R1A-07 breakdown](maple-room-r1a-07-placement-storage.md), DONE / OWNER ACCEPTED / MERGED (PR #7, `82b37ea3…`). Historical STEP 112 evidence: 1,592 focused tests PASS (149 new); Ruff, strict Linux/Windows-target mypy and ten import contracts PASS. Candidate-only validation and derived Storage; no execution/persistence or publication.
 
 - **Objective:** the slot model and the pure placement/Storage rules, with no autonomous placement behaviour.
 - **Scope:**
@@ -239,6 +239,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (08, 10). **Blocks R1b:** yes.
 
 ### R1A-08 — Persistence model / schema-v11 preparation
+
+- **Detailed plan / current status:** [R1A-08 breakdown](maple-room-r1a-08-persistence-v11.md), REVIEW / PENDING OWNER ACCEPTANCE (STEP 115). 2,165 distinct passing cases / 0 unresolved failures: 115 new rehearsal cases plus 2,050 existing storage/migration/backup/world/Oracle/security/legacy regressions. Ruff lint/format PASS (4 files), strict Linux/Windows-target mypy PASS (38 each), 10 import contracts kept, offline wheel exclusion/loading PASS; original simulation pin unchanged/PASS. Test-support isolation only; no shipped migration or production cutover.
 
 - **Objective:** design and rehearse the v11 persistence model and the v10 → v11 conversion, **without** making it reachable by production.
 - **Scope:**

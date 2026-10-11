@@ -3,27 +3,22 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 112, 2026-10-11)
+## R1A current repository status (STEP 115, 2026-10-11)
 
-R1A-01–06 are DONE / OWNER ACCEPTED / MERGED; PR #6 merge `bd6afa40…` is verified.
-R1A-07 is REVIEW / PENDING OWNER ACCEPTANCE. Isolated `core/world/resolution.py`
-consumes validated frozen layouts, derives canonical access, filters points by
-capability/usability/capacity/reachability, and ranks integer scores with private
-seeded decision ties. It retains catalog-owned transformed point metadata and
-R1A-05 routes. Pure allowed-activity derivation and S9 validation are reusable;
-production Director, allowed.actions, legacy movement, schema v10, APIs and
-renderer remain unchanged. No production caller or activation; STEP 112 does not authorize publication.
-See [R1A-06 contracts/evidence](implementation/maple-room-r1a-06-capability-resolution.md)
-and the append-only worklog. Earlier dated status sections below are historical.
+R1A-01–07 DONE / OWNER ACCEPTED / MERGED; PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` fetched and verified. R1A-08 REVIEW / PENDING OWNER ACCEPTANCE (STEP 115); R1A-09–20 TODO. Synthetic-only, unshipped v11 preparation; shipped startup/schema remain v10. No publication or production activation authorized.
 
-`core/world/placement.py` independently validates candidate-only display relationships
-against existing catalog slots, structural builders, safe-layout prevention and A*
-reachability. It neither calls the isolated resolver nor supplies blocking masks.
-Storage is eligible existing metadata minus active relationships, not an inventory.
-Owner authority bypasses only Maple-specific permission/rate/cooldown gates; hook,
-class, capacity, duplicate and structural restrictions remain. Supplied history/time
-and provisional tuning are documented in the [R1A-07 plan](implementation/maple-room-r1a-07-placement-storage.md).
-R1A-08–20 remain TODO. No placement execution, audit/persistence or production caller.
+Existing pure world, resolver and placement contracts remain unchanged.
+The candidate v11 converter, synthetic fixtures and invariant loader live entirely
+under `backend/tests/rehearsal/`, outside the shipped wheel and runtime imports.
+The factory births its own temporary v10 life; the converter accepts no database
+path, DataDir or external connection. Registered handle, inode/path and lifetime
+checks prevent accidental use of existing data. Negative startup/registry/import
+and packaging tests retain the shipped v10 boundary. This is not a security
+sandbox against arbitrary malicious test code.
+See [R1A-08 model, evidence and R1b deferrals](implementation/maple-room-r1a-08-persistence-v11.md),
+[R1A-06](implementation/maple-room-r1a-06-capability-resolution.md) and
+[R1A-07](implementation/maple-room-r1a-07-placement-storage.md).
+No live world, Director, placement execution, API, renderer or deployment changes.
 
 ## Historical R1A-03 catalog metadata status (STEP 97, 2026-10-11)
 

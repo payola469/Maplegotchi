@@ -1,6 +1,6 @@
 # R1A-07 — Placement slots and Storage hooks
 
-Status: REVIEW / PENDING OWNER ACCEPTANCE (STEP 112). Baseline: `bd6afa40c7ed2efb86e8733a9b4098b3f7d27774`, PR #6 merged. R1A-01–06 DONE / OWNER ACCEPTED / MERGED. No publication or production authorization.
+Status: DONE / OWNER ACCEPTED / MERGED. PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` verified in STEP 115; feature commit `e2a7123a1936a2da9cfe1baacf5a9b5f3786528f`. STEP 112 implementation/evidence below is historical; no production activation. Current successor: [R1A-08](maple-room-r1a-08-persistence-v11.md).
 
 ## Binding inputs and boundaries
 

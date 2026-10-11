@@ -4,6 +4,29 @@ Status: implemented and approved in the Phase 2 review (2026-09-30). These
 are implementation decisions, not FIXED owner decisions, unless noted inline.
 The one FIXED decision added in this phase is D18 (see *External databases*).
 
+## R1A-08 synthetic candidate v11 (STEP 115; NOT SHIPPED)
+
+REVIEW / PENDING OWNER ACCEPTANCE. Production-compatible startup and the shipped
+migration registry still require v10. Only `backend/tests/rehearsal/` implements
+the proposed v11 tables, converter and loader; it is excluded from the wheel.
+Its entry point requires a registered live synthetic handle from a factory that
+births a fresh private temporary life. No existing database/path is accepted.
+
+Candidate shape: immutable layout revisions plus active pointer, derived identity
+indexes, separate display relationships with optional event origin, append-only
+world-event envelope, grid position/route/instance-point state, and activity/room
+lookup FKs. Exact names/columns/version/hash format remain proposed choices.
+Migration emits no world/timeline events and preserves existing histories and
+SQLite sequences. Verified online backup precedes one BEGIN IMMEDIATE covering
+DDL, conversion, checks and final version bump; failure rolls back without repair
+or automatic restore. Publication uses the existing no-overwrite atomic hard-link
+and unlink primitive; file fsync is mandatory, added directory fsync is POSIX-only.
+Native Windows/Linux execution is not claimed from Mac platform-target typing.
+
+See the [single detailed model and evidence record](implementation/maple-room-r1a-08-persistence-v11.md)
+for mappings, exact fixture outcomes, isolation proof and deferred R1b activation.
+No owner snapshot gate, production-copy rehearsal or actual cutover was performed.
+
 ## R1A-07 candidate display contract (STEP 112)
 
 Pure `DisplayItem`, `SlotKey` and `DisplayPlacement` values describe existing item
@@ -12,7 +35,8 @@ Canonical relationship-ID ordering is deterministic; inactive relationships rese
 neither capacity nor item. Storage is derived from eligible items without an active
 placement. Supplied removal/success history is read-only evidence, not fabricated
 audit events. Validation outputs carry reason codes and approach/route only.
-This is a domain contract for later R1A-08, not table/column design or a migration.
+This accepted R1A-07 domain contract is reused by the isolated candidate above;
+it does not authorize placement execution or a shipped migration.
 Schema stays v10; no reader, writer, startup or production wiring changes.
 See [R1A-07 plan](implementation/maple-room-r1a-07-placement-storage.md) and
 [ADR-0037](adr/0037-world-persistence-v11-migration-and-legacy-projection.md).
