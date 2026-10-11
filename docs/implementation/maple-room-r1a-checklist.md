@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–08 DONE / OWNER ACCEPTED / MERGED; PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13` fetched and verified. R1A-09 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120); R1A-10–20 TODO. Projection is explicit development/fixture-only; shipped startup/schema remain v10 and Production emits native legacy state. STEP 120 authorizes commit, normal push, PR and CI inspection only; no merge or production activation.
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–09 DONE / OWNER ACCEPTED / MERGED; PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` fetched and verified. R1A-10 REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING (STEP 123); R1A-11–20 TODO. Schema remains v10; live legacy state is unchanged. New world GETs return truthful 503 in the normal app; separately constructed local synthetic fixtures are explicitly labeled. STEP 123 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation authorized.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 11 | 0 | 0 | 1 | 8 | 0 |
+| 20 | 10 | 0 | 0 | 1 | 9 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -62,8 +62,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-06 | Interaction and capability resolution | DONE / OWNER ACCEPTED / MERGED | 03, 05 (merged) | 2026-10-11 |
 | R1A-07 | Placement slots and Storage hooks | DONE / OWNER ACCEPTED / MERGED | 03, 04, 05 (merged) | 2026-10-11 |
 | R1A-08 | Persistence model / schema-v11 preparation | DONE / OWNER ACCEPTED / MERGED | 02, 03, 05, 07 (merged) | 2026-10-11 |
-| R1A-09 | Legacy projection compatibility | REVIEW | 05, 06 (merged) | 2026-10-11 |
-| R1A-10 | New Room backend/API contracts | TODO | 02 for the fixture draft (completion: 06, 07, 08, 09) | 2026-10-09 |
+| R1A-09 | Legacy projection compatibility | DONE / OWNER ACCEPTED / MERGED | 05, 06 (merged) | 2026-10-11 |
+| R1A-10 | New Room backend/API contracts | REVIEW | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
 | R1A-11 | Pixi renderer shell | TODO | 02 + 10 draft (completion: 10, 14) | 2026-10-09 |
 | R1A-12 | Camera, zoom and DPR behavior | TODO | 11 | 2026-10-09 |
 | R1A-13 | Lighting zones and emitter hooks | TODO | 11, 02 | 2026-10-09 |
@@ -178,27 +178,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-09 — Legacy projection compatibility
 
-- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 05, 06 (merged)
 - **Branch:** `codex/r1a-09-legacy-projection`
 - **Start commit:** `aefa9c2ac9ca78afab57b251e768a9970e1ebe13`
-- **End commit:** — (uncommitted)
+- **End commit:** `efba67e7602c7cc70964a36f61b1734d58e22c28` (PR #9 merge; verified STEP 122)
 - **Evidence / tests:** STEP 119: 3,121 passed / 0 failed, including 610 new projection cases. All T7 providers/S14, exact-time graph routes, deterministic interpolation, passthrough and negative inputs; Ruff lint/format PASS (2 files), strict Linux/Windows-target mypy PASS (24 each), 10 import contracts kept, unchanged original simulation pin PASS.
 - **Notes:** STEP 120 owner ACCEPTED with limitations; no old-renderer/anchor/walker expansion. Before R1b uses this projection, an explicitly validated integration strategy must prevent collapsed-anchor and ambiguous mid-edge rejection from causing unsafe or misleading behavior; see the detailed plan pre-cutover gate. Fixture-only pure projection; no production caller, API/SSE/Director/frontend/schema change. 400 provider pairs: 334 timed paths, 26 zero-step cases, 40 collapsed-anchor routes explicitly reject under STEP 119's unmappable-input rule; mid-edge inputs without a projected origin reject. No invented loops or fallback positions. Native platform CI not claimed.
-- **Last updated:** 2026-10-11 (STEP 120 owner acceptance)
+- **Last updated:** 2026-10-11 (STEP 122 merge reconciliation)
 - **Detailed task plan:** [Legacy projection breakdown and evidence](maple-room-r1a-09-legacy-projection.md)
 
 ### R1A-10 — New Room backend/API contracts
 
-- **Status:** TODO
-- **Dependencies:** 02 for the fixture draft (completion: 06, 07, 08, 09)
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING
+- **Dependencies:** 02, 06, 07, 08, 09 merged
+- **Branch:** `codex/r1a-10-world-api-contracts`
+- **Start commit:** `efba67e7602c7cc70964a36f61b1734d58e22c28`
+- **End commit:** — (uncommitted)
+- **Evidence / tests:** 3,695 distinct backend cases / 0 unresolved failures: full suite 3,692 PASS, followed by 108 focused API/security passes including three added default-deny cases (82 new R1A-10 cases total). Frontend 208 PASS (four new), TypeScript/ESLint/build PASS. Ruff lint/format PASS (seven Python files); configured strict Linux/Windows-target mypy PASS (228 each); ten import contracts kept. Five fixture JSON exports, OpenAPI and generated TypeScript reproduce exactly. Original simulation pin unchanged/PASS. Native platform CI not claimed.
+- **Notes:** Normal live GETs always 503; isolated validated development/fake factory only. Fixture snapshot nested in world, legacy snapshot byte-compatible. No world SSE; deferred R1b. No production loader, v11 activation, publication or renderer implementation.
+- **Last updated:** 2026-10-11 (STEP 122)
+- **Detailed task plan:** [API contracts and evidence](maple-room-r1a-10-world-api-contracts.md)
 
 ### R1A-11 — Pixi renderer shell
 

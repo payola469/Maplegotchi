@@ -1,6 +1,6 @@
 # R1A-09 — Legacy projection compatibility
 
-**Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120). Commit, normal push, PR and CI inspection authorized; merge, deployment and production activation are not authorized.
+**Status:** DONE / OWNER ACCEPTED / MERGED. PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` fetched and verified STEP 122. Earlier STEP 119/120 statuses and authorizations below are historical; the accepted limitations/pre-cutover gate remain unchanged.
 
 ## Baseline and binding inputs
 
@@ -41,7 +41,7 @@ Only new Python files are `core/world/legacy_projection.py` and `tests/world/tes
 
 ## Historical STEP 119 consolidated review and limits
 
-PASS for the authorized isolated projection scope. No accepted ADR/Spec/Oracle amendment, production wiring, migration, publication or later-workstream implementation. R1A-09 remains REVIEW until owner acceptance; R1A-10–20 TODO. Documentation current pointers reconcile R1A-08 integration while worklog entries stay append-only.
+PASS for the authorized isolated projection scope. No accepted ADR/Spec/Oracle amendment, production wiring, migration, publication or later-workstream implementation. At STEP 119, R1A-09 remained REVIEW until owner acceptance; R1A-10–20 were TODO. Documentation current pointers reconcile R1A-08 integration while worklog entries stay append-only.
 
 Unmappable collapsed-anchor and mid-edge-origin cases deliberately fail rather than change accepted legacy contracts. Supporting them visually would require a separately approved representation; this batch makes no such amendment. Canonical/legacy pose metadata is preserved, while rendering new pose classes stays outside this workstream. Caller-supplied presentation facts are not inferred or persisted. Isolation guards prevent accidental coupling, not malicious Python running in-process. Native Linux/Windows CI and production readiness are not claimed.
 
@@ -52,4 +52,4 @@ Owner explicitly ACCEPTS R1A-09 with its documented limitations. Of the 400 test
 
 Before any R1b production cutover uses this projection, the integration must have an explicitly validated strategy preventing collapsed-anchor and ambiguous mid-edge rejections from causing unsafe or misleading behavior. This is a pre-cutover integration gate, not a requirement or authorization to enhance the old Room renderer, anchors or waypoint walker. Deterministic rejection stays intact; fabricated routes and fallback anchors are forbidden. No new compatibility implementation is authorized by STEP 120.
 
-R1A-09 remains REVIEW / OWNER ACCEPTED / MERGE PENDING until its PR is merged. R1A-10–20 remain TODO. STEP 119's 3,121 passing cases (610 new) and static/import evidence remain the accepted implementation evidence; STEP 120 verification is recorded in the append-only worklog.
+At STEP 120, R1A-09 remained REVIEW / OWNER ACCEPTED / MERGE PENDING until its PR merged; R1A-10–20 were TODO. Current merged status is recorded above. STEP 119's 3,121 passing cases (610 new) and static/import evidence remain the accepted implementation evidence; STEP 120 verification is recorded in the append-only worklog.

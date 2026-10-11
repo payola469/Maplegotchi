@@ -116,3 +116,7 @@ Boundaries between the services:
 Future boundaries such as the workspace mount, `maple-exec` and `maple-observer` are
 **DRAFT / PROPOSED / FOR HUMAN REVIEW** in `docs/architecture/`. They do not exist in
 the code or the units.
+
+## R1A-10 truthfulness boundary (STEP 122)
+
+Three additive world GETs return documented 503 in normal `create_app` regardless of mode/senses. There is no flag or fixture argument to activate them. The separate programmatic synthetic factory has no service/database/event hub, revalidates the explicitly typed local development/fake profile, and rejects production mode, host data senses, remote providers, tailnet origins, static frontend or gateway credentials. Fixture source/status is required in every successful response. Existing Origin checks, CSP/security headers, no-CORS and no-store remain unchanged. No mutation/auth/edit endpoints. This is an isolation contract, not a sandbox against someone changing/deploying code. Test evidence and precise gate: [R1A-10 plan](implementation/maple-room-r1a-10-world-api-contracts.md). Production remains schema v10; v11 rehearsal and projection have no new live callers.

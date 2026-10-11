@@ -1,0 +1,1449 @@
+{
+  "components": {
+    "schemas": {
+      "Capability": {
+        "enum": [
+          "sleep_spot",
+          "seat",
+          "seat_soft",
+          "writing_surface",
+          "computer",
+          "system_console",
+          "reading_spot",
+          "book_source",
+          "book_storage",
+          "window_view",
+          "quiet_spot",
+          "plant",
+          "display_wall",
+          "display_shelf",
+          "project_board",
+          "open_floor",
+          "light_source"
+        ],
+        "title": "Capability",
+        "type": "string"
+      },
+      "Category": {
+        "enum": [
+          "functional",
+          "decorative",
+          "creation_display",
+          "structural"
+        ],
+        "title": "Category",
+        "type": "string"
+      },
+      "CharacterDirection": {
+        "description": "Animation row order is down, left, right, up.",
+        "enum": [
+          "down",
+          "left",
+          "right",
+          "up"
+        ],
+        "title": "CharacterDirection",
+        "type": "string"
+      },
+      "DayPhase": {
+        "enum": [
+          "night",
+          "morning",
+          "afternoon",
+          "evening"
+        ],
+        "title": "DayPhase",
+        "type": "string"
+      },
+      "DisplayItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_class": {
+            "title": "Item Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "item_class",
+          "category"
+        ],
+        "title": "DisplayItemOut",
+        "type": "object"
+      },
+      "DisplayPlacementOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "const": true,
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "host_id": {
+            "title": "Host Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "item_id",
+          "host_id",
+          "slot_id",
+          "active"
+        ],
+        "title": "DisplayPlacementOut",
+        "type": "object"
+      },
+      "Door": {
+        "description": "A north-south archway rectangle; adjacency is validated against regions.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "north_room": {
+            "title": "North Room",
+            "type": "string"
+          },
+          "passage": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "south_room": {
+            "title": "South Room",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DoorState"
+          }
+        },
+        "required": [
+          "id",
+          "north_room",
+          "south_room",
+          "passage",
+          "state"
+        ],
+        "title": "Door",
+        "type": "object"
+      },
+      "DoorState": {
+        "enum": [
+          "open",
+          "closed"
+        ],
+        "title": "DoorState",
+        "type": "string"
+      },
+      "EdgePositionOut": {
+        "additionalProperties": false,
+        "properties": {
+          "edge": {
+            "$ref": "#/components/schemas/EdgeStart"
+          },
+          "kind": {
+            "const": "edge",
+            "default": "edge",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "edge"
+        ],
+        "title": "EdgePositionOut",
+        "type": "object"
+      },
+      "EdgeStart": {
+        "description": "Transient temporal progress on a unit edge, not a persisted fractional tile.",
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/Tile"
+          },
+          "b": {
+            "$ref": "#/components/schemas/Tile"
+          },
+          "progress_us": {
+            "title": "Progress Us",
+            "type": "integer"
+          },
+          "step_us": {
+            "title": "Step Us",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "progress_us",
+          "step_us"
+        ],
+        "title": "EdgeStart",
+        "type": "object"
+      },
+      "Entry": {
+        "properties": {
+          "endpoint": {
+            "$ref": "#/components/schemas/Tile"
+          },
+          "start": {
+            "$ref": "#/components/schemas/EdgeStart"
+          }
+        },
+        "required": [
+          "start",
+          "endpoint"
+        ],
+        "title": "Entry",
+        "type": "object"
+      },
+      "Expression": {
+        "enum": [
+          "calm",
+          "happy",
+          "curious",
+          "sleepy",
+          "focused"
+        ],
+        "title": "Expression",
+        "type": "string"
+      },
+      "Facing": {
+        "enum": [
+          "left",
+          "right",
+          "front",
+          "back"
+        ],
+        "title": "Facing",
+        "type": "string"
+      },
+      "Footprint": {
+        "properties": {
+          "h": {
+            "title": "H",
+            "type": "integer"
+          },
+          "w": {
+            "title": "W",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "w",
+          "h"
+        ],
+        "title": "Footprint",
+        "type": "object"
+      },
+      "GridOut": {
+        "additionalProperties": false,
+        "properties": {
+          "feet_in_tile_px": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Feet In Tile Px",
+            "type": "array"
+          },
+          "height_tiles": {
+            "title": "Height Tiles",
+            "type": "integer"
+          },
+          "tile_size_px": {
+            "title": "Tile Size Px",
+            "type": "integer"
+          },
+          "width_tiles": {
+            "title": "Width Tiles",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width_tiles",
+          "height_tiles",
+          "tile_size_px",
+          "feet_in_tile_px"
+        ],
+        "title": "GridOut",
+        "type": "object"
+      },
+      "LightingZoneOut": {
+        "additionalProperties": false,
+        "properties": {
+          "bounds": {
+            "$ref": "#/components/schemas/RectOut"
+          },
+          "region_id": {
+            "title": "Region Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region_id",
+          "bounds"
+        ],
+        "title": "LightingZoneOut",
+        "type": "object"
+      },
+      "LocalPoint": {
+        "description": "Signed local integer offset, used for tiles or anchor-relative pixels.",
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "LocalPoint",
+        "type": "object"
+      },
+      "ObjectOrientation": {
+        "description": "Catalog orientation order is south, east, west, north.",
+        "enum": [
+          "south",
+          "east",
+          "west",
+          "north"
+        ],
+        "title": "ObjectOrientation",
+        "type": "string"
+      },
+      "Passage": {
+        "description": "Validated cells belong to the southern room in either door state.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Tile"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "door_id": {
+            "title": "Door Id",
+            "type": "string"
+          },
+          "region_id": {
+            "title": "Region Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DoorState"
+          }
+        },
+        "required": [
+          "door_id",
+          "region_id",
+          "state",
+          "cells"
+        ],
+        "title": "Passage",
+        "type": "object"
+      },
+      "PixelPositionOut": {
+        "additionalProperties": false,
+        "properties": {
+          "x_px": {
+            "title": "X Px",
+            "type": "integer"
+          },
+          "y_px": {
+            "title": "Y Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x_px",
+          "y_px"
+        ],
+        "title": "PixelPositionOut",
+        "type": "object"
+      },
+      "PointPose": {
+        "enum": [
+          "lie_sleep",
+          "sit_rest",
+          "stand_think",
+          "stand_read",
+          "sit_read",
+          "sit_write",
+          "sit_monitor",
+          "idle"
+        ],
+        "title": "PointPose",
+        "type": "string"
+      },
+      "PointTemplate": {
+        "properties": {
+          "approach": {
+            "$ref": "#/components/schemas/LocalPoint"
+          },
+          "capacity": {
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "facing": {
+            "$ref": "#/components/schemas/CharacterDirection"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "occupy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocalPoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occupy_direction": {
+            "$ref": "#/components/schemas/CharacterDirection"
+          },
+          "pose": {
+            "$ref": "#/components/schemas/PointPose"
+          },
+          "provides": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "title": "Provides",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "approach",
+          "facing",
+          "occupy",
+          "pose",
+          "occupy_direction",
+          "provides",
+          "capacity"
+        ],
+        "title": "PointTemplate",
+        "type": "object"
+      },
+      "Rect": {
+        "description": "Grid-contained rectangle with half-open x/y ranges.",
+        "properties": {
+          "h": {
+            "title": "H",
+            "type": "integer"
+          },
+          "w": {
+            "title": "W",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "Rect",
+        "type": "object"
+      },
+      "RectOut": {
+        "additionalProperties": false,
+        "properties": {
+          "h": {
+            "title": "H",
+            "type": "integer"
+          },
+          "w": {
+            "title": "W",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "RectOut",
+        "type": "object"
+      },
+      "Region": {
+        "description": "A labelled floor rectangle; membership alone does not imply walkability.",
+        "properties": {
+          "floor": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RegionKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RegionStatus"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "floor",
+          "status"
+        ],
+        "title": "Region",
+        "type": "object"
+      },
+      "RegionKind": {
+        "description": "Initial-house semantic kinds from the approved T1 vocabulary.",
+        "enum": [
+          "bedroom",
+          "living",
+          "library",
+          "studio",
+          "hall",
+          "future",
+          "creation",
+          "system"
+        ],
+        "title": "RegionKind",
+        "type": "string"
+      },
+      "RegionStatus": {
+        "enum": [
+          "open",
+          "closed"
+        ],
+        "title": "RegionStatus",
+        "type": "string"
+      },
+      "RoomNode": {
+        "properties": {
+          "neighbors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Neighbors",
+            "type": "array"
+          },
+          "region_id": {
+            "title": "Region Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region_id",
+          "neighbors"
+        ],
+        "title": "RoomNode",
+        "type": "object"
+      },
+      "SlotStatus": {
+        "enum": [
+          "active",
+          "hook (derived fullness)",
+          "hook (planned projects)"
+        ],
+        "title": "SlotStatus",
+        "type": "string"
+      },
+      "SlotTemplate": {
+        "properties": {
+          "accepts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepts",
+            "type": "array"
+          },
+          "approach": {
+            "$ref": "#/components/schemas/LocalPoint"
+          },
+          "capacity": {
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "facing": {
+            "$ref": "#/components/schemas/CharacterDirection"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "maple_may_place": {
+            "title": "Maple May Place",
+            "type": "boolean"
+          },
+          "shares_point": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares Point"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SlotStatus"
+          }
+        },
+        "required": [
+          "id",
+          "approach",
+          "facing",
+          "shares_point",
+          "accepts",
+          "capacity",
+          "maple_may_place",
+          "status"
+        ],
+        "title": "SlotTemplate",
+        "type": "object"
+      },
+      "StructuralCell": {
+        "description": "One physical cell and its owning region, not an access permission.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/TileKind"
+          },
+          "region_id": {
+            "title": "Region Id",
+            "type": "string"
+          },
+          "tile": {
+            "$ref": "#/components/schemas/Tile"
+          }
+        },
+        "required": [
+          "tile",
+          "kind",
+          "region_id"
+        ],
+        "title": "StructuralCell",
+        "type": "object"
+      },
+      "Surface": {
+        "enum": [
+          "floor",
+          "north_band"
+        ],
+        "title": "Surface",
+        "type": "string"
+      },
+      "Tile": {
+        "description": "One cell in the canonical grid; north-west origin, east/south positive.",
+        "properties": {
+          "tx": {
+            "title": "Tx",
+            "type": "integer"
+          },
+          "ty": {
+            "title": "Ty",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tx",
+          "ty"
+        ],
+        "title": "Tile",
+        "type": "object"
+      },
+      "TileKind": {
+        "enum": [
+          "floor",
+          "north_band",
+          "side_wall",
+          "south_cutaway"
+        ],
+        "title": "TileKind",
+        "type": "string"
+      },
+      "TilePositionOut": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "tile",
+            "default": "tile",
+            "title": "Kind",
+            "type": "string"
+          },
+          "tile": {
+            "$ref": "#/components/schemas/Tile"
+          }
+        },
+        "required": [
+          "kind",
+          "tile"
+        ],
+        "title": "TilePositionOut",
+        "type": "object"
+      },
+      "Waypoint": {
+        "properties": {
+          "cumulative_steps": {
+            "title": "Cumulative Steps",
+            "type": "integer"
+          },
+          "tx": {
+            "title": "Tx",
+            "type": "integer"
+          },
+          "ty": {
+            "title": "Ty",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tx",
+          "ty",
+          "cumulative_steps"
+        ],
+        "title": "Waypoint",
+        "type": "object"
+      },
+      "WorldCatalogOut": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog_version": {
+            "title": "Catalog Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "r1a-10.v1",
+            "default": "r1a-10.v1",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "layout_revision": {
+            "title": "Layout Revision",
+            "type": "string"
+          },
+          "source": {
+            "const": "development_fixture",
+            "default": "development_fixture",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "const": "synthetic",
+            "default": "synthetic",
+            "title": "Status",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/WorldTypeOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contract_version",
+          "source",
+          "status",
+          "layout_revision",
+          "catalog_version",
+          "types"
+        ],
+        "title": "WorldCatalogOut",
+        "type": "object"
+      },
+      "WorldMapleOut": {
+        "additionalProperties": false,
+        "properties": {
+          "derived_pixels": {
+            "$ref": "#/components/schemas/PixelPositionOut"
+          },
+          "destination_point": {
+            "$ref": "#/components/schemas/WorldPointRefOut"
+          },
+          "expression": {
+            "$ref": "#/components/schemas/Expression"
+          },
+          "facing": {
+            "$ref": "#/components/schemas/CharacterDirection"
+          },
+          "legacy_facing": {
+            "$ref": "#/components/schemas/Facing"
+          },
+          "pose": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PointPose"
+              },
+              {
+                "const": "walk",
+                "type": "string"
+              }
+            ],
+            "title": "Pose"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TilePositionOut"
+              },
+              {
+                "$ref": "#/components/schemas/EdgePositionOut"
+              }
+            ],
+            "title": "Position"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorldRouteOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "destination_point",
+          "position",
+          "derived_pixels",
+          "facing",
+          "legacy_facing",
+          "pose",
+          "expression",
+          "route"
+        ],
+        "title": "WorldMapleOut",
+        "type": "object"
+      },
+      "WorldObjectOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "orientation": {
+            "$ref": "#/components/schemas/ObjectOrientation"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/Tile"
+          },
+          "room_id": {
+            "title": "Room Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type_id": {
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type_id",
+          "room_id",
+          "origin",
+          "orientation",
+          "state"
+        ],
+        "title": "WorldObjectOut",
+        "type": "object"
+      },
+      "WorldOut": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog_version": {
+            "title": "Catalog Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "r1a-10.v1",
+            "default": "r1a-10.v1",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "doors": {
+            "items": {
+              "$ref": "#/components/schemas/Door"
+            },
+            "title": "Doors",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/GridOut"
+          },
+          "layout_revision": {
+            "title": "Layout Revision",
+            "type": "string"
+          },
+          "lighting_zones": {
+            "items": {
+              "$ref": "#/components/schemas/LightingZoneOut"
+            },
+            "title": "Lighting Zones",
+            "type": "array"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/WorldObjectOut"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "passages": {
+            "items": {
+              "$ref": "#/components/schemas/Passage"
+            },
+            "title": "Passages",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/WorldPointOut"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/Region"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "room_graph": {
+            "items": {
+              "$ref": "#/components/schemas/RoomNode"
+            },
+            "title": "Room Graph",
+            "type": "array"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/WorldSlotOut"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/WorldSnapshotOut"
+          },
+          "source": {
+            "const": "development_fixture",
+            "default": "development_fixture",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "const": "synthetic",
+            "default": "synthetic",
+            "title": "Status",
+            "type": "string"
+          },
+          "structure": {
+            "items": {
+              "$ref": "#/components/schemas/StructuralCell"
+            },
+            "title": "Structure",
+            "type": "array"
+          },
+          "walkable": {
+            "items": {
+              "$ref": "#/components/schemas/Tile"
+            },
+            "title": "Walkable",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contract_version",
+          "source",
+          "status",
+          "layout_revision",
+          "catalog_version",
+          "grid",
+          "regions",
+          "doors",
+          "structure",
+          "passages",
+          "room_graph",
+          "lighting_zones",
+          "objects",
+          "points",
+          "slots",
+          "walkable",
+          "snapshot"
+        ],
+        "title": "WorldOut",
+        "type": "object"
+      },
+      "WorldPlacementsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog_version": {
+            "title": "Catalog Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "r1a-10.v1",
+            "default": "r1a-10.v1",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DisplayItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "layout_revision": {
+            "title": "Layout Revision",
+            "type": "string"
+          },
+          "placements": {
+            "items": {
+              "$ref": "#/components/schemas/DisplayPlacementOut"
+            },
+            "title": "Placements",
+            "type": "array"
+          },
+          "source": {
+            "const": "development_fixture",
+            "default": "development_fixture",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "const": "synthetic",
+            "default": "synthetic",
+            "title": "Status",
+            "type": "string"
+          },
+          "storage_item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Storage Item Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contract_version",
+          "source",
+          "status",
+          "layout_revision",
+          "catalog_version",
+          "items",
+          "placements",
+          "storage_item_ids"
+        ],
+        "title": "WorldPlacementsOut",
+        "type": "object"
+      },
+      "WorldPointOut": {
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "template": {
+            "$ref": "#/components/schemas/PointTemplate"
+          }
+        },
+        "required": [
+          "instance_id",
+          "template"
+        ],
+        "title": "WorldPointOut",
+        "type": "object"
+      },
+      "WorldPointRefOut": {
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "point_id": {
+            "title": "Point Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "point_id"
+        ],
+        "title": "WorldPointRefOut",
+        "type": "object"
+      },
+      "WorldRouteOut": {
+        "additionalProperties": false,
+        "properties": {
+          "arrives_at": {
+            "format": "date-time",
+            "title": "Arrives At",
+            "type": "string"
+          },
+          "departed_at": {
+            "format": "date-time",
+            "title": "Departed At",
+            "type": "string"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Entry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ms_per_step": {
+            "title": "Ms Per Step",
+            "type": "integer"
+          },
+          "waypoints": {
+            "items": {
+              "$ref": "#/components/schemas/Waypoint"
+            },
+            "title": "Waypoints",
+            "type": "array"
+          }
+        },
+        "required": [
+          "departed_at",
+          "arrives_at",
+          "ms_per_step",
+          "waypoints",
+          "entry"
+        ],
+        "title": "WorldRouteOut",
+        "type": "object"
+      },
+      "WorldSlotOut": {
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "template": {
+            "$ref": "#/components/schemas/SlotTemplate"
+          }
+        },
+        "required": [
+          "instance_id",
+          "template"
+        ],
+        "title": "WorldSlotOut",
+        "type": "object"
+      },
+      "WorldSnapshotOut": {
+        "additionalProperties": false,
+        "description": "Explicit synthetic snapshot; production SnapshotOut is not extended.",
+        "properties": {
+          "day_phase": {
+            "$ref": "#/components/schemas/DayPhase"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "maple": {
+            "$ref": "#/components/schemas/WorldMapleOut"
+          },
+          "world_revision": {
+            "title": "World Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at",
+          "world_revision",
+          "day_phase",
+          "maple"
+        ],
+        "title": "WorldSnapshotOut",
+        "type": "object"
+      },
+      "WorldTypeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "art_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Art Id"
+          },
+          "blocks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "footprint": {
+            "$ref": "#/components/schemas/Footprint"
+          },
+          "geometry_version": {
+            "title": "Geometry Version",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mount_y_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Y Px"
+          },
+          "orientations": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectOrientation"
+            },
+            "title": "Orientations",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PointTemplate"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/SlotTemplate"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "surface": {
+            "$ref": "#/components/schemas/Surface"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "geometry_version",
+          "footprint",
+          "blocks",
+          "orientations",
+          "capabilities",
+          "points",
+          "slots",
+          "states",
+          "surface",
+          "mount_y_px",
+          "art_id"
+        ],
+        "title": "WorldTypeOut",
+        "type": "object"
+      },
+      "WorldUnavailableOut": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "const": "Canonical world is unavailable; live Maple remains on schema v10",
+            "default": "Canonical world is unavailable; live Maple remains on schema v10",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "WorldUnavailableOut",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Maplegotchi",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/world": {
+      "get": {
+        "operationId": "read_world",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldUnavailableOut"
+                }
+              }
+            },
+            "description": "No live canonical world"
+          }
+        },
+        "summary": "Response",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/world/catalog": {
+      "get": {
+        "operationId": "read_world_catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldCatalogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldUnavailableOut"
+                }
+              }
+            },
+            "description": "No live canonical world"
+          }
+        },
+        "summary": "Response",
+        "tags": [
+          "world"
+        ]
+      }
+    },
+    "/api/world/placements": {
+      "get": {
+        "operationId": "read_world_placements",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldPlacementsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldUnavailableOut"
+                }
+              }
+            },
+            "description": "No live canonical world"
+          }
+        },
+        "summary": "Response",
+        "tags": [
+          "world"
+        ]
+      }
+    }
+  }
+}

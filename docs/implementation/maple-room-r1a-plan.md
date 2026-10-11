@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01–08 DONE / OWNER ACCEPTED / MERGED; PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13` fetched and verified. R1A-09 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120); R1A-10–20 TODO. Projection is explicit development/fixture-only; shipped startup/schema remain v10 and Production emits native legacy state. STEP 120 authorizes commit, normal push, PR and CI inspection only; no merge or production activation.
+**Status:** AUTHORIZED — R1A-01–09 DONE / OWNER ACCEPTED / MERGED; PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` fetched and verified. R1A-10 REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING (STEP 123); R1A-11–20 TODO. Schema remains v10; live legacy state is unchanged. New world GETs return truthful 503 in the normal app; separately constructed local synthetic fixtures are explicitly labeled. STEP 123 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation authorized.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 120 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. STEP 120 authorizes R1A-09 commit, normal push, PR and CI inspection; merge/deployment remain unauthorized.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 123 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. STEP 122 local implementation evidence is accepted for STEP 123 GitHub integration; merge and production activation remain unauthorized.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -263,7 +263,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-09 — Legacy projection compatibility
 
-- **Detailed plan / current status:** [R1A-09 evidence](maple-room-r1a-09-legacy-projection.md), REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120). STEP 119: 3,121 passes (610 new), Ruff, strict Linux/Windows-target mypy (24 each), ten import contracts and original simulation pin PASS. Pure fixture-only T7/S14 and exact-time legacy routes; explicitly unmappable collapsed/mid-edge routes reject. No production wiring.
+- **Detailed plan / current status:** [R1A-09 evidence](maple-room-r1a-09-legacy-projection.md), DONE / OWNER ACCEPTED / MERGED; PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` verified STEP 122. STEP 119: 3,121 passes (610 new), Ruff, strict Linux/Windows-target mypy (24 each), ten import contracts and original simulation pin PASS. Pure fixture-only T7/S14 and exact-time legacy routes; explicitly unmappable collapsed/mid-edge routes reject. No production wiring.
 
 - **Owner-accepted limitation / R1b gate:** STEP 120 accepts the 40 collapsed-anchor pair rejections and ambiguous mid-edge rejection; no old-view expansion. Before projection is used in a production cutover, validate an explicit integration strategy preventing unsafe/misleading behavior. See the [tracked pre-cutover gate](maple-room-r1a-09-legacy-projection.md#step-120--owner-acceptance-and-r1b-pre-cutover-integration-gate); no new compatibility implementation is authorized.
 
@@ -283,6 +283,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (10, 15). **Blocks R1b:** yes.
 
 ### R1A-10 — New Room backend/API contracts
+
+- **Detailed plan / current evidence:** [R1A-10 contracts](maple-room-r1a-10-world-api-contracts.md), REVIEW / PENDING OWNER ACCEPTANCE. Additive unavailable live GETs; isolated labeled fixture app, OpenAPI, derived frontend types and JSON examples. 3,695 distinct backend cases / 0 unresolved failures: full suite 3,692 PASS, followed by 108 focused API/security passes including three added default-deny cases (82 new R1A-10 cases total). Frontend 208 PASS (four new), TypeScript/ESLint/build PASS. Ruff lint/format PASS (seven Python files); configured strict Linux/Windows-target mypy PASS (228 each); ten import contracts kept. Five fixture JSON exports, OpenAPI and generated TypeScript reproduce exactly. Original simulation pin unchanged/PASS. Native platform CI not claimed.
 
 - **Objective:** additive, read-only API contracts for the new world, without changing any legacy contract.
 - **Scope:**

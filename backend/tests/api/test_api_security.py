@@ -11,6 +11,9 @@ from maplegotchi.config import DEV_ORIGINS, Mode, Settings, SettingsError, setti
 from tests.api.support import TRUSTED, make_client, make_service, make_settings, production
 
 EXPECTED_ROUTES = {
+    ("GET", "/api/world"),
+    ("GET", "/api/world/catalog"),
+    ("GET", "/api/world/placements"),
     ("GET", "/api/health"),
     ("GET", "/api/snapshot"),
     ("GET", "/api/maple"),

@@ -1,0 +1,685 @@
+{
+  "catalog_version": "fixture-sha256:49d2b25a66a244248a43ac0bf797e04560aa86f0c05aef5a6ffe83bd8b915986",
+  "contract_version": "r1a-10.v1",
+  "layout_revision": "fixture-sha256:b1d67b24fcf5d0fe4685f7dc221a65f5f1ac17482c22ae83a3295e84523bb60f",
+  "source": "development_fixture",
+  "status": "synthetic",
+  "types": [
+    {
+      "art_id": "decor.project_board",
+      "blocks": [
+        ".."
+      ],
+      "capabilities": [
+        "project_board",
+        "display_wall"
+      ],
+      "category": "decorative",
+      "footprint": {
+        "h": 1,
+        "w": 2
+      },
+      "geometry_version": 1,
+      "id": "decor.project_board",
+      "mount_y_px": 28,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "accepts": [
+            "project.card"
+          ],
+          "approach": {
+            "x": 0,
+            "y": 3
+          },
+          "capacity": 4,
+          "facing": "up",
+          "id": "cards",
+          "maple_may_place": false,
+          "shares_point": null,
+          "status": "hook (planned projects)"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "north_band"
+    },
+    {
+      "art_id": "decor.wall_frame_small",
+      "blocks": [
+        "."
+      ],
+      "capabilities": [
+        "display_wall"
+      ],
+      "category": "decorative",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "decor.wall_frame_small",
+      "mount_y_px": 28,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "accepts": [
+            "creation.flat"
+          ],
+          "approach": {
+            "x": 0,
+            "y": 3
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "artwork",
+          "maple_may_place": true,
+          "shares_point": null,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "north_band"
+    },
+    {
+      "art_id": "furniture.armchair",
+      "blocks": [
+        "#"
+      ],
+      "capabilities": [
+        "reading_spot",
+        "seat"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "furniture.armchair",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "seat",
+          "occupy": {
+            "x": 8,
+            "y": -4
+          },
+          "occupy_direction": "down",
+          "pose": "sit_read",
+          "provides": [
+            "reading_spot",
+            "seat"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.bed_single",
+      "blocks": [
+        "##",
+        "##",
+        "##"
+      ],
+      "capabilities": [
+        "sleep_spot"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 3,
+        "w": 2
+      },
+      "geometry_version": 1,
+      "id": "furniture.bed_single",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 2,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "left",
+          "id": "sleep",
+          "occupy": {
+            "x": 16,
+            "y": -10
+          },
+          "occupy_direction": "up",
+          "pose": "lie_sleep",
+          "provides": [
+            "sleep_spot"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.bookshelf_tall",
+      "blocks": [
+        "##"
+      ],
+      "capabilities": [
+        "reading_spot",
+        "book_source",
+        "book_storage"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 2
+      },
+      "geometry_version": 1,
+      "id": "furniture.bookshelf_tall",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "front_l",
+          "occupy": null,
+          "occupy_direction": "up",
+          "pose": "stand_read",
+          "provides": [
+            "reading_spot",
+            "book_source"
+          ]
+        },
+        {
+          "approach": {
+            "x": 1,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "front_r",
+          "occupy": null,
+          "occupy_direction": "up",
+          "pose": "stand_read",
+          "provides": [
+            "reading_spot",
+            "book_source"
+          ]
+        }
+      ],
+      "slots": [
+        {
+          "accepts": [
+            "library.book"
+          ],
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 4,
+          "facing": "up",
+          "id": "books",
+          "maple_may_place": false,
+          "shares_point": "front_l",
+          "status": "hook (derived fullness)"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.computer_desk",
+      "blocks": [
+        "###",
+        "###"
+      ],
+      "capabilities": [
+        "computer"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 2,
+        "w": 3
+      },
+      "geometry_version": 1,
+      "id": "furniture.computer_desk",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 1,
+            "y": 2
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "operator",
+          "occupy": {
+            "x": 24,
+            "y": -6
+          },
+          "occupy_direction": "up",
+          "pose": "sit_monitor",
+          "provides": [
+            "computer"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.lamp_floor",
+      "blocks": [
+        "#"
+      ],
+      "capabilities": [
+        "light_source"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "furniture.lamp_floor",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.plant_tall",
+      "blocks": [
+        "#"
+      ],
+      "capabilities": [
+        "plant",
+        "quiet_spot"
+      ],
+      "category": "decorative",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "furniture.plant_tall",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "think",
+          "occupy": null,
+          "occupy_direction": "up",
+          "pose": "stand_think",
+          "provides": [
+            "plant",
+            "quiet_spot"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.rug",
+      "blocks": [
+        "...",
+        "..."
+      ],
+      "capabilities": [],
+      "category": "decorative",
+      "footprint": {
+        "h": 2,
+        "w": 3
+      },
+      "geometry_version": 1,
+      "id": "furniture.rug",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.shelf_low",
+      "blocks": [
+        "##"
+      ],
+      "capabilities": [
+        "display_shelf"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 2
+      },
+      "geometry_version": 1,
+      "id": "furniture.shelf_low",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "accepts": [
+            "creation.small"
+          ],
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 3,
+          "facing": "up",
+          "id": "display",
+          "maple_may_place": true,
+          "shares_point": null,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.side_table",
+      "blocks": [
+        "#"
+      ],
+      "capabilities": [
+        "display_shelf"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "furniture.side_table",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [],
+      "slots": [
+        {
+          "accepts": [
+            "creation.small"
+          ],
+          "approach": {
+            "x": 0,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "top",
+          "maple_may_place": true,
+          "shares_point": null,
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.sofa",
+      "blocks": [
+        "###"
+      ],
+      "capabilities": [
+        "seat",
+        "seat_soft"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 3
+      },
+      "geometry_version": 1,
+      "id": "furniture.sofa",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 1,
+            "y": 1
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "seat",
+          "occupy": {
+            "x": 24,
+            "y": -4
+          },
+          "occupy_direction": "down",
+          "pose": "sit_rest",
+          "provides": [
+            "seat",
+            "seat_soft"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "furniture.writing_desk",
+      "blocks": [
+        "###",
+        "###"
+      ],
+      "capabilities": [
+        "writing_surface"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 2,
+        "w": 3
+      },
+      "geometry_version": 1,
+      "id": "furniture.writing_desk",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 1,
+            "y": 2
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "chair",
+          "occupy": {
+            "x": 24,
+            "y": -6
+          },
+          "occupy_direction": "up",
+          "pose": "sit_write",
+          "provides": [
+            "writing_surface"
+          ]
+        }
+      ],
+      "slots": [
+        {
+          "accepts": [
+            "project.active",
+            "creation.small"
+          ],
+          "approach": {
+            "x": 1,
+            "y": 2
+          },
+          "capacity": 2,
+          "facing": "up",
+          "id": "desktop",
+          "maple_may_place": true,
+          "shares_point": "chair",
+          "status": "active"
+        }
+      ],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": null,
+      "blocks": [
+        "."
+      ],
+      "capabilities": [
+        "open_floor"
+      ],
+      "category": "structural",
+      "footprint": {
+        "h": 1,
+        "w": 1
+      },
+      "geometry_version": 1,
+      "id": "marker.idle_spot",
+      "mount_y_px": null,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 0,
+            "y": 0
+          },
+          "capacity": 1,
+          "facing": "down",
+          "id": "idle",
+          "occupy": null,
+          "occupy_direction": "down",
+          "pose": "idle",
+          "provides": [
+            "open_floor"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "floor"
+    },
+    {
+      "art_id": "window.north_2w",
+      "blocks": [
+        ".."
+      ],
+      "capabilities": [
+        "window_view",
+        "light_source"
+      ],
+      "category": "functional",
+      "footprint": {
+        "h": 1,
+        "w": 2
+      },
+      "geometry_version": 1,
+      "id": "window.north_2w",
+      "mount_y_px": 8,
+      "orientations": [
+        "south"
+      ],
+      "points": [
+        {
+          "approach": {
+            "x": 1,
+            "y": 3
+          },
+          "capacity": 1,
+          "facing": "up",
+          "id": "view",
+          "occupy": null,
+          "occupy_direction": "up",
+          "pose": "stand_think",
+          "provides": [
+            "window_view"
+          ]
+        }
+      ],
+      "slots": [],
+      "states": [
+        "default"
+      ],
+      "surface": "north_band"
+    }
+  ]
+}
