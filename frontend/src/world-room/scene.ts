@@ -4,9 +4,11 @@ import type { WorldCatalogOut, WorldOut } from "../api/world.generated";
 import { MAPLE_ART } from "./assets";
 import { loadAtlasArt, type AtlasArt } from "./atlas";
 import { assertFixture } from "./gate";
-import { actorSample, backingSize, depth, floorEdge, floorVariant, LAYERS, mapleSouthEdge, objectSouthEdge, overview, PRIORITY, RENDERER_OPTIONS } from "./presentation";
+import { actorSample, depth, floorEdge, floorVariant, LAYERS, mapleSouthEdge, objectSouthEdge, PRIORITY, RENDERER_OPTIONS } from "./presentation";
 
-export interface SceneFrame { world: WorldOut; timeMs: number }
+import { backingSize, cameraView, type CameraRequest, type CameraView } from "./camera";
+
+export interface SceneFrame { world: WorldOut; timeMs: number; camera?: CameraRequest }
 export interface WorldScene {
   update(frame: SceneFrame): void;
   destroy(): void;
@@ -28,14 +30,15 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
   const art: AtlasArt = loadedArt;
   let observer: ResizeObserver | undefined;
   let disposed = false, initialized = false;
-  let draw: (() => void) | undefined;
+  let draw: ((deltaMs?: number) => void) | undefined;
+  const tick = () => draw?.(app.ticker.deltaMS ?? 0);
   const dispose = () => {
     if (disposed) return;
     disposed = true;
     options.signal.removeEventListener("abort", dispose);
     observer?.disconnect();
     if (initialized) {
-      if (draw) app.ticker.remove(draw);
+      if (draw) app.ticker.remove(tick);
       app.stop();
       app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false });
     }
@@ -139,24 +142,32 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
     actor.addChild(body, face); layers.entities.addChild(actor);
     let current = options.frame;
     let deviceBox: { inlineSize: number; blockSize: number } | undefined;
-    let previous = "";
+    let previous = "", view: CameraView | undefined;
+    let viewHidden: boolean | undefined;
     app.canvas.setAttribute("aria-hidden", "true");
     app.canvas.classList.add("world-preview__canvas");
     host.appendChild(app.canvas);
-    draw = () => {
+    draw = (deltaMs = 0) => {
       if (disposed) return;
       const dpr = window.devicePixelRatio || 1;
       const css = host.getBoundingClientRect();
+      if (!Number.isFinite(css.width) || !Number.isFinite(css.height) || css.width <= 0 || css.height <= 0) {
+        viewport.visible = false;
+        if (viewHidden !== true) { viewHidden = true; options.onOverviewUnavailable(true); }
+        return;
+      }
       const size = backingSize(css.width, css.height, dpr, deviceBox);
       const key = `${size.width}/${size.height}/${dpr}`;
-      if (key !== previous) {
-        previous = key; app.renderer.resize(size.width, size.height);
-        const view = overview(size.width, size.height, world.grid.width_tiles * t, world.grid.height_tiles * t, dpr);
-        viewport.visible = view !== null;
-        if (view) { viewport.scale.set(view.zoom); viewport.position.set(view.x, view.y); }
-        options.onOverviewUnavailable(view === null);
-      }
+      if (key !== previous) { previous = key; app.renderer.resize(size.width, size.height); }
       const sample = actorSample(current.world, current.timeMs);
+      const request = current.camera ?? { mode: "overview", level: 1, regionId: "", reducedMotion: true };
+      const missing = request.mode === "focus" && !world.regions.some((r) => r.id === request.regionId);
+      view = cameraView(world, size, dpr, request, sample, view, deltaMs);
+      viewport.visible = view.visible && !missing;
+      viewport.scale.set(view.zoom); viewport.position.set(view.x, view.y);
+      if (viewHidden !== !viewport.visible) { viewHidden = !viewport.visible; options.onOverviewUnavailable(viewHidden); }
+      // DOM diagnostics expose presentation facts for QA, never authoritative state.
+      host.dataset.camera = JSON.stringify({ mode: view.mode, regionId: view.regionId, level: view.level, zoom: view.zoom, x: view.x, y: view.y, fits: view.fits, visible: viewport.visible, width: size.width, height: size.height, dpr });
       const frame = sample.moving ? sample.frame : 0;
       const pose = sample.moving ? "walk" : current.world.snapshot.maple.pose;
       body.texture = ownedArt.body(sample.facing, frame, pose);
@@ -175,7 +186,7 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       const entry = entries[0]; deviceBox = entry?.devicePixelContentBoxSize?.[0]; draw?.();
     });
     try { observer.observe(host, { box: "device-pixel-content-box" }); } catch { observer.observe(host); }
-    draw(); app.ticker.add(draw); app.start();
+    draw(); app.ticker.add(tick); app.start();
     return {
       update(frame) {
         if (disposed) return;

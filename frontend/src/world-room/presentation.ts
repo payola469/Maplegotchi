@@ -79,12 +79,8 @@ export function floorVariant(room: string, x: number, y: number): number {
 export function floorEdge(r: Rect, x: number, y: number): number {
   return (y === r.y ? 1 : 0) | (x === r.x + r.w - 1 ? 2 : 0) | (y === r.y + r.h - 1 ? 4 : 0) | (x === r.x ? 8 : 0);
 }
-export function deviceZoom(level: number, dpr: number): number { return Math.min(12, Math.max(1, Math.floor(level * dpr + 0.25))); }
-export function backingSize(cssW: number, cssH: number, dpr: number, box?: { inlineSize: number; blockSize: number }) {
-  const w = Math.max(1, Math.round(cssW * dpr)), h = Math.max(1, Math.round(cssH * dpr));
-  return box && Math.abs(box.inlineSize - w) <= 1 && Math.abs(box.blockSize - h) <= 1
-    ? { width: Math.round(box.inlineSize), height: Math.round(box.blockSize) } : { width: w, height: h };
-}
+export { deviceZoom, backingSize } from "./camera";
+import { deviceZoom } from "./camera";
 export function overview(width: number, height: number, worldW: number, worldH: number, dpr: number) {
   for (let level = 4; level >= 1; level--) {
     const zoom = deviceZoom(level, dpr);

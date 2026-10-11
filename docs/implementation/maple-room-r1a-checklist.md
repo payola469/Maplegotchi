@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–10 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #12 merge `7b45af4d94cd736390a1477e925e137698bc4aac` is the verified integration HEAD and includes PR #11 merge `f7e313cbe16992593d7f387450c9101d1b31f358`. R1A-11 REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING (STEP 132); atlas dependency RESOLVED on the merged tree. Historical PR #12 CI run `38144587116` passed all five jobs, including native Windows PNG/metadata/generated-index reproduction and frontend build. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10, legacy Room default, explicit development fixture preview only. STEP 132 owner acceptance authorizes the eight-file documentation commit, normal push, closure PR and CI inspection. No remaining R1A-11 blockers; closure record integration is pending. No merge, deployment, production access, schema-v11 activation or later-workstream implementation authorized. [Closure evidence](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification). Current counters: **11 DONE / 1 REVIEW / 8 TODO**. After closure PR merge: **R1A-11 DONE / OWNER ACCEPTED / CLOSURE VERIFIED; 12 DONE / 8 TODO / 60% complete**.
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #13 closure merge `cd328010a71f2cbcb1d0aee9f59ce925132447ae` is the verified baseline; R1A-11 atlas dependency remains resolved. R1A-12 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 135): local camera implementation, automated gates and STEP134B five-DPR browser matrix PASS; reduced-motion and live CDP DPR timing verified. Physical-device/performance QA remains deferred. R1A-13 and R1A-15–20 TODO. Current counters: 20 total / 12 DONE / 1 REVIEW / 7 TODO. Production remains schema v10, legacy Room default and explicit development fixture preview only. STEP135 owner authorization covers reviewed commit, normal push, PR and CI inspection; no merge, deployment, Production access or later-workstream implementation authorized. Default zoom by form factor remains UNDECIDED. [Camera evidence](maple-room-r1a-12-camera-zoom-dpr.md).
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 8 | 0 | 0 | 1 | 11 | 0 |
+| 20 | 7 | 0 | 0 | 1 | 12 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -64,8 +64,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-08 | Persistence model / schema-v11 preparation | DONE / OWNER ACCEPTED / MERGED | 02, 03, 05, 07 (merged) | 2026-10-11 |
 | R1A-09 | Legacy projection compatibility | DONE / OWNER ACCEPTED / MERGED | 05, 06 (merged) | 2026-10-11 |
 | R1A-10 | New Room backend/API contracts | DONE / OWNER ACCEPTED / MERGED | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
-| R1A-11 | Pixi renderer shell | REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING | 02 + 10 + 14 merged; atlas dependency resolved | 2026-10-11 |
-| R1A-12 | Camera, zoom and DPR behavior | TODO | 11 | 2026-10-09 |
+| R1A-11 | Pixi renderer shell | DONE / OWNER ACCEPTED / MERGED | 02 + 10 + 14 merged; atlas dependency resolved | 2026-10-11 |
+| R1A-12 | Camera, zoom and DPR behavior | REVIEW / OWNER ACCEPTED / MERGE PENDING | 11 (merged) | 2026-10-11 |
 | R1A-13 | Lighting zones and emitter hooks | TODO | 11, 02 | 2026-10-09 |
 | R1A-14 | Asset pipeline and atlas integration | DONE / OWNER ACCEPTED / MERGED | 01, 03, 11 shell merged; native Windows PASS | 2026-10-11 |
 | R1A-15 | Feature flag and old/new Room coexistence | TODO | 10, 11 (completion: 12, 13, 14) | 2026-10-09 |
@@ -202,27 +202,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-11 — Pixi renderer shell
 
-- **Status:** REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 02/10/14 merged; atlas completion dependency RESOLVED on integration `7b45af4`
 - **Branch:** closure verification `codex/r1a-11-closure`
 - **Start commit:** original shell `e3a031699b41f941d62bc754e4cb9c1819bdd67f`; closure baseline `7b45af4d94cd736390a1477e925e137698bc4aac`
-- **End commit:** closure record in this documentation change, integration pending; shell merged via PR #11, atlases via PR #12
+- **End commit:** closure PR #13 merge `cd328010a71f2cbcb1d0aee9f59ce925132447ae`; shell merged via PR #11, atlases via PR #12
 - **Evidence / tests:** STEP 131 fresh 423 frontend + 65 asset/bundle + 237 backend/API/security/Oracle cases PASS; 144 depth-ring cases / zero mismatches plus two supporting cases (subset, not additive). TypeScript/ESLint/build, exact API exports and ten import contracts PASS. Actual DPR-2 WebGL idle/walking/playback/arrival, clean console; screenshot outside Git. PR #12 native Windows evidence independently verified as historical CI.
-- **Notes:** All original shell completion criteria PASS; owner accepted / closure verified, not DONE until merge of closure record. Presentation-only, fixture-only, legacy default and simulation pin unchanged. Camera/lighting/live coexistence/final art/real devices remain separate gates.
-- **Last updated:** 2026-10-11 (STEP 132)
+- **Notes:** All original shell completion criteria PASS; owner accepted / closure verified and merged. Presentation-only, fixture-only, legacy default and simulation pin unchanged. Camera/lighting/live coexistence/final art/real devices remain separate gates.
+- **Last updated:** 2026-10-11 (STEP 134 baseline reconciliation)
 - **Detailed task plan:** [Formal closure matrix](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification)
 
 ### R1A-12 — Camera, zoom and DPR behavior
 
-- **Status:** TODO
-- **Dependencies:** 11
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Dependencies:** 11/14 merged
+- **Branch:** `codex/r1a-12-camera-zoom-dpr`
+- **Start commit:** `cd328010a71f2cbcb1d0aee9f59ce925132447ae`
+- **End commit:** accepted feature change; repository integration pending
+- **Evidence / tests:** STEP135 fresh focused461 Vitest /13 files, ESLint/TypeScript/production build PASS; earlier accepted511 Vitest /21 files PASS (88 new cases), 65 asset/bundle tests, 237 backend/API/security/Oracle/Harness regressions, ten import contracts, TypeScript/ESLint/build and exact API exports PASS. Existing 144 depth ring + two supporting cases preserved.
+- **Notes:** Owner-approved §O clarification; L13/L14 unchanged. Overview/Follow/Focus, 25% dead-zone, oversize Focus, integer device output, reduced-motion snap and accessible fallback implemented in fixture-only preview. STEP134B Playwright DPR1/1.25/1.5/2/3 × L1–L4 PASS; reduced-motion snap and first-frame live CDP DPR updates verified. Physical-device QA remains deferred. Product default remains UNDECIDED; no lighting/coexistence/production implementation.
+- **Last updated:** 2026-10-11 (STEP 135)
+- **Detailed task plan:** [Camera architecture and browser closure evidence](maple-room-r1a-12-camera-zoom-dpr.md)
 
 ### R1A-13 — Lighting zones and emitter hooks
 

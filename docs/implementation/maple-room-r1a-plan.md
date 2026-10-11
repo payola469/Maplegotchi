@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01–10 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #12 merge `7b45af4d94cd736390a1477e925e137698bc4aac` is the verified integration HEAD and includes PR #11 merge `f7e313cbe16992593d7f387450c9101d1b31f358`. R1A-11 REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING (STEP 132); atlas dependency RESOLVED on the merged tree. Historical PR #12 CI run `38144587116` passed all five jobs, including native Windows PNG/metadata/generated-index reproduction and frontend build. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10, legacy Room default, explicit development fixture preview only. STEP 132 owner acceptance authorizes the eight-file documentation commit, normal push, closure PR and CI inspection. No remaining R1A-11 blockers; closure record integration is pending. No merge, deployment, production access, schema-v11 activation or later-workstream implementation authorized. [Closure evidence](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification). Current counters: **11 DONE / 1 REVIEW / 8 TODO**. After closure PR merge: **R1A-11 DONE / OWNER ACCEPTED / CLOSURE VERIFIED; 12 DONE / 8 TODO / 60% complete**.
+**Status:** AUTHORIZED — R1A-01–11 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #13 closure merge `cd328010a71f2cbcb1d0aee9f59ce925132447ae` is the verified baseline; R1A-11 atlas dependency remains resolved. R1A-12 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 135): local camera implementation, automated gates and STEP134B five-DPR browser matrix PASS; reduced-motion and live CDP DPR timing verified. Physical-device/performance QA remains deferred. R1A-13 and R1A-15–20 TODO. Current counters: 20 total / 12 DONE / 1 REVIEW / 7 TODO. Production remains schema v10, legacy Room default and explicit development fixture preview only. STEP135 owner authorization covers reviewed commit, normal push, PR and CI inspection; no merge, deployment, Production access or later-workstream implementation authorized. Default zoom by form factor remains UNDECIDED. [Camera plan/evidence](maple-room-r1a-12-camera-zoom-dpr.md).
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 132 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. Current authorization includes the owner-accepted closure documentation commit, normal push, PR and CI inspection; no merge or production activation.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 135 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. Current authorization includes R1A-12 reviewed commit, normal push, PR and CI inspection; no merge or production activation.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -137,7 +137,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 **STEP 96 follow-up:** the five-cell Oracle reconciliation is authorized/completed; **76 affected tests passed**. [Detailed R1A-03 plan](maple-room-r1a-03-object-catalog.md) is DRAFT / BLOCKED pending the side-table slot approach override/variant policy. R1A-03 remains TODO; no catalog implementation has begun. This supersedes STEP 95's pending-Oracle gate, not its desk decision.
 
-**Historical STEP 97 status (superseded by current checklist):** REVIEW / PENDING OWNER ACCEPTANCE. Owner approved explicit slot approach/facing overrides; Stages B–E complete. Frozen catalog/instance metadata and isolated resource reader, 15 types/28 instances/17 points/12 slots, exact T3/T4/T5 equality and 510 focused tests PASS; strict mypy/Ruff/10 import contracts and wheel packaging/loading PASS. The preceding STEP 95/96 gate statements are historical, superseded by this resolution. No production wiring, later-workstream behavior or commit/push/merge. See [detailed plan](maple-room-r1a-03-object-catalog.md) and worklog.
+**Historical STEP 97 status (superseded by current checklist):** REVIEW / OWNER ACCEPTED / MERGE PENDING. Owner approved explicit slot approach/facing overrides; Stages B–E complete. Frozen catalog/instance metadata and isolated resource reader, 15 types/28 instances/17 points/12 slots, exact T3/T4/T5 equality and 510 focused tests PASS; strict mypy/Ruff/10 import contracts and wheel packaging/loading PASS. The preceding STEP 95/96 gate statements are historical, superseded by this resolution. No production wiring, later-workstream behavior or commit/push/merge. See [detailed plan](maple-room-r1a-03-object-catalog.md) and worklog.
 
 - **Objective:** the release-shipped object-type catalog and the initial-house instances, with capability, point and slot metadata.
 - **Scope:**
@@ -305,7 +305,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-11 — Pixi renderer shell
 
-- **Detailed plan / current evidence:** [R1A-11 closure matrix](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification), REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING. Atlas dependency RESOLVED on merged integration `7b45af4`; fresh renderer/atlas/full frontend, API/security, exports, import and browser gates PASS. No code corrections or remaining R1A-11 blockers; owner accepts the STEP 131 matrix, and integration of this documentation record remains pending. R1A-12/13/15 remain TODO.
+- **Detailed plan / current evidence:** [R1A-11 closure matrix](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification), DONE / OWNER ACCEPTED / MERGED. Closure PR #13 merged at `cd328010a71f2cbcb1d0aee9f59ce925132447ae`; earlier review/publication records retain their original context.
 
 - **Objective:** a new, flagged PixiJS room renderer that only draws backend (or fixture) data.
 - **Scope:**
@@ -327,6 +327,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (12, 13, 15, 19). **Blocks R1b:** no (R1b is backend cutover; the old view stays default), but it blocks the later B14 switch.
 
 ### R1A-12 — Camera, zoom and DPR behaviour
+
+- **Detailed plan / evidence:** [Camera, zoom and DPR](maple-room-r1a-12-camera-zoom-dpr.md), REVIEW / OWNER ACCEPTED / MERGE PENDING. STEP 134 CONTINUE clarifies only Spec §O Follow reference spans; L13/L14/L15 and house geometry unchanged. STEP134B closes the local fractional-DPR browser QA gap; R1A-15 handoff remains explicitly recorded.
 
 - **Objective:** implement the locked camera and pixel rules and the spec's oversize-Focus clarification.
 - **Scope:**

@@ -149,3 +149,36 @@ describe("Pixi scene lifecycle and structured coverage (recording renderer)", ()
     await expect(pending).rejects.toMatchObject({ name: "AbortError" }); expect(app().destroy).toHaveBeenCalledTimes(1); expect(s2.host.querySelector("canvas")).toBeNull();
   });
 });
+
+describe("R1A-12 camera scene integration", () => {
+  it.each([1, 1.25, 1.5, 2, 3])("applies DPR %s within the next single ticker render without a resize event", async (dpr) => {
+    const s = setup(), handle = await createWorldScene(s.host, s.options);
+    const callback = app().ticker.add.mock.calls[0]?.[0] as () => void;
+    vi.stubGlobal("devicePixelRatio", dpr); callback();
+    expect(app().renderer.resize).toHaveBeenLastCalledWith(Math.round(1000 * dpr), Math.round(600 * dpr));
+    const info = JSON.parse(s.host.dataset.camera ?? "{}");
+    expect(info.dpr).toBe(dpr); expect(Number.isInteger(info.x) && Number.isInteger(info.y) && Number.isInteger(info.zoom)).toBe(true);
+    handle.destroy(); callback(); expect(app().destroy).toHaveBeenCalledTimes(1);
+  });
+  it("switches modes/levels without remounting or changing supplied Maple position", async () => {
+    const s = setup(), handle = await createWorldScene(s.host, s.options), before = JSON.stringify(s.options.frame.world);
+    for (const mode of ["overview", "follow", "focus"] as const) for (const level of [1, 2, 3, 4] as const) {
+      handle.update({ ...s.options.frame, camera: { mode, level, regionId: "bedroom", reducedMotion: true } });
+      const info = JSON.parse(s.host.dataset.camera ?? "{}"); expect(info.mode).toBe(mode); if (mode === "follow") expect(info.level).toBe(level);
+    }
+    expect(record.apps).toHaveLength(1); expect(JSON.stringify(s.options.frame.world)).toBe(before); handle.destroy();
+  });
+  it("validates device boxes, pauses zero-size hosts, resumes, and handles missing targets", async () => {
+    const s = setup(), handle = await createWorldScene(s.host, s.options);
+    vi.stubGlobal("devicePixelRatio", 1.25);
+    const observer = record.observers[0];
+    observer?.callback([{ devicePixelContentBoxSize: [{ inlineSize: 1000, blockSize: 600 }] }] as unknown as ResizeObserverEntry[], {} as ResizeObserver);
+    expect(app().renderer.resize).toHaveBeenLastCalledWith(1250, 750);
+    const spy = vi.mocked(s.host.getBoundingClientRect); spy.mockReturnValue({ width: 0, height: 0 } as DOMRect);
+    handle.update(s.options.frame); expect(app().stage.children[0]?.visible).toBe(false);
+    spy.mockReturnValue({ width: 806, height: 484 } as DOMRect); handle.update(s.options.frame);
+    expect(app().stage.children[0]?.visible).toBe(true);
+    handle.update({ ...s.options.frame, camera: { mode: "focus", level: 2, regionId: "missing", reducedMotion: true } });
+    expect(app().stage.children[0]?.visible).toBe(false); handle.destroy();
+  });
+});
