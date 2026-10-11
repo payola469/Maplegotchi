@@ -1,5 +1,7 @@
 # R1A-11 — Pixi renderer shell
 
+**Current STEP 128 CONTINUE status (2026-10-11): REVIEW / PARTIAL.** Shell PR #11 merged at `f7e313cbe16992593d7f387450c9101d1b31f358`. Generated atlas loading, required keys, L19 lifecycle and renderer regressions now PASS locally; [R1A-14 evidence](maple-room-r1a-14-asset-pipeline.md) records 423 frontend cases, 65 asset cases, budget/release/browser checks and Windows-native pending gate. Atlas dependency is locally resolved. Formal acceptance, publication and CI/integration of atlas changes remain pending; neither workstream is DONE. The STEP 125/126 scope, authorization and evidence below are historical. R1A-12/13/15 are not implemented here.
+
 **Status:** OWNER ACCEPTED FOR PARTIAL INTEGRATION / STEP 126. **PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING.** Repository merge pending; checklist BLOCKED denotes the R1A-14 completion dependency, not rejection of this shell. Commit, normal push, PR and initial CI inspection authorized; no merge or production activation. R1A-11 remains PARTIAL even if this PR passes CI or is merged.
 **Baseline:** `e3a031699b41f941d62bc754e4cb9c1819bdd67f` — fetched integration HEAD, PR #10 merged.
 **Worktree/branch:** `r1a-11-pixi-renderer-shell/Maplegotchi`, `codex/r1a-11-pixi-renderer-shell`.

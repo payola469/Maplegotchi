@@ -1,0 +1,93 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "##",
+    "##",
+    "##"
+  ],
+  "canvas": [
+    32,
+    64
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        2,
+        1
+      ],
+      "capacity": 1,
+      "facing": "left",
+      "id": "sleep",
+      "occupy": [
+        16,
+        -10
+      ],
+      "occupy_direction": "up",
+      "pose": "lie_sleep",
+      "provides": [
+        "sleep_spot"
+      ]
+    }
+  ],
+  "catalog_slots": [],
+  "fallback": "furniture.bed_single",
+  "footprint": {
+    "h": 3,
+    "w": 2
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      32,
+      1
+    ],
+    [
+      32,
+      64
+    ],
+    [
+      0,
+      64
+    ]
+  ],
+  "id": "furniture.bed_single",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        64
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        64
+      ],
+      "part": "cover",
+      "sort": "above_occupant"
+    },
+    {
+      "anchor": [
+        16,
+        32
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

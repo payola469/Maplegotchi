@@ -1,0 +1,28 @@
+{
+  "art_revision": 1,
+  "canvas": [
+    16,
+    16
+  ],
+  "fallback": "wall.south",
+  "geometry_version": 1,
+  "id": "wall.south",
+  "kind": "tile",
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "role": "structural",
+  "states": [
+    "default"
+  ]
+}

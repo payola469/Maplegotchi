@@ -1,0 +1,700 @@
+{
+  "animations": {
+    "idle": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--idle.png",
+      "frames": 4,
+      "loop": "loop",
+      "ms": [
+        400,
+        400,
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "lie_sleep": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--lie_sleep.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "react_greet": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--react_greet.png",
+      "frames": 2,
+      "loop": "once",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "react_pet": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--react_pet.png",
+      "frames": 2,
+      "loop": "once",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "sit_idle": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--sit_idle.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "sit_monitor": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--sit_monitor.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "sit_read": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--sit_read.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "sit_rest": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--sit_rest.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "sit_write": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--sit_write.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "stand_read": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--stand_read.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "stand_think": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--stand_think.png",
+      "frames": 2,
+      "loop": "loop",
+      "ms": [
+        400,
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    },
+    "walk": {
+      "face_anchor": [
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            10,
+            12
+          ],
+          [
+            10,
+            13
+          ]
+        ],
+        [
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "file": "char.maple--walk.png",
+      "frames": 4,
+      "loop": "loop",
+      "ms": [
+        125,
+        125,
+        125,
+        125
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right",
+        "up"
+      ]
+    }
+  },
+  "art_revision": 1,
+  "canvas": [
+    32,
+    48
+  ],
+  "fallback": "char.maple",
+  "geometry_version": 1,
+  "id": "char.maple",
+  "kind": "character",
+  "orientations": [
+    "down",
+    "left",
+    "right",
+    "up"
+  ],
+  "pack": "character",
+  "parts": [
+    {
+      "anchor": [
+        16,
+        47
+      ],
+      "part": "base"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

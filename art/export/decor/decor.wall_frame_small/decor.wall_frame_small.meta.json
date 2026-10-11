@@ -1,0 +1,80 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "."
+  ],
+  "canvas": [
+    16,
+    16
+  ],
+  "catalog_points": [],
+  "catalog_slots": [
+    {
+      "accepts": [
+        "creation.flat"
+      ],
+      "approach": [
+        0,
+        3
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "artwork",
+      "maple_may_place": true,
+      "shares_point": null,
+      "status": "active"
+    }
+  ],
+  "fallback": "decor.wall_frame_small",
+  "footprint": {
+    "h": 1,
+    "w": 1
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      16,
+      16
+    ],
+    [
+      0,
+      16
+    ]
+  ],
+  "id": "decor.wall_frame_small",
+  "kind": "wall_object",
+  "mount_y_px": 28,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        16
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        8,
+        8
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

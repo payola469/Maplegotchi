@@ -117,7 +117,7 @@ An anchor `(ax, ay)` is given in frame pixel coordinates from the frame's top-le
 | Light sprite | Its source centre | per sprite |
 
 Rules that apply to every anchor:
-- The anchor is identical across all frames, states and parts of one orientation.
+- **Owner clarification, 2026-10-11 (STEP 128 CONTINUE):** base sprites, object-attached occupant-covering parts, emissive parts and ordinary furniture parts share the canonical object anchor. Only explicitly declared light-source-centre anchors (`light`) and floor-centre anchors (`shadow`) may differ. Every part retains its own stable anchor across frames and states for each orientation. These exceptions do not move or redefine the canonical object anchor; atlas trimming and rendering preserve each declared anchor. Independent asset kinds retain the kind-specific anchor rules above.
 - Animation never moves the anchor. Motion happens inside the frame.
 
 ### B.5 Object footprint rules (RULE)
@@ -412,7 +412,8 @@ Every asset ID ships one `<id>.meta.json`. Fields marked **E** are engine fields
 ```jsonc
 {"part": "base", "anchor": [0, 48], "sort_offset_px": 0, "layer": "entities"}
 {"part": "chair_back", "anchor": [0, 48], "sort": "above_occupant"}
-{"part": "light", "anchor": [24, 8], "layer": "light", "blend": "add"}
+{"part": "light", "anchor": [24, 8], "anchor_role": "light_source_center", "layer": "light", "blend": "add"}
+{"part": "shadow", "anchor": [24, 40], "anchor_role": "floor_center", "layer": "shadow"}
 {"part": "emissive", "anchor": [0, 48], "layer": "emissive"}
 ```
 
@@ -729,7 +730,7 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | E5 | Base and part layers use only master-palette colours | ⚙ |
 | E6 | Sheet size = frames × canvas_w by rows × canvas_h. No gutters or margins. | ⚙ |
 | E7 | 1 px transparent border per **C3**: full border on character body frames, slot items and fx; top row only on floor and wall-mounted objects; none on tiles, structural wall/door/window/backdrop pieces, shadow/light sprites and face overlays. Maple pixels lie inside the safe area. | ⚙ |
-| E8 | Anchor is identical across frames, states and parts. It lies inside the canvas. It is the feet point for Maple and the footprint SW corner for floor objects. | ⚙ (consistency) / manual (placement) |
+| E8 | Anchor is stable within each part across frames/states for a given orientation. Base, occupant-covering, emissive and ordinary object-attached parts share the canonical anchor; only explicitly declared light-source-centre and shadow floor-centre anchors may differ (STEP 128 CONTINUE). Each anchor is an integer pixel corner within inclusive canvas bounds; Maple keeps its feet anchor and floor objects their canonical footprint SW anchor. Trimming preserves every declared anchor. | ⚙ (consistency) / manual (placement) |
 | E9 | Footprint × T is consistent with the visible floor contact. The front edge sits on the footprint's south edge. | manual + ⚙ overlay render |
 | E10 | `blocks` has `footprint.h` rows of `footprint.w` characters | ⚙ |
 | E11 | Approach tiles lie outside blocking tiles. Occupy pose and direction exist in Maple's animation keys or fallbacks. | ⚙ |
@@ -796,3 +797,8 @@ Run this per delivery. Items marked ⚙ are checked automatically by the asset p
 | Room dimensions, door positions | UNDECIDED | Room Final Design Spec (the spike did not decide them) |
 | Real-device mobile acceptance | DEFERRED | B14 gate (ADR-0040 §4 item 5), before the default switch |
 | Linux atlas reproducibility | DEFERRED | R1a CI |
+
+
+### STEP 128 implementation pointer (2026-10-11)
+
+[R1A-14 evidence](../implementation/maple-room-r1a-14-asset-pipeline.md) records the local validator, deterministic packer and renderer integration implementing this contract with placeholder assets. Native Windows reproduction and owner acceptance remain pending; this does not certify final artwork or freeze provisional face dimensions. The narrow B.4/E8 light/shadow clarification above is owner-approved; no other locked value changes.

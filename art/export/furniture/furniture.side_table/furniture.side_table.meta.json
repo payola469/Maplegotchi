@@ -1,0 +1,80 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "#"
+  ],
+  "canvas": [
+    16,
+    32
+  ],
+  "catalog_points": [],
+  "catalog_slots": [
+    {
+      "accepts": [
+        "creation.small"
+      ],
+      "approach": [
+        0,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "top",
+      "maple_may_place": true,
+      "shares_point": null,
+      "status": "active"
+    }
+  ],
+  "fallback": "furniture.side_table",
+  "footprint": {
+    "h": 1,
+    "w": 1
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      16,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.side_table",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        8,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

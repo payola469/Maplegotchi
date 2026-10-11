@@ -180,3 +180,10 @@ exist" (FAIL) from "permission denied" (OWNER_CHECK): metadata of files inside
 the protected `/etc/maplegotchi`, `/data/maple` and polkit `rules.d` directories
 is confirmed by the owner with `sudo stat -c '%U:%G %a %n' …`, which the script
 prints with the exact expected output. Permissions are never loosened for it.
+
+
+## STEP 128 — Build-only atlas inputs
+
+`scripts/build_release.sh` archives `art/export`, `art/palette` and `.gitattributes` alongside its existing revision inputs. Frontend tooling validates these sources against the archived backend catalog, regenerates ignored atlases and lets Vite hash the PNG URLs. Runtime payload assembly still copies only backend source/config, `frontend/dist`, deployment tooling and companion packages; raw art/tooling is not installed or served. Installation paths, permissions and release semantics are unchanged.
+
+Local verification used a temporary-index tree archive (no commit/ref change), a fresh offline frozen-lockfile install/build and runtime-payload inspection. No generated developer output was inherited. This verifies the archive/build/payload boundary; the committed-revision release tarball command was not executed because this batch forbids committing. Shell syntax/ShellCheck PASS. [R1A-14 evidence](implementation/maple-room-r1a-14-asset-pipeline.md) records hashes and Windows-native pending status. No deployment is authorized.

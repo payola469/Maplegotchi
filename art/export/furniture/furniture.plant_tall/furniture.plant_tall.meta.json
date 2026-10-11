@@ -1,0 +1,81 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "#"
+  ],
+  "canvas": [
+    16,
+    32
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        0,
+        1
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "think",
+      "occupy": null,
+      "occupy_direction": "up",
+      "pose": "stand_think",
+      "provides": [
+        "plant",
+        "quiet_spot"
+      ]
+    }
+  ],
+  "catalog_slots": [],
+  "fallback": "furniture.plant_tall",
+  "footprint": {
+    "h": 1,
+    "w": 1
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      16,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "furniture.plant_tall",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        8,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "dev": "node tools/art/cli.mjs && vite",
+    "build": "node tools/art/cli.mjs && tsc --noEmit && vite build && node tools/art/bundle.mjs",
+    "typecheck": "node tools/art/cli.mjs && tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "node tools/art/cli.mjs && node --test tools/art/*.test.mjs && vitest run",
+    "assets:build": "node tools/art/cli.mjs",
+    "assets:test": "node --test tools/art/*.test.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.21.0",

@@ -1,0 +1,97 @@
+{
+  "animations": {
+    "face_calm": {
+      "file": "char.faces--face_calm.png",
+      "frames": 1,
+      "loop": "loop",
+      "ms": [
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right"
+      ]
+    },
+    "face_curious": {
+      "file": "char.faces--face_curious.png",
+      "frames": 1,
+      "loop": "loop",
+      "ms": [
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right"
+      ]
+    },
+    "face_focused": {
+      "file": "char.faces--face_focused.png",
+      "frames": 1,
+      "loop": "loop",
+      "ms": [
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right"
+      ]
+    },
+    "face_happy": {
+      "file": "char.faces--face_happy.png",
+      "frames": 1,
+      "loop": "loop",
+      "ms": [
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right"
+      ]
+    },
+    "face_sleepy": {
+      "file": "char.faces--face_sleepy.png",
+      "frames": 1,
+      "loop": "loop",
+      "ms": [
+        400
+      ],
+      "rows": [
+        "down",
+        "left",
+        "right"
+      ]
+    }
+  },
+  "art_revision": 1,
+  "canvas": [
+    12,
+    6
+  ],
+  "fallback": "char.faces",
+  "geometry_version": 1,
+  "id": "char.faces",
+  "kind": "character",
+  "orientations": [
+    "down",
+    "left",
+    "right"
+  ],
+  "pack": "character",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "role": "face_overlay",
+  "states": [
+    "default"
+  ]
+}

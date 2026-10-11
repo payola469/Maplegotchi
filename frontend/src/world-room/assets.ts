@@ -14,9 +14,9 @@ export interface ObjectArt {
   aboveOccupant?: Texture;
 }
 export interface RoomArt {
-  body(direction: CharacterDirection, frame: number): Texture;
-  face(expression: Expression): Texture;
-  faceAnchor(direction: CharacterDirection, frame: number): { x: number; y: number } | null;
+  body(direction: CharacterDirection, frame: number, pose?: string): Texture;
+  face(expression: Expression, direction?: CharacterDirection): Texture;
+  faceAnchor(direction: CharacterDirection, frame: number, pose?: string): { x: number; y: number } | null;
   object(type: WorldTypeOut, tileSize: number): ObjectArt | null;
   floor(variant: number): Texture;
   edge(mask: number): Texture;

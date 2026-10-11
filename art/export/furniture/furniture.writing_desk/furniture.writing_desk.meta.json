@@ -1,0 +1,109 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    "###",
+    "###"
+  ],
+  "canvas": [
+    48,
+    48
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        1,
+        2
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "chair",
+      "occupy": [
+        24,
+        -6
+      ],
+      "occupy_direction": "up",
+      "pose": "sit_write",
+      "provides": [
+        "writing_surface"
+      ]
+    }
+  ],
+  "catalog_slots": [
+    {
+      "accepts": [
+        "project.active",
+        "creation.small"
+      ],
+      "approach": [
+        1,
+        2
+      ],
+      "capacity": 2,
+      "facing": "up",
+      "id": "desktop",
+      "maple_may_place": true,
+      "shares_point": "chair",
+      "status": "active"
+    }
+  ],
+  "fallback": "furniture.writing_desk",
+  "footprint": {
+    "h": 2,
+    "w": 3
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      48,
+      1
+    ],
+    [
+      48,
+      48
+    ],
+    [
+      0,
+      48
+    ]
+  ],
+  "id": "furniture.writing_desk",
+  "kind": "floor_object",
+  "mount_y_px": null,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        48
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        48
+      ],
+      "part": "cover",
+      "sort": "above_occupant"
+    },
+    {
+      "anchor": [
+        24,
+        24
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

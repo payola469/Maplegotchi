@@ -1,0 +1,98 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    ".."
+  ],
+  "canvas": [
+    32,
+    32
+  ],
+  "catalog_points": [
+    {
+      "approach": [
+        1,
+        3
+      ],
+      "capacity": 1,
+      "facing": "up",
+      "id": "view",
+      "occupy": null,
+      "occupy_direction": "up",
+      "pose": "stand_think",
+      "provides": [
+        "window_view"
+      ]
+    }
+  ],
+  "catalog_slots": [],
+  "fallback": "window.north_2w",
+  "footprint": {
+    "h": 1,
+    "w": 2
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      32,
+      1
+    ],
+    [
+      32,
+      32
+    ],
+    [
+      0,
+      32
+    ]
+  ],
+  "id": "window.north_2w",
+  "kind": "wall_object",
+  "mount_y_px": 8,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        0,
+        32
+      ],
+      "layer": "emissive",
+      "part": "emissive"
+    },
+    {
+      "anchor": [
+        16,
+        16
+      ],
+      "anchor_role": "light_source_center",
+      "layer": "light",
+      "part": "light"
+    },
+    {
+      "anchor": [
+        16,
+        16
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "role": "structural",
+  "states": [
+    "default"
+  ]
+}

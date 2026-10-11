@@ -1,0 +1,25 @@
+{
+  "format": "RGBA8",
+  "mipmaps": false,
+  "staticBytes": 1572864,
+  "runtimeAllowanceBytes": 4194304,
+  "residentUpperBoundBytes": 5767168,
+  "realisticProjectionBytes": 1572864,
+  "budgetRuleBytes": 8388608,
+  "pages": [
+    {
+      "name": "character-0",
+      "pngSha256": "257d52e812ee058ffbb544efc479caa7856af7b0a47c48fe28572f9d1480696f",
+      "metadataSha256": "8776fdc50db20fd91246c05cef63c306c32af1a75129b44d0d043860e66ee6ee",
+      "bytes": 1048576
+    },
+    {
+      "name": "shared-0",
+      "pngSha256": "ec634d545d1af7dc4a1c53fe6c92462f4da820b0ff4cefc5b2c30077c36f77a3",
+      "metadataSha256": "1b50a5a357501708bf5fc90cec4da8c994ae47aaa24d61c1ce2ca9bb4c708192",
+      "bytes": 524288
+    }
+  ],
+  "frameCount": 193,
+  "indexSha256": "5ee8f05364b6a9f42c1a75d4ee2b2b219dbc5648d636413241115491a060e833"
+}

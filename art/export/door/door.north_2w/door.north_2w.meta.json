@@ -1,0 +1,28 @@
+{
+  "art_revision": 1,
+  "canvas": [
+    32,
+    48
+  ],
+  "fallback": "door.north_2w",
+  "geometry_version": 1,
+  "id": "door.north_2w",
+  "kind": "tile",
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "role": "structural",
+  "states": [
+    "default"
+  ]
+}

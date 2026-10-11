@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01–10 DONE / OWNER ACCEPTED / MERGED; PR #10 merge `e3a031699b41f941d62bc754e4cb9c1819bdd67f` fetched and verified. R1A-11 OWNER ACCEPTED FOR PARTIAL INTEGRATION (STEP 126): PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING; repository merge pending. Completion remains BLOCKED on R1A-14; R1A-12–20 TODO. Production remains schema v10 and legacy Room remains default. Only explicit development `?room=fixture` uses labeled checked-in synthetic data; no live API/SSE connection. Commit, normal push, PR and initial CI inspection authorized; no merge, deployment, production access, schema-v11 activation or R1A-14 implementation authorized.
+**Status:** AUTHORIZED — R1A-01–10 DONE / OWNER ACCEPTED / MERGED. PR #11 shell merge `f7e313cbe16992593d7f387450c9101d1b31f358` verified. R1A-11 REVIEW / PARTIAL; atlas dependency locally resolved in STEP 128 CONTINUE, formal acceptance/integration pending. R1A-14 REVIEW / INTEGRATION PENDING (STEP 129): owner accepts local evidence for commit/push/PR/CI; native Windows reproduction pending. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10; legacy Room remains default; explicit development `?room=fixture` only, no live API/SSE. STEP 129 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation. See [R1A-14 evidence](maple-room-r1a-14-asset-pipeline.md).
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 126 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. STEP 126 authorizes partial-shell commit, normal push, PR and initial CI inspection; no merge or production activation.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 129 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. Current authorization includes R1A-14 commit, normal push, PR and CI; no merge or production activation.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -305,7 +305,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-11 — Pixi renderer shell
 
-- **Detailed plan / current evidence:** [R1A-11 shell](maple-room-r1a-11-pixi-renderer-shell.md). Local shell review PASS / owner accepted for partial integration (STEP 126); workstream PARTIAL / completion BLOCKED on R1A-14. Repository merge pending; R1A-12/13/14/15 implementation not authorized.
+- **Detailed plan / current evidence:** [R1A-11 shell](maple-room-r1a-11-pixi-renderer-shell.md), REVIEW / PARTIAL. PR #11 shell merged at `f7e313c`; STEP 128 resolves its atlas dependency locally. Formal owner acceptance and atlas integration/CI remain pending; R1A-12/13/15 remain TODO.
 
 - **Objective:** a new, flagged PixiJS room renderer that only draws backend (or fixture) data.
 - **Scope:**
@@ -364,6 +364,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (15, 19). **Blocks R1b:** no.
 
 ### R1A-14 — Asset pipeline and atlas integration
+
+- **Current evidence:** [R1A-14 pipeline](maple-room-r1a-14-asset-pipeline.md), REVIEW / PARTIAL. Local validation, packing, atlas loading and release-style clean archive build PASS. Native Windows hash reproduction pending; no final artwork or production activation. R1A-18 owns independent Linux reproduction.
 
 - **Objective:** the production asset pipeline from `art/export/**` to hashed atlases, proven with placeholder art.
 - **Scope:**

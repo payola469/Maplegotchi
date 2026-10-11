@@ -27,7 +27,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
     let owned: WorldScene | null = null;
     void createScene(element, { frame: latest.current, catalog: fixtureCatalog, signal: controller.signal, onOverviewUnavailable: setUnavailable }).then((handle) => {
       if (controller.signal.aborted) { handle.destroy(); return; }
-      owned = handle; scene.current = handle; handle.update(latest.current); setStatus("Synthetic fixture renderer ready — placeholder art; atlas integration pending R1A-14.");
+      owned = handle; scene.current = handle; handle.update(latest.current); setStatus("Synthetic fixture renderer ready — packed placeholder atlases; owner acceptance pending.");
     }).catch(() => {
       if (!controller.signal.aborted) {
         owned?.destroy(); scene.current = null; controller.abort();
@@ -71,7 +71,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
       <p>{world.grid.width_tiles} × {world.grid.height_tiles} tiles; {world.regions.length} regions; {world.doors.length} doors; {world.objects.length} objects; {world.points.length} interaction points; {world.slots.length} slots; {world.walkable.length} backend walkable cells.</p>
       <p>Maple: {room?.id ?? "backend passage"}; {sample.facing}; {world.snapshot.maple.expression}; {sample.moving ? "walking" : "stationary"}; feet ({sample.x.toFixed(2)}, {sample.y.toFixed(2)}), frame {sample.moving ? sample.frame : 0}. Fixture time {new Date(timeMs).toISOString()}.</p>
       <ul>{world.regions.map((r) => <li key={r.id} aria-current={r.id === room?.id ? "location" : undefined}>{r.id} — {r.status}{r.id === room?.id ? " — Maple is here" : ""}</li>)}</ul>
-      <p>Placeholder sprites, face size and palette are provisional. Final art/atlases, camera modes, lighting and interaction behavior remain separate workstreams.</p>
+      <p>Placeholder sprites, face size and palette are provisional. Final production art, camera modes, lighting and interaction behavior remain separate workstreams.</p>
     </section>
   </main>;
 }

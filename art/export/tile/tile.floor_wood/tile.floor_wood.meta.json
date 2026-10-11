@@ -1,0 +1,31 @@
+{
+  "art_revision": 1,
+  "canvas": [
+    16,
+    16
+  ],
+  "fallback": "tile.floor_wood",
+  "geometry_version": 1,
+  "id": "tile.floor_wood",
+  "kind": "tile",
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        0
+      ],
+      "part": "base"
+    }
+  ],
+  "states": [
+    "default"
+  ],
+  "tiles": {
+    "columns": 4,
+    "rows": 1
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "art_revision": 1,
+  "blocks": [
+    ".."
+  ],
+  "canvas": [
+    32,
+    16
+  ],
+  "catalog_points": [],
+  "catalog_slots": [
+    {
+      "accepts": [
+        "project.card"
+      ],
+      "approach": [
+        0,
+        3
+      ],
+      "capacity": 4,
+      "facing": "up",
+      "id": "cards",
+      "maple_may_place": false,
+      "shares_point": null,
+      "status": "hook (planned projects)"
+    }
+  ],
+  "fallback": "decor.project_board",
+  "footprint": {
+    "h": 1,
+    "w": 2
+  },
+  "geometry_version": 1,
+  "hit": [
+    [
+      0,
+      1
+    ],
+    [
+      32,
+      1
+    ],
+    [
+      32,
+      16
+    ],
+    [
+      0,
+      16
+    ]
+  ],
+  "id": "decor.project_board",
+  "kind": "wall_object",
+  "mount_y_px": 28,
+  "orientations": [
+    "south"
+  ],
+  "pack": "shared",
+  "parts": [
+    {
+      "anchor": [
+        0,
+        16
+      ],
+      "part": "base"
+    },
+    {
+      "anchor": [
+        16,
+        8
+      ],
+      "anchor_role": "floor_center",
+      "layer": "shadow",
+      "part": "shadow"
+    }
+  ],
+  "states": [
+    "default"
+  ]
+}

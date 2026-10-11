@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import preact from "@preact/preset-vite";
 import { defineConfig } from "vitest/config";
 
@@ -5,7 +7,15 @@ import { defineConfig } from "vitest/config";
 // In development, Vite proxies /api to the local backend. Both bind to localhost only.
 // Dev backend port 8470 is documented in CLAUDE.md §5 ("Dev ports") and README.md.
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [preact(), {
+    name: "maple-processed-atlases",
+    apply: "build",
+    generateBundle() {
+      // Build input only: production keeps legacy Room, but ships processed hashed pages.
+      const directory = resolve("src/world-room/generated");
+      for (const name of readdirSync(directory).filter((n) => n.endsWith(".png")).sort()) this.emitFile({ type: "asset", name, source: readFileSync(resolve(directory, name)) });
+    },
+  }],
   server: {
     host: "127.0.0.1",
     // Development preview imports only the accepted fixture handoff outside frontend/.
