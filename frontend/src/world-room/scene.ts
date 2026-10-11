@@ -1,5 +1,5 @@
 import "pixi.js/unsafe-eval";
-import { Application, Container, Sprite } from "pixi.js";
+import { Application, Container, Graphics, Sprite } from "pixi.js";
 import type { WorldCatalogOut, WorldOut } from "../api/world.generated";
 import { MAPLE_ART } from "./assets";
 import { loadAtlasArt, type AtlasArt } from "./atlas";
@@ -8,6 +8,8 @@ import { actorSample, depth, floorEdge, floorVariant, LAYERS, mapleSouthEdge, ob
 
 import { backingSize, cameraView, type CameraRequest, type CameraView } from "./camera";
 
+import { lightingZones, lightingHooks, phaseLighting, hookAlpha, type LightingPresets } from "./lighting";
+
 export interface SceneFrame { world: WorldOut; timeMs: number; camera?: CameraRequest }
 export interface WorldScene {
   update(frame: SceneFrame): void;
@@ -15,6 +17,7 @@ export interface WorldScene {
 }
 export interface SceneOptions {
   catalog: WorldCatalogOut;
+  lightingPresets?: LightingPresets;
   frame: SceneFrame;
   signal: AbortSignal;
   onOverviewUnavailable(value: boolean): void;
@@ -107,6 +110,16 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       const arch = new Sprite(ownedArt.structural("door.north_2w")); arch.position.set(r.x * t, r.y * t); layers.walls_back.addChild(arch);
       if (door.state === "closed") { const closedLeaf = new Sprite(ownedArt.structural("door.closed")); closedLeaf.position.copyFrom(arch.position); layers.walls_back.addChild(closedLeaf); }
     }
+    const zones = lightingZones(world);
+    const tints = zones.map((zone) => {
+      const b = zone.bounds;
+      const graphic = new Graphics({ label: `zone:${zone.region_id}` });
+      graphic.rect(b.x * t, b.y * t, b.w * t, b.h * t).fill(0xffffff);
+      graphic.blendMode = "multiply"; layers.light_multiply.addChild(graphic);
+      return { zone, graphic };
+    });
+    const hooks = lightingHooks(world, options.catalog);
+    const emitters: { hook: typeof hooks[number]; sprite: Sprite }[] = [];
     const objectDepths = new Map<string, number>();
     for (const object of world.objects) {
       const type = options.catalog.types.find((value) => value.id === object.type_id);
@@ -131,6 +144,15 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       sprite.zIndex = depth(south, PRIORITY.furniture);
       const flat = type.surface === "floor" && type.blocks.every((row) => !row.includes("#"));
       (type.surface === "north_band" ? layers.walls_back : flat ? layers.floor_decals : layers.entities).addChild(sprite);
+      for (const hook of hooks.filter((h) => h.sourceId === object.id)) {
+        const image = ownedArt.part(hook.artId, hook.part);
+        const centre = ownedArt.partPosition(hook.artId, hook.part, object.origin.tx * t, anchorY);
+        const light = new Sprite(image.texture); light.label = `${hook.kind}:${hook.sourceId}`;
+        light.position.set(centre.x - image.anchor.x, centre.y - image.anchor.y);
+        light.blendMode = hook.part === "light" ? "add" : "normal";
+        (hook.part === "light" ? layers.light_add : layers.emissive).addChild(light);
+        emitters.push({ hook, sprite: light });
+      }
       if (part.aboveOccupant) {
         const overlay = new Sprite(part.aboveOccupant); overlay.position.copyFrom(sprite.position);
         overlay.zIndex = depth(south, PRIORITY.above_occupant); layers.entities.addChild(overlay);
@@ -143,6 +165,7 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
     let current = options.frame;
     let deviceBox: { inlineSize: number; blockSize: number } | undefined;
     let previous = "", view: CameraView | undefined;
+    let lastPhase = "";
     let viewHidden: boolean | undefined;
     app.canvas.setAttribute("aria-hidden", "true");
     app.canvas.classList.add("world-preview__canvas");
@@ -159,6 +182,18 @@ export const createWorldScene: CreateWorldScene = async (host, options) => {
       const size = backingSize(css.width, css.height, dpr, deviceBox);
       const key = `${size.width}/${size.height}/${dpr}`;
       if (key !== previous) { previous = key; app.renderer.resize(size.width, size.height); }
+      const phase = current.world.snapshot.day_phase;
+      if (phase !== lastPhase) {
+        const preset = phaseLighting(phase, options.lightingPresets);
+        for (const { zone, graphic } of tints) {
+          const room = world.regions.find((r) => r.id === zone.region_id);
+          const artificial = room?.status === "closed" || !hooks.some((h) => h.regionId === zone.region_id && h.kind === "daylight");
+          graphic.tint = artificial ? preset.artificialTint : preset.tint;
+        }
+        for (const { hook, sprite } of emitters) sprite.alpha = hookAlpha(hook, preset);
+        lastPhase = phase;
+        host.dataset.lighting = JSON.stringify({ phase, zones: zones.length, cells: world.grid.width_tiles * world.grid.height_tiles, hooks: emitters.map(({hook,sprite}) => ({...hook,x:sprite.x,y:sprite.y,alpha:sprite.alpha})) });
+      }
       const sample = actorSample(current.world, current.timeMs);
       const request = current.camera ?? { mode: "overview", level: 1, regionId: "", reducedMotion: true };
       const missing = request.mode === "focus" && !world.regions.some((r) => r.id === request.regionId);

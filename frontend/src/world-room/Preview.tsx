@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useReducedMotion } from "../ui/hooks";
 import { fixtureCatalog, fixtureWorlds } from "./fixtures";
 import { currentRegion, type CameraMode, type CameraRequest, type LogicalZoom } from "./camera";
+import { DAY_PHASES } from "./lighting";
+import type { DayPhase } from "../api/world.generated";
 import { actorSample } from "./presentation";
 import type { CreateWorldScene, WorldScene } from "./scene";
 import "./preview.css";
@@ -11,7 +13,9 @@ export const PREVIEW_FOLLOW_LEVEL: LogicalZoom = 2;
 const defaultScene: CreateWorldScene = async (host, options) => (await import("./scene")).createWorldScene(host, options);
 export function WorldPreview({ createScene = defaultScene }: { createScene?: CreateWorldScene }) {
   const [scenario, setScenario] = useState<"idle" | "walking">("idle");
-  const world = fixtureWorlds[scenario];
+  const [phase, setPhase] = useState<DayPhase>(fixtureWorlds.idle.snapshot.day_phase);
+  const sourceWorld = fixtureWorlds[scenario];
+  const world = useMemo(() => ({ ...sourceWorld, snapshot: { ...sourceWorld.snapshot, day_phase: phase } }), [sourceWorld, phase]);
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState("Loading fixture renderer…");
@@ -65,6 +69,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
     <p class="world-preview__disclosure"><strong>FIXTURE / DEMO DATA — not live Maple.</strong> Checked-in R1A-10 synthetic data only. No API, database or SSE connection.</p>
     <nav><a href="/">Return to legacy Room</a></nav>
     <fieldset><legend>Deterministic fixture controls (DOM)</legend>
+      <label>Fixture lighting phase (provisional) <select value={phase} onChange={(e) => setPhase(e.currentTarget.value as DayPhase)}>{DAY_PHASES.map((p) => <option value={p} key={p}>{p}</option>)}</select></label>
       <label>Scenario <select value={scenario} onChange={(e) => { setScenario(e.currentTarget.value as "idle" | "walking"); setElapsed(0); setPlaying(false); }}><option value="idle">Idle</option><option value="walking">Walking</option></select></label>
       <label>Route time (milliseconds) <input type="range" min="0" max={duration} step="1" value={elapsed} disabled={!route} onInput={(e) => { setElapsed(Number(e.currentTarget.value)); setPlaying(false); }} /></label>
       <button type="button" disabled={!route || reduced || elapsed >= duration} onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play fixture route"}</button>
@@ -88,7 +93,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
     <section aria-label="Accessible fixture description">
       <h2>Canonical house fixture</h2>
       <p>{world.grid.width_tiles} × {world.grid.height_tiles} tiles; {world.regions.length} regions; {world.doors.length} doors; {world.objects.length} objects; {world.points.length} interaction points; {world.slots.length} slots; {world.walkable.length} backend walkable cells.</p>
-      <p>Maple: {room?.id ?? "backend passage"}; {sample.facing}; {world.snapshot.maple.expression}; {sample.moving ? "walking" : "stationary"}; feet ({sample.x.toFixed(2)}, {sample.y.toFixed(2)}), frame {sample.moving ? sample.frame : 0}. Fixture time {new Date(timeMs).toISOString()}.</p>
+      <p>Maple: {room?.id ?? "backend passage"}; {sample.facing}; {world.snapshot.maple.expression}; {sample.moving ? "walking" : "stationary"}; feet ({sample.x.toFixed(2)}, {sample.y.toFixed(2)}), frame {sample.moving ? sample.frame : 0}. Fixture time {new Date(timeMs).toISOString()}. Synthetic lighting phase {phase}; provisional presets.</p>
       <p>Placeholder sprites, face size and palette are provisional. Final production art, lighting and interaction behavior remain separate workstreams.</p>
     </section>
   </main>;

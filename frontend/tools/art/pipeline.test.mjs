@@ -105,3 +105,25 @@ test('clean rebuild matches macOS reference PNG, metadata AND generated-index ha
 test('declared art display anchor names a real host slot and stays in its canvas', () => validateDisplayAnchors({ id: 'fixture.slot', canvas: [48, 48], catalog_slots: [{ id: 'desktop' }], display_anchors: { desktop: [12, 18] } }));
 test('unknown host slot display anchor is rejected', () => assert.throws(() => validateDisplayAnchors({ id: 'fixture.slot', canvas: [48, 48], catalog_slots: [], display_anchors: { missing: [12, 18] } }), /S17/));
 test('out-of-canvas display anchor is rejected', () => assert.throws(() => validateDisplayAnchors({ id: 'fixture.slot', canvas: [48, 48], catalog_slots: [{ id: 'desktop' }], display_anchors: { desktop: [49, 18] } }), /E8/));
+
+test('R1A-13 placeholder recolor preserves geometry/alpha and uses approved palette colors', () => {
+  const palette = readFileSync(join(root, 'art/palette/maple-master.hex'), 'utf8').trim().split(/\s+/);
+  assert.equal(palette[1], '#8b715b'); assert.equal(palette[0], '#493e38');
+  for (const file of readdirSync(join(root, 'art/export/char/char.maple')).filter((f) => f.endsWith('.png'))) {
+    const image = decodePNG(readFileSync(join(root, 'art/export/char/char.maple', file)));
+    let skin = 0, shirt = 0;
+    for (let row = 0; row < 4; row++) for (let frame = 0; frame < image.width / 32; frame++) {
+      const pixel = (x, y) => [...image.pixels.subarray(((row * 48 + y) * image.width + frame * 32 + x) * 4, ((row * 48 + y) * image.width + frame * 32 + x) * 4 + 4)];
+      assert.deepEqual(pixel(14, 11 + frame % 2), [139, 113, 91, 255]); skin++;
+      assert.deepEqual(pixel(10, 27 + frame % 2), [73, 62, 56, 255]); shirt++;
+      assert.deepEqual(pixel(8, 4 + frame % 2), [0, 0, 0, 255]);
+      assert.deepEqual(pixel(12, 42), [73, 62, 56, 255]);
+      assert.deepEqual(pixel(0, 0), [0, 0, 0, 0]);
+    }
+    assert.ok(skin > 0 && shirt > 0);
+    for (let i = 0; i < image.pixels.length; i += 4) {
+      assert.notDeepEqual([...image.pixels.subarray(i, i + 3)], [235, 196, 155]);
+      assert.notDeepEqual([...image.pixels.subarray(i, i + 3)], [114, 148, 130]);
+    }
+  }
+});
