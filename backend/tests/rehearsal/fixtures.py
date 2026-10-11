@@ -61,13 +61,20 @@ class SyntheticLife:
         return guarded(self).data_dir
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Owned:
     handle: SyntheticLife
     root: Path
     data_dir: DataDir
     conn: sqlite3.Connection
     identity: tuple[int, int]
+    closed: bool = False
+
+    def close(self) -> None:
+        """The fixture owner releases its source once, including early test release."""
+        if not self.closed:
+            self.conn.close()
+            self.closed = True
 
 
 _LIVE: dict[int, Owned] = {}
@@ -88,8 +95,11 @@ def guarded(handle: SyntheticLife) -> Owned:
         or path.resolve() != path
         or info.st_nlink != 1
         or (info.st_dev, info.st_ino) != owned.identity
-        or owned.conn.execute("PRAGMA database_list").fetchone()[2] != str(path)
     ):
+        raise ValueError("synthetic database ownership/path changed")
+    if owned.closed:
+        raise ValueError("synthetic source connection is closed")
+    if owned.conn.execute("PRAGMA database_list").fetchone()[2] != str(path):
         raise ValueError("synthetic database ownership/path changed")
     return owned
 
@@ -122,9 +132,12 @@ def synthetic_life(scenario: Scenario = DEFAULT_SCENARIO) -> Iterator[SyntheticL
             runtime.close()
         path = root / "maple.db"
         path.chmod(0o600)
+        info = path.stat()
+        handle = SyntheticLife(object())
         conn = sqlite3.connect(path, isolation_level=None)
-        conn.execute("PRAGMA foreign_keys = ON")
+        owned = Owned(handle, root, data_dir, conn, (info.st_dev, info.st_ino))
         try:
+            conn.execute("PRAGMA foreign_keys = ON")
             repo = LifeRepository(conn)
             source = repo.load()
             state = source.state
@@ -192,12 +205,10 @@ def synthetic_life(scenario: Scenario = DEFAULT_SCENARIO) -> Iterator[SyntheticL
                 )
                 # Preserve high-water marks even when they exceed current IDs.
                 conn.execute("UPDATE sqlite_sequence SET seq=seq+11")
-            info = path.stat()
-            handle = SyntheticLife(object())
-            _LIVE[id(handle)] = Owned(handle, root, data_dir, conn, (info.st_dev, info.st_ino))
+            _LIVE[id(handle)] = owned
             try:
                 yield handle
             finally:
                 del _LIVE[id(handle)]
         finally:
-            conn.close()
+            owned.close()

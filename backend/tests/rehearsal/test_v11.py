@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import sqlite3
 import sys
+from contextlib import closing
 from dataclasses import FrozenInstanceError
 from datetime import timedelta
 from pathlib import Path
@@ -33,8 +34,8 @@ from maplegotchi.storage.migrations import (
 )
 from maplegotchi.storage.repositories import LifeRepository
 from tests.persistence_support import BIRTH, open_runtime
-from tests.rehearsal import v11
-from tests.rehearsal.fixtures import Scenario, SyntheticLife, synthetic_life
+from tests.rehearsal import fixtures, v11
+from tests.rehearsal.fixtures import Scenario, SyntheticLife, guarded, synthetic_life
 from tests.rehearsal.v11 import Failure, capture, load_candidate, rehearse, state_row
 
 AT = BIRTH + timedelta(days=90)
@@ -120,7 +121,7 @@ def test_round_trip_preserves_every_row_and_continuity(scenario: Scenario) -> No
         else:
             assert candidate.travel is None
         backup_path = life.data_dir.path(result.backup)
-        with sqlite3.connect(backup_path) as backup:
+        with closing(sqlite3.connect(backup_path)) as backup:
             assert schema_version(backup) == 10
             assert capture(backup) == before
             assert backup.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
@@ -165,7 +166,7 @@ def test_atomic_rollback_and_usable_v10(failure: Failure, kind: str) -> None:
             assert not backups
         else:
             assert len(backups) == 1
-            with sqlite3.connect(backups[0]) as backup:
+            with closing(sqlite3.connect(backups[0])) as backup:
                 assert capture(backup) == before
         runtime = open_runtime(life.data_dir, FakeClock(source.state.last_updated_at))
         runtime.close()
@@ -356,9 +357,13 @@ def test_expired_handle_and_connections_rejected() -> None:
 def test_path_replacement_rejected() -> None:
     with synthetic_life() as life:
         path = life.data_dir.root / "maple.db"
+        owned = guarded(life)
+        owned.close()
+        with pytest.raises(ValueError, match="connection is closed"):
+            guarded(life)
         path.rename(path.with_suffix(".original"))
         path.write_bytes(b"not a database")
-        with pytest.raises(ValueError, match="changed"):
+        with pytest.raises(ValueError, match="ownership/path changed"):
             rehearse(life, AT)
 
 
@@ -510,3 +515,71 @@ def test_fixture_factory_rejects_external_path(value: object) -> None:
     with pytest.raises(ValueError, match="no paths"):
         with synthetic_life(cast(Scenario, value)):
             pytest.fail("external path was accepted")
+
+
+class TrackedConnection(sqlite3.Connection):
+    close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
+        super().close()
+
+
+@pytest.mark.parametrize("exit_path", ("normal", "exception", "rollback", "release", "setup"))
+def test_owned_connections_close_once_on_every_exit(
+    monkeypatch: pytest.MonkeyPatch, exit_path: str
+) -> None:
+    connections: list[TrackedConnection] = []
+    connect = sqlite3.connect
+
+    def tracked_connect(*args: Any, **kwargs: Any) -> TrackedConnection:
+        kwargs["factory"] = TrackedConnection
+        conn = cast(TrackedConnection, connect(*args, **kwargs))
+        connections.append(conn)
+        return conn
+
+    def fail_setup(*args: object, **kwargs: object) -> Never:
+        raise ValueError("injected fixture setup failure")
+
+    monkeypatch.setattr(sqlite3, "connect", tracked_connect)
+    # Retain handles from the actual two reader call sites that failed Windows CI.
+    if exit_path == "normal":
+        test_round_trip_preserves_every_row_and_continuity(Scenario())
+    elif exit_path == "rollback":
+        test_atomic_rollback_and_usable_v10(Failure.CONVERSION, "fresh")
+    if exit_path == "setup":
+        monkeypatch.setattr(fixtures, "LifeRepository", fail_setup)
+    root: Path | None = None
+    try:
+        with synthetic_life() as life:
+            root = life.data_dir.root
+            source = life.conn
+            if exit_path == "release":
+                guarded(life).close()
+            else:
+                if exit_path == "rollback":
+                    with pytest.raises(MigrationError):
+                        rehearse(life, AT, Failure.CONVERSION)
+                    backup_path = next(root.glob("pre-migration/*.db"))
+                else:
+                    result = rehearse(life, AT)
+                    # Candidate loader borrows the source; it must never close it.
+                    load_candidate(life)
+                    source.execute("SELECT 1")
+                    backup_path = life.data_dir.path(result.backup)
+                with closing(sqlite3.connect(backup_path)) as backup:
+                    assert schema_version(backup) == 10
+                    if exit_path == "exception":
+                        raise ValueError("injected backup verification failure")
+    except ValueError as exc:
+        assert exit_path in {"exception", "setup"}
+        assert "injected" in str(exc)
+    else:
+        assert exit_path not in {"exception", "setup"}
+    assert connections
+    for conn in connections:
+        assert conn.close_calls == 1
+        with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+            conn.execute("SELECT 1")
+    if root is not None:
+        assert not root.exists()
