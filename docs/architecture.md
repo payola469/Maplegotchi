@@ -3,9 +3,11 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 115, 2026-10-11)
+## R1A current repository status (STEP 120, 2026-10-11)
 
-R1A-01–07 DONE / OWNER ACCEPTED / MERGED; PR #7 merge `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` fetched and verified. R1A-08 REVIEW / PENDING OWNER ACCEPTANCE (STEP 115); R1A-09–20 TODO. Synthetic-only, unshipped v11 preparation; shipped startup/schema remain v10. No publication or production activation authorized.
+R1A-01–08 DONE / OWNER ACCEPTED / MERGED; PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13` fetched and verified. R1A-09 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 120); R1A-10–20 TODO. Projection is explicit development/fixture-only; shipped startup/schema remain v10 and Production emits native legacy state. STEP 120 authorizes commit, normal push, PR and CI inspection only; no merge or production activation.
+
+Pure `core/world/legacy_projection.py` accepts explicit immutable development/fixture facts only. T7/S14 reuse existing anchors and the legacy graph with exact canonical travel times; unchanged presentation facts pass through by identity. Unmappable collapsed/mid-edge routes reject explicitly; no invented paths or fallback anchors. See [R1A-09 plan and evidence](implementation/maple-room-r1a-09-legacy-projection.md). There are no production callers. STEP 120 accepts these limitations and defers old-view expansion; R1b must explicitly validate a safe, truthful integration strategy before production cutover uses the projection. The detailed plan tracks this pre-cutover gate.
 
 Existing pure world, resolver and placement contracts remain unchanged.
 The candidate v11 converter, synthetic fixtures and invariant loader live entirely

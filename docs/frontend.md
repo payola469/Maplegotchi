@@ -11,6 +11,10 @@ bubble, and countdown text.
 Stack: TypeScript, Vite, Preact for DOM, PixiJS 8 for the room canvas only
 (ADR 0002).
 
+## R1A-09 isolated compatibility preparation (STEP 119)
+
+The backend now has an explicit development/fixture-only pure [legacy projection](implementation/maple-room-r1a-09-legacy-projection.md), owner accepted / merge pending (STEP 120). Production continues emitting its native legacy snapshot. No API/SSE, anchors, `toVisual`, `routeFrame`, fallback walker or default renderer wiring changed. Projection preserves caller-supplied pose classes as metadata; it does not claim that this existing activity-derived renderer can display new classes such as `sit_read`. Collapsed-anchor and unmappable mid-edge walks reject explicitly rather than inventing movement. The owner accepts the 40 collapsed-anchor pair rejections and ambiguous mid-edge rejection and prioritizes the new Room. Old-view compatibility expansion is deferred. Before R1b uses the projection, an explicitly validated integration strategy must prevent unsafe or misleading behavior; the linked plan tracks that pre-cutover concern. No new compatibility implementation is authorized.
+
 ## Layout
 
 ```

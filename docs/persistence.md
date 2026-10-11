@@ -6,8 +6,8 @@ The one FIXED decision added in this phase is D18 (see *External databases*).
 
 ## R1A-08 synthetic candidate v11 (STEP 115; NOT SHIPPED)
 
-REVIEW / PENDING OWNER ACCEPTANCE. Production-compatible startup and the shipped
-migration registry still require v10. Only `backend/tests/rehearsal/` implements
+DONE / OWNER ACCEPTED / MERGED (STEP 119 reconciliation; PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13`).
+Production-compatible startup and the shipped migration registry still require v10. Only `backend/tests/rehearsal/` implements
 the proposed v11 tables, converter and loader; it is excluded from the wheel.
 Its entry point requires a registered live synthetic handle from a factory that
 births a fresh private temporary life. No existing database/path is accepted.
