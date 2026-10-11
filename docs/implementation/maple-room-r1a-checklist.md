@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–10 DONE / OWNER ACCEPTED / MERGED. PR #11 shell merge `f7e313cbe16992593d7f387450c9101d1b31f358` verified. R1A-11 REVIEW / PARTIAL; atlas dependency locally resolved in STEP 128 CONTINUE, formal acceptance/integration pending. R1A-14 REVIEW / INTEGRATION PENDING (STEP 129): owner accepts local evidence for commit/push/PR/CI; native Windows reproduction pending. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10; legacy Room remains default; explicit development `?room=fixture` only, no live API/SSE. STEP 129 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation. See [R1A-14 evidence](maple-room-r1a-14-asset-pipeline.md).
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–10 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #12 merge `7b45af4d94cd736390a1477e925e137698bc4aac` is the verified integration HEAD and includes PR #11 merge `f7e313cbe16992593d7f387450c9101d1b31f358`. R1A-11 REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING (STEP 132); atlas dependency RESOLVED on the merged tree. Historical PR #12 CI run `38144587116` passed all five jobs, including native Windows PNG/metadata/generated-index reproduction and frontend build. R1A-12/13 and R1A-15–20 TODO. Production remains schema v10, legacy Room default, explicit development fixture preview only. STEP 132 owner acceptance authorizes the eight-file documentation commit, normal push, closure PR and CI inspection. No remaining R1A-11 blockers; closure record integration is pending. No merge, deployment, production access, schema-v11 activation or later-workstream implementation authorized. [Closure evidence](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification). Current counters: **11 DONE / 1 REVIEW / 8 TODO**. After closure PR merge: **R1A-11 DONE / OWNER ACCEPTED / CLOSURE VERIFIED; 12 DONE / 8 TODO / 60% complete**.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 8 | 0 | 0 | 2 | 10 | 0 |
+| 20 | 8 | 0 | 0 | 1 | 11 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -64,10 +64,10 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-08 | Persistence model / schema-v11 preparation | DONE / OWNER ACCEPTED / MERGED | 02, 03, 05, 07 (merged) | 2026-10-11 |
 | R1A-09 | Legacy projection compatibility | DONE / OWNER ACCEPTED / MERGED | 05, 06 (merged) | 2026-10-11 |
 | R1A-10 | New Room backend/API contracts | DONE / OWNER ACCEPTED / MERGED | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
-| R1A-11 | Pixi renderer shell | REVIEW / PARTIAL | 02 + 10 merged; 14 atlas dependency locally resolved | 2026-10-11 |
+| R1A-11 | Pixi renderer shell | REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING | 02 + 10 + 14 merged; atlas dependency resolved | 2026-10-11 |
 | R1A-12 | Camera, zoom and DPR behavior | TODO | 11 | 2026-10-09 |
 | R1A-13 | Lighting zones and emitter hooks | TODO | 11, 02 | 2026-10-09 |
-| R1A-14 | Asset pipeline and atlas integration | REVIEW / INTEGRATION PENDING | 01, 03, 11 shell merged; native Windows pending | 2026-10-11 |
+| R1A-14 | Asset pipeline and atlas integration | DONE / OWNER ACCEPTED / MERGED | 01, 03, 11 shell merged; native Windows PASS | 2026-10-11 |
 | R1A-15 | Feature flag and old/new Room coexistence | TODO | 10, 11 (completion: 12, 13, 14) | 2026-10-09 |
 | R1A-16 | Validators and property tests | TODO | 01 (continuous; completion: 02-14) | 2026-10-09 |
 | R1A-17 | Fixtures and simulation coverage | TODO | 01 (continuous; completion: 02-15 as needed) | 2026-10-09 |
@@ -202,15 +202,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-11 — Pixi renderer shell
 
-- **Status:** REVIEW / PARTIAL — atlas dependency locally resolved; formal owner acceptance and atlas integration pending
-- **Dependencies:** 02/10 merged; 14 local evidence PASS, native Windows reproduction pending
-- **Branch:** shell `codex/r1a-11-pixi-renderer-shell`; current atlas work `codex/r1a-14-asset-pipeline`
-- **Start commit:** `e3a031699b41f941d62bc754e4cb9c1819bdd67f`
-- **End commit:** shell merge `f7e313cbe16992593d7f387450c9101d1b31f358`; atlas changes uncommitted
-- **Evidence / tests:** STEP 125/126 evidence retained in detailed plan. STEP 128: 423 frontend cases PASS, including unchanged 144-case L11 ring and six atlas cases; 65 offline asset cases, 367 backend regressions, ten import contracts PASS. Actual WebGL idle/walking and 390/820 px emulation checked; clean console, screenshots outside Git.
-- **Notes:** Required keys load from generated atlases with L19/trim/anchor/lifecycle tests. Fixture-only preview and legacy default unchanged. No DONE claim; camera and lighting remain R1A-12/13. Historical shell-only acceptance does not accept this atlas patch.
-- **Last updated:** 2026-10-11 (STEP 128 CONTINUE)
-- **Detailed task plan:** [Pixi renderer shell and evidence](maple-room-r1a-11-pixi-renderer-shell.md)
+- **Status:** REVIEW / OWNER ACCEPTED / CLOSURE VERIFIED / MERGE PENDING
+- **Dependencies:** 02/10/14 merged; atlas completion dependency RESOLVED on integration `7b45af4`
+- **Branch:** closure verification `codex/r1a-11-closure`
+- **Start commit:** original shell `e3a031699b41f941d62bc754e4cb9c1819bdd67f`; closure baseline `7b45af4d94cd736390a1477e925e137698bc4aac`
+- **End commit:** closure record in this documentation change, integration pending; shell merged via PR #11, atlases via PR #12
+- **Evidence / tests:** STEP 131 fresh 423 frontend + 65 asset/bundle + 237 backend/API/security/Oracle cases PASS; 144 depth-ring cases / zero mismatches plus two supporting cases (subset, not additive). TypeScript/ESLint/build, exact API exports and ten import contracts PASS. Actual DPR-2 WebGL idle/walking/playback/arrival, clean console; screenshot outside Git. PR #12 native Windows evidence independently verified as historical CI.
+- **Notes:** All original shell completion criteria PASS; owner accepted / closure verified, not DONE until merge of closure record. Presentation-only, fixture-only, legacy default and simulation pin unchanged. Camera/lighting/live coexistence/final art/real devices remain separate gates.
+- **Last updated:** 2026-10-11 (STEP 132)
+- **Detailed task plan:** [Formal closure matrix](maple-room-r1a-11-pixi-renderer-shell.md#step-131--formal-closure-verification)
 
 ### R1A-12 — Camera, zoom and DPR behavior
 
@@ -238,15 +238,15 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-14 — Asset pipeline and atlas integration
 
-- **Status:** REVIEW / INTEGRATION PENDING — owner accepts local evidence for GitHub integration; native Windows and final acceptance pending
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 01/03 and 11 shell merged
 - **Branch:** `codex/r1a-14-asset-pipeline`
 - **Start commit:** `f7e313cbe16992593d7f387450c9101d1b31f358`
-- **End commit:** — (local uncommitted work only)
-- **Evidence / tests:** 65 asset/bundle cases, 423 frontend cases and 367 backend regressions PASS; ESLint/TypeScript/build, exact API exports and ten import contracts PASS. 193 frames, two pages, 1.5 MiB static RGBA8 / 5.5 MiB resident upper bound. Byte-identical clean PNG/metadata rebuilds; isolated archive build and processed-only payload PASS. Windows golden-hash CI job prepared, not executed.
-- **Notes:** Owner-approved E8 light/shadow centre exception recorded in contract/ADR. Placeholder art only; 12×6 faces provisional. No live runtime/legacy/schema/Oracle/simulation changes or publication. R1A-18 independent Linux handoff remains TODO.
-- **Last updated:** 2026-10-11 (STEP 128 CONTINUE)
-- **Detailed task plan:** [Asset pipeline and evidence](maple-room-r1a-14-asset-pipeline.md)
+- **End commit:** PR #12 merge `7b45af4d94cd736390a1477e925e137698bc4aac`; feature `5a5c4b6378060b0d925582e61cd857778cf8259f`
+- **Evidence / tests:** Historical run `38144587116`: Ubuntu/Windows backend, frontend, ShellCheck, native Windows golden PNG/metadata/generated-index reproduction and build PASS. STEP 129 committed-revision release script/payload gate PASS. STEP 131 independently verifies merged atlas integration: 65 asset/bundle tests and six atlas loading cases within 423 frontend cases PASS; hashes/budget unchanged.
+- **Notes:** 193 frames, two pages, 1.5 MiB static RGBA8 / 5.5 MiB resident upper bound. Placeholder art only; faces provisional. No production activation. R1A-18 independent Linux reproduction remains TODO. Earlier pending-platform/publication statements are historical.
+- **Last updated:** 2026-10-11 (STEP 131 reconciliation)
+- **Detailed task plan:** [Asset pipeline and merged evidence](maple-room-r1a-14-asset-pipeline.md)
 
 ### R1A-15 — Feature flag and old/new Room coexistence
 
