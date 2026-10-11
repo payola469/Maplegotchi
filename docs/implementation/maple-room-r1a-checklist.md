@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–09 DONE / OWNER ACCEPTED / MERGED; PR #9 merge `efba67e7602c7cc70964a36f61b1734d58e22c28` fetched and verified. R1A-10 REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING (STEP 123); R1A-11–20 TODO. Schema remains v10; live legacy state is unchanged. New world GETs return truthful 503 in the normal app; separately constructed local synthetic fixtures are explicitly labeled. STEP 123 authorizes commit, normal push, PR and CI inspection; no merge, deployment, production access or schema-v11 activation authorized.
+- **R1a authorization:** AUTHORIZED by owner; Pre-R1 Gate APPROVED / CLEAR. R1A-01–10 DONE / OWNER ACCEPTED / MERGED; PR #10 merge `e3a031699b41f941d62bc754e4cb9c1819bdd67f` fetched and verified. R1A-11 OWNER ACCEPTED FOR PARTIAL INTEGRATION (STEP 126): PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING; repository merge pending. Completion remains BLOCKED on R1A-14; R1A-12–20 TODO. Production remains schema v10 and legacy Room remains default. Only explicit development `?room=fixture` uses labeled checked-in synthetic data; no live API/SSE connection. Commit, normal push, PR and initial CI inspection authorized; no merge, deployment, production access, schema-v11 activation or R1A-14 implementation authorized.
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 10 | 0 | 0 | 1 | 9 | 0 |
+| 20 | 9 | 0 | 1 | 0 | 10 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -63,8 +63,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-07 | Placement slots and Storage hooks | DONE / OWNER ACCEPTED / MERGED | 03, 04, 05 (merged) | 2026-10-11 |
 | R1A-08 | Persistence model / schema-v11 preparation | DONE / OWNER ACCEPTED / MERGED | 02, 03, 05, 07 (merged) | 2026-10-11 |
 | R1A-09 | Legacy projection compatibility | DONE / OWNER ACCEPTED / MERGED | 05, 06 (merged) | 2026-10-11 |
-| R1A-10 | New Room backend/API contracts | REVIEW | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
-| R1A-11 | Pixi renderer shell | TODO | 02 + 10 draft (completion: 10, 14) | 2026-10-09 |
+| R1A-10 | New Room backend/API contracts | DONE / OWNER ACCEPTED / MERGED | 02, 06, 07, 08, 09 (merged) | 2026-10-11 |
+| R1A-11 | Pixi renderer shell | BLOCKED | 02 + 10 merged; completion: 14 atlas integration | 2026-10-11 |
 | R1A-12 | Camera, zoom and DPR behavior | TODO | 11 | 2026-10-09 |
 | R1A-13 | Lighting zones and emitter hooks | TODO | 11, 02 | 2026-10-09 |
 | R1A-14 | Asset pipeline and atlas integration | TODO | 01 (completion: 03, 11) | 2026-10-09 |
@@ -190,27 +190,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-10 — New Room backend/API contracts
 
-- **Status:** REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 02, 06, 07, 08, 09 merged
 - **Branch:** `codex/r1a-10-world-api-contracts`
 - **Start commit:** `efba67e7602c7cc70964a36f61b1734d58e22c28`
-- **End commit:** — (uncommitted)
+- **End commit:** `e3a031699b41f941d62bc754e4cb9c1819bdd67f` (PR #10 merge, verified STEP 125)
 - **Evidence / tests:** 3,695 distinct backend cases / 0 unresolved failures: full suite 3,692 PASS, followed by 108 focused API/security passes including three added default-deny cases (82 new R1A-10 cases total). Frontend 208 PASS (four new), TypeScript/ESLint/build PASS. Ruff lint/format PASS (seven Python files); configured strict Linux/Windows-target mypy PASS (228 each); ten import contracts kept. Five fixture JSON exports, OpenAPI and generated TypeScript reproduce exactly. Original simulation pin unchanged/PASS. Native platform CI not claimed.
-- **Notes:** Normal live GETs always 503; isolated validated development/fake factory only. Fixture snapshot nested in world, legacy snapshot byte-compatible. No world SSE; deferred R1b. No production loader, v11 activation, publication or renderer implementation.
-- **Last updated:** 2026-10-11 (STEP 122)
+- **Notes:** Normal live GETs always 503; isolated validated development/fake factory only. Fixture snapshot nested in world, legacy snapshot byte-compatible. No world SSE; deferred R1b. No production loader or v11 activation. STEP 122/123 publication restrictions were historical; PR #10 is now merged. R1A-11 is separately authorized in STEP 125.
+- **Last updated:** 2026-10-11 (STEP 125 merge reconciliation)
 - **Detailed task plan:** [API contracts and evidence](maple-room-r1a-10-world-api-contracts.md)
 
 ### R1A-11 — Pixi renderer shell
 
-- **Status:** TODO
-- **Dependencies:** 02 + 10 draft (completion: 10, 14)
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** BLOCKED (completion dependency) — OWNER ACCEPTED FOR PARTIAL INTEGRATION; PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING; repository merge pending
+- **Dependencies:** 02 and 10 merged; completion dependency 14 remains TODO
+- **Branch:** `codex/r1a-11-pixi-renderer-shell`
+- **Start commit:** `e3a031699b41f941d62bc754e4cb9c1819bdd67f`
+- **End commit:** — (STEP 126 partial integration; merge pending)
+- **Evidence / tests:** 417 frontend cases PASS (209 new), 108 backend API/security regressions PASS; TypeScript/ESLint/build and exact OpenAPI/TypeScript/five-fixture regeneration PASS. L11 ring: 144 cases / zero mismatches; L12 route timing/phase, L6 overlays, L13 device sizing, L17 variants/edge cells, lifecycle and import guards tested. Actual in-app WebGL preview rendered at desktop; 390/820 px emulation checked without horizontal overflow.
+- **Notes:** Development-only fixture entry; default/production Room unchanged. Twelve ordered layers; neutral lighting hooks, placeholder art and configurable provisional face size only. Camera/lighting/interaction completion and real atlases remain later authorized workstreams. No DONE claim, production connection or schema/API/SSE/Oracle change. STEP 126 authorizes commit/push/PR/CI only; no merge or deployment.
+- **Last updated:** 2026-10-11 (STEP 126)
+- **Detailed task plan:** [Pixi renderer shell and evidence](maple-room-r1a-11-pixi-renderer-shell.md)
 
 ### R1A-12 — Camera, zoom and DPR behavior
 

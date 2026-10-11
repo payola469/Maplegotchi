@@ -8,9 +8,15 @@ import { LiveConnection } from "./state/live";
 import { Store } from "./state/store";
 import "./styles.css";
 import { App } from "./ui/App";
+import { fixturePreviewEnabled } from "./world-room/gate";
 
 const root = document.getElementById("app");
-if (root) {
+if (root && import.meta.env.DEV && fixturePreviewEnabled(import.meta.env.DEV, window.location.search)) {
+  // Separate development entry: construct no live API client, store or SSE connection.
+  void import("./world-room/Preview")
+    .then(({ WorldPreview }) => render(<WorldPreview />, root))
+    .catch(() => render(<main><h1>Fixture preview unavailable</h1><p>Development preview could not load. No live Maple connection was started.</p><a href="/">Return to legacy Room</a></main>, root));
+} else if (root) {
   const store = new Store();
   const api = createApiClient();
   const readApi = createReadApi();

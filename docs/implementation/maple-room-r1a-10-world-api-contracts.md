@@ -1,6 +1,6 @@
 # R1A-10 — New Room backend/API contracts
 
-**Status:** REVIEW / OWNER ACCEPTED FOR INTEGRATION / MERGE PENDING / STEP 123. Commit, normal push, PR and CI inspection authorized; no merge or production activation.
+**Status:** DONE / OWNER ACCEPTED / MERGED. PR #10 merged into `v0.2-development` at `e3a031699b41f941d62bc754e4cb9c1819bdd67f`, verified STEP 125. Earlier STEP 122/123 validation/authorization records below are historical; production remains v10.
 **Baseline:** `efba67e7602c7cc70964a36f61b1734d58e22c28`, verified PR #9 merge.
 **Branch:** `codex/r1a-10-world-api-contracts`.
 
@@ -61,3 +61,7 @@ R1A-11 can consume the labeled fixtures and generated contracts after its own au
 ## STEP 123 — Owner acceptance for GitHub integration
 
 2026-10-11: owner accepts STEP 122 implementation and local evidence for commit, normal push and PR against `v0.2-development`. Baseline remains `efba67e7602c7cc70964a36f61b1734d58e22c28`; reviewed scope is 25 files. Focused API/security verification: 108 passed; OpenAPI, generated TypeScript and five JSON fixtures reproduce exactly. Documentation links, counters, append-only history, unrelated worktrees and patch whitespace verified. Existing 3,695 distinct backend / 208 frontend evidence is retained without repeating unrelated suites. Production safety and legacy byte-compatibility gates remain PASS. Native CI is pending GitHub execution; no merge, deployment, production access, schema-v11 activation or R1A-11 authorization.
+
+## STEP 125 — Repository integration reconciliation
+
+Fetched origin and verified PR #10 merge `e3a031699b41f941d62bc754e4cb9c1819bdd67f` is the integration HEAD. R1A-10 is DONE / OWNER ACCEPTED / MERGED; local evidence and historical publication restrictions above retain their original STEP context. No new production activation or SSE authorization. R1A-11 separately consumes checked-in synthetic fixtures.
