@@ -1,6 +1,6 @@
 # R1A-05 — Deterministic Pathfinding and Route Timing
 
-**Status:** REVIEW / PENDING OWNER ACCEPTANCE (STEP 107, 2026-10-11). Implementation, focused tuning support and consolidated local review complete. No commit/push/PR/merge or production authorization.
+**Current status (STEP 110):** DONE / OWNER ACCEPTED / MERGED. PR #5 merged into `v0.2-development` at `68fab979df2198342df7c8d0f5f45b4335f67cfb`, independently fetched and verified. STEP 107 local evidence and authorization limits below retain their original context; no production activation occurred.
 
 ## Baseline and binding inputs
 

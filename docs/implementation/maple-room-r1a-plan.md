@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01 DONE / OWNER ACCEPTED / MERGED (2026-10-10). R1A-02 REVIEW / PENDING FINAL OWNER ACCEPTANCE: repository integration verified through PR #2 at `3779456` (recorded acceptance status retained); R1A-03 REVIEW / PENDING OWNER ACCEPTANCE (STEP 97); R1A-04–R1A-20 TODO.
+**Status:** AUTHORIZED — R1A-01–05 DONE / OWNER ACCEPTED / MERGED; PR #5 merge `68fab979df2198342df7c8d0f5f45b4335f67cfb` verified STEP 110. R1A-06 REVIEW / PENDING OWNER ACCEPTANCE; R1A-07–20 TODO. Isolated implementation only; no publication or production activation authorized in STEP 110.
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +8,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10; **R1A-01 DONE / OWNER ACCEPTED / MERGED**. STEP 90 authorizes R1A-02 Checkpoints 4–6 implementation/validation only; these now await final owner acceptance with no commit/push/merge or production activation authorized; STEP 97 advances R1A-03 to REVIEW / PENDING OWNER ACCEPTANCE; R1A-04–R1A-20 remain TODO. This records the owner's authorization, not an authorization inferred from this plan.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP 110 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. No commit, push, PR, merge or deployment is authorized for R1A-06.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -137,7 +137,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 **STEP 96 follow-up:** the five-cell Oracle reconciliation is authorized/completed; **76 affected tests passed**. [Detailed R1A-03 plan](maple-room-r1a-03-object-catalog.md) is DRAFT / BLOCKED pending the side-table slot approach override/variant policy. R1A-03 remains TODO; no catalog implementation has begun. This supersedes STEP 95's pending-Oracle gate, not its desk decision.
 
-**STEP 97 current status:** REVIEW / PENDING OWNER ACCEPTANCE. Owner approved explicit slot approach/facing overrides; Stages B–E complete. Frozen catalog/instance metadata and isolated resource reader, 15 types/28 instances/17 points/12 slots, exact T3/T4/T5 equality and 510 focused tests PASS; strict mypy/Ruff/10 import contracts and wheel packaging/loading PASS. The preceding STEP 95/96 gate statements are historical, superseded by this resolution. No production wiring, later-workstream behavior or commit/push/merge. See [detailed plan](maple-room-r1a-03-object-catalog.md) and worklog.
+**Historical STEP 97 status (superseded by current checklist):** REVIEW / PENDING OWNER ACCEPTANCE. Owner approved explicit slot approach/facing overrides; Stages B–E complete. Frozen catalog/instance metadata and isolated resource reader, 15 types/28 instances/17 points/12 slots, exact T3/T4/T5 equality and 510 focused tests PASS; strict mypy/Ruff/10 import contracts and wheel packaging/loading PASS. The preceding STEP 95/96 gate statements are historical, superseded by this resolution. No production wiring, later-workstream behavior or commit/push/merge. See [detailed plan](maple-room-r1a-03-object-catalog.md) and worklog.
 
 - **Objective:** the release-shipped object-type catalog and the initial-house instances, with capability, point and slot metadata.
 - **Scope:**
@@ -181,7 +181,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 ### R1A-05 — Deterministic A\* pathfinding
 
 - **Objective:** one flat, deterministic, integer 4-direction A\* and route timing.
-- **Detailed plan / current status:** [R1A-05 breakdown](maple-room-r1a-05-pathfinding.md), REVIEW / PENDING OWNER ACCEPTANCE (STEP 107); 250 ms/step, turn penalty 1, T6 exact, 1,184 focused tests PASS. R1A-02/03/04 are merged prerequisites; R1A-17 supporting tuning only, not workstream completion.
+- **Detailed plan / current status:** [R1A-05 breakdown](maple-room-r1a-05-pathfinding.md), DONE / OWNER ACCEPTED / MERGED (PR #5 at `68fab979…`, verified STEP 110); 250 ms/step, turn penalty 1, T6 exact, 1,184 focused tests PASS. R1A-02/03/04 are merged prerequisites; R1A-17 supporting tuning only, not workstream completion.
 - **Scope:**
   - integer step cost, PROVISIONAL turn penalty, Manhattan heuristic, ties on `(f, h, ty, tx)`; no `sqrt`, no float geometry, no hierarchy, no cache;
   - compressed route waypoints `(tx, ty, cumulative_steps)`;
@@ -198,6 +198,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (06, 07, 09, 11 walking). **Blocks R1b:** yes.
 
 ### R1A-06 — Interaction and capability resolution
+
+- **Detailed plan / current status:** [R1A-06 breakdown](maple-room-r1a-06-capability-resolution.md), REVIEW / PENDING OWNER ACCEPTANCE (STEP 110); 1,443 focused tests PASS, strict mypy/Ruff/10 import contracts PASS; pure resolver only, no live transitions or publication.
 
 - **Objective:** pure capability resolution from activity to a reachable interaction point.
 - **Scope:**

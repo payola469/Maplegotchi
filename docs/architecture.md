@@ -3,14 +3,17 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 107, 2026-10-11)
+## R1A current repository status (STEP 110, 2026-10-11)
 
-R1A-01–04 are DONE / OWNER ACCEPTED / MERGED; PR #2/#3/#4 are integrated at
-`3779456`, `cd382d4`, `02efa73`. R1A-05 is REVIEW / PENDING OWNER ACCEPTANCE.
-Pure `core/world/pathfinding.py` consumes the canonical Walkability mask;
-`core/world/movement.py` derives grid travel and temporary mid-edge replanning
-from supplied timestamps. Production still uses the legacy room/movement modules.
-No world startup, schema, API or renderer activation. See [R1A-05 evidence](implementation/maple-room-r1a-05-pathfinding.md)
+R1A-01–05 are DONE / OWNER ACCEPTED / MERGED; PR #5 merge `68fab979…` is verified.
+R1A-06 is REVIEW / PENDING OWNER ACCEPTANCE. Isolated `core/world/resolution.py`
+consumes validated frozen layouts, derives canonical access, filters points by
+capability/usability/capacity/reachability, and ranks integer scores with private
+seeded decision ties. It retains catalog-owned transformed point metadata and
+R1A-05 routes. Pure allowed-activity derivation and S9 validation are reusable;
+production Director, allowed.actions, legacy movement, schema v10, APIs and
+renderer remain unchanged. No production caller, publication or activation.
+See [R1A-06 contracts/evidence](implementation/maple-room-r1a-06-capability-resolution.md)
 and the append-only worklog. Earlier dated status sections below are historical.
 
 ## Historical R1A-03 catalog metadata status (STEP 97, 2026-10-11)
