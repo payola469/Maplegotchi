@@ -1,0 +1,67 @@
+# R1A-11 — Pixi renderer shell
+
+**Status:** OWNER ACCEPTED FOR PARTIAL INTEGRATION / STEP 126. **PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING.** Repository merge pending; checklist BLOCKED denotes the R1A-14 completion dependency, not rejection of this shell. Commit, normal push, PR and initial CI inspection authorized; no merge or production activation. R1A-11 remains PARTIAL even if this PR passes CI or is merged.
+**Baseline:** `e3a031699b41f941d62bc754e4cb9c1819bdd67f` — fetched integration HEAD, PR #10 merged.
+**Worktree/branch:** `r1a-11-pixi-renderer-shell/Maplegotchi`, `codex/r1a-11-pixi-renderer-shell`.
+
+## Inputs, scope and boundaries
+
+Precedence: locked [ADR-0041](../adr/0041-art-technical-contract.md) values → accepted ADR-0035–0040 rules → [Final Spec](../architecture/maple-room-final-design-spec.md) → proposed [Future Architecture §9](../architecture/maple-future-architecture.md#9-art--visual-technical-architecture). [Master Plan](maple-room-r1a-plan.md#r1a-11--pixi-renderer-shell) and [R1A-10 handoff](maple-room-r1a-10-world-api-contracts.md) define workstream boundaries. The [spike](../spikes/2026-10-room-art-spike.md) supplies locked technical evidence, not production code or art.
+
+Dedicated `frontend/src/world-room/` modules consume generated R1A-10 DTOs. Development-only `?room=fixture` dynamically imports the preview before constructing any legacy API/store/SSE connection. Production builds eliminate this branch. Legacy Room remains the default. Checked-in labeled fixtures supply data; no network world loader or production switch. All text, controls, errors, fallback descriptions and disclosure remain DOM.
+
+No pathfinding, collision/placement validation, capability resolution, state mutation, live integration, Edit Mode, artwork pipeline or final art. R1A-12 camera interactions, R1A-13 lighting presets/emitters and R1A-15 live coexistence remain separate authorizations.
+
+## Sequential implementation gates
+
+1. Typed presentation helpers: tile/pixel projection from DTO grid, L11 depth keys and stable ties, compressed-route interpolation with supplied UTC times and partial entry, L12 distance frames. Test boundaries, corners, long/zero routes and fixed-time repeatability.
+2. Placeholder resource interface: per-frame integer face anchors (null up), separate body/face textures, configurable PROVISIONAL face size; object visual offsets belong to art metadata. No production manifests or geometry-version invention. Assets initialization uses L19 `preferWorkers: false` and existing unsafe-eval import. Own only locally generated test textures; release once.
+3. Scene shell: §9.2 ordered layers, floor variants/edges, backend structural cells with explicit passage overrides, north caps/side caps, lintel-free archways/windows, catalog-driven object presentation, Maple and above-occupant parts. Lighting layers reserved, neutral only until R1A-13. No inferred walkability.
+4. Lifecycle and preview: once per mount, async cancellation, error cleanup, idempotent disposal, one owned ticker and ResizeObserver. L13 device content box validated against CSS×DPR, fallback rounded; DPR checked each render. Integer device zoom from L14; minimum Overview fitting and DOM room fallback, no R1A-12 Follow/Focus implementation. Reduced motion shows a fixed selected-time frame without autonomous playback.
+5. Validation/review: presentation and lifecycle/component/architecture tests; broad frontend suite, strict TypeScript, ESLint/build, relevant backend API regression and export check, links/whitespace/scope review. Browser evidence only if actually rendered. Record limitations and exact results below.
+
+## Required gates and handoff
+
+Fixture coverage: 44×26, eight regions, seven doors, 28 instances, 17 points, 12 slots and 431 backend walkable cells. Renderer draws closed regions but never changes their access. Floors/edge masks are visual boundary decoration from region rectangles, never navigation rules. L11: sortY×8+priority; south tile edge for Maple, footprint south edge plus art offset for objects, occupant inherits object depth; priorities 1/2/3/4 and insertion-order ties. L12: floor(distance-in-tiles×2) modulo 4; no invented speed/path/timestamps. FEET_IN_TILE is consumed from DTO, not redefined.
+
+L6 body canvas 32×48/anchor (16,47) is locked art geometry; faces are separate per-frame overlays, selected only from backend expression. Face size, colors and default form-factor zoom remain provisional. Placeholder source carries its own anchors/visual offsets; no claim of delivered furniture/sprite/slot geometry. R1A-14 must provide reviewed Vite-hashed atlas imports, trim/extrusion/anchor preservation, catalog cross-check, production manifests, texture budgets and loading/unloading strategy. R1A-11 cannot be DONE before this dependency. R1A-12 receives device-pixel sizing/transform primitives; R1A-13 receives named neutral lighting layers and backend zones; R1A-15 receives an isolated scene handle and DTO consumption.
+
+## Evidence and consolidated review
+
+**Overall: CONCERN / workstream PARTIAL. Renderer-shell readiness PASS; atlas completion BLOCKED.**
+
+| Requirement | Result | Evidence / remaining boundary |
+|---|---|---|
+| Baseline / R1A-10 completion | PASS | Integration HEAD/PR #10 merge verified; original local-only `40f0eb7` preserved |
+| Fixture entry / legacy default | PASS | `import.meta.env.DEV` and explicit query required before constructing live clients; production JS has no preview or fixture payload |
+| Full house / structured presentation | PASS | 641 region-floor cells, seven passage footprints, all structural cells, 28 catalog instances (three no-art markers), four windows; eight regions, 17 points/12 slots/431 walkable cells retained as backend data |
+| §9.2 layers | PASS shell / PARTIAL art | All twelve containers ordered; floor/decals/walls/entities/caps/backdrop drawn. Optional above-occupant parts supported at the art boundary; shadows/lighting/fx/editor containers reserved, no editor behavior |
+| L11 sort | PASS | 144 same-row/around-object ring cases, zero mismatches; north/south/corners, footprint vs tall visual extent, art offsets, priorities and actual Pixi stable insertion ties tested. Occupant inherits host depth; above-occupant priority tested with recording art |
+| L12 walk | PASS | Supplied compressed route/timing only; start/mid/end, corners, long/zero routes, partial entries both directions, repeatability and four-frame distance lock. No fabricated route or state transition |
+| L6 / L2 / L3 | PASS method / PARTIAL final art | 32×48 canvas, (16,47) anchor; body and expression overlays separate, integer per-frame anchors, null back-facing overlay. Configurable 12×6 test face (14×8 tested), explicitly PROVISIONAL. Full activity sheets/occupant art and owner readability test pending |
+| L8 / L9 / L10 | PASS placeholder | Passage DTO overrides wall map, caps omit archways, side caps sort per tile, south cutaway drawn. 2T×2T window pane at backend mount offset, transparent pane/visual wall cutout reveals backdrop; no interior window synthesis |
+| L13 / L14 | PASS shell | Device box checked against CSS×DPR; rounded fallback; per-render DPR read, integer device zoom/camera translation; WebGL/resolution1/autoDensity false/antialias false/roundPixels true; nearest/no mipmaps. Real multi-DPR/device and camera QA remain R1A-12/19 |
+| L17 | PASS placeholder | Four integer-hash variants; N1/E2/S4/W8 edge masks in an actual sixteen-cell 4×4 row-major test texture; geometry untouched |
+| L19 | PASS initialization / BLOCKED atlases | `preferWorkers: false`, unsafe-eval module retained, CSP unchanged. No accepted production atlas loader exists on baseline; interface uses locally owned generated test textures only. R1A-14 remains required |
+| DOM / accessibility / reduced motion | PASS local | All text/controls outside canvas; aria-hidden canvas, summary/current-room list, keyboard-native controls, init/import errors; reduced-motion playback disabled with fixed-time inspection. No real-device accessibility certification |
+| Lifecycle / security / guards | PASS | 1 application/ticker/observer per mount; cleanup/cancellation/failure/idempotence/source ownership tests. No new fetch/SSE/mutations, geometry authority, pathfinding or capability/placement validation. No HTML sinks/CSP change |
+
+Final local validation: **417 frontend cases, 0 failed, 19 files (209 new cases)**; `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` PASS. Backend: `pytest tests/api/test_world_api.py tests/api/test_api_security.py -q -p no:cacheprovider` **108 PASS**; `python -m tests.api.world_contract_export` exact five-fixture/OpenAPI/TypeScript regeneration PASS. No backend changes; original simulation pin, Oracle/Harness, API/SSE, Director, storage/schema/deployment and legacy `room/` modules untouched. Full Release Gate and simulation not rerun.
+
+Actual in-app-browser WebGL QA: full 44×26 house, idle feet (344,253), walking at fixed +375 ms feet (368,253), phase 3/right; Play progresses and stops at +2750 ms feet (520,253), idle frame 0. Desktop viewport 1440×1100; 820 and 390 px emulation checked, no horizontal overflow; narrow Overview fallback/current-room list confirmed. Captured `r1a11-idle.jpg`, `r1a11-walking.jpg`, `r1a11-mobile-fallback.jpg` as local artifacts outside Git. Browser review corrected text contrast and opaque window-pane occlusion; regression checks pass. One benign Assets-already-initialized warning occurred during hot module replacement, not a fresh page boot; no browser errors. These are placeholder/local browser observations, not production-art, real-mobile, performance/soak or all-DPR acceptance.
+
+Remaining: R1A-14 reviewed atlas/manifest/trim/geometry versions/loading and resource budgets; final face size/art/pose sheets; R1A-12 camera modes, R1A-13 lighting; R1A-19 device/performance evidence. Smallest safe sequence: review shell now; authorize R1A-12 separately, and R1A-14 when planned; close R1A-11 only after atlas loading integration is validated. No new binding conflict or owner decision is required for this shell. No later workstream started.
+
+## STEP 125 final scope and documentation checks (historical)
+
+22 files changed, none staged. New renderer sources: `frontend/src/world-room/{presentation,assets,scene,fixtures,gate}.ts`, `Preview.tsx`, `preview.css`; new tests: `presentation.test.ts`, `assets.test.ts`, `scene.test.ts`, `guards.test.ts`, `Preview.test.tsx`. Existing entry/config changes: `frontend/src/main.tsx`, `frontend/vite.config.ts`. Documentation: this plan, R1A-10 completion pointer, Master Plan, checklist, append-only worklog, `docs/frontend.md`, `docs/architecture.md`, `CLAUDE.md`.
+
+Final checks: 68 relative documentation links valid; checklist counters 20 total / 10 DONE / 1 BLOCKED / 9 TODO; original worklog byte prefix preserved; tracked/untracked `git diff --check` PASS; production `.js` output contains no preview or fixture payload; scoped credential-pattern scan PASS. No backend, legacy renderer/API/client/store, dependencies/lockfile, accepted ADR/Final Spec, Oracle/Harness/simulation pin, schema or deployment file differences. All other worktrees clean; local `v0.2-development` still `40f0eb76166560de9475ca4f834919ca04f2a8ef`. No commit/push/PR/merge performed.
+
+## STEP 126 — Owner acceptance for partial integration (2026-10-11)
+
+Owner accepts the reviewed renderer shell for commit, normal push and PR against `v0.2-development`, with initial CI inspection. R1A-11 remains **PARTIAL — RENDERER SHELL INTEGRATED / ATLAS COMPLETION PENDING**, repository merge pending; R1A-14 must complete asset validation, deterministic packing, extrusion/trim metadata, hashed output, budgets, catalog/manifest checks, release integration and renderer atlas loading before R1A-11 can be DONE. R1A-12/13/14 remain TODO.
+
+Verified unchanged remote baseline `e3a031699b41f941d62bc754e4cb9c1819bdd67f` and 22-file scope. Focused rerun: **209 renderer cases passed / 0 failed**, **108 backend API/security cases passed / 0 failed**; TypeScript, ESLint, production build and exact OpenAPI/TypeScript/five-fixture export PASS. Accepted full frontend evidence remains **417 passed**, including **144/144 depth ring cases**; unrelated suites were not repeated. STEP 125 browser/WebGL evidence is reused (idle, walking, completion, doors/windows, DOM disclosure/controls, 390/820 px emulation); no new browser testing claimed. Fresh-boot checks were clean; HMR-only Assets warning retains its historical context.
+
+Production safety PASS: legacy default and production build preserved; fixture preview/payload excluded from shipped JavaScript; no backend/API/SSE, database/schema, Director, deployment, accepted spec/ADR, Oracle/Harness or simulation-pin changes. Worklog append-only; checklist counters remain 20 total / 10 DONE / 1 BLOCKED / 9 TODO; documentation links and patch whitespace checked. All unrelated worktrees and local-only `40f0eb7` preserved. PR/CI outcome is reported after publication; no merge, deployment, production access or later-workstream implementation authorized.

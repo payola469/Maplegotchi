@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [preact()],
   server: {
     host: "127.0.0.1",
+    // Development preview imports only the accepted fixture handoff outside frontend/.
+    fs: { allow: [".", "../docs/fixtures/maple-room/r1a-10"] },
     proxy: {
       "/api": "http://127.0.0.1:8470",
     },
