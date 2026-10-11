@@ -1,6 +1,6 @@
 # R1A-02 — Canonical World Model and Final House Geometry
 
-**Status:** REVIEW / PENDING FINAL OWNER ACCEPTANCE — Checkpoints 1–6 implemented and focused validation complete (STEP 90). Checkpoints 4–6 are uncommitted; no commit, push, merge or deployment authorized. Checkpoint 3 owner accepted and committed/pushed as `06295b65a2f8c79825b154249cf6e7869f66e9cb` (STEP 89). R1A-02 is not DONE before acceptance and repository integration.
+**Status:** DONE / OWNER ACCEPTED / MERGED — PR #2 integrated into `v0.2-development` at `37794564d921e69e29b90f47ea8d437d24bd704e`; verified in STEP 107. Earlier STEP-specific status/authorization statements below are historical and superseded by this completion record. No production activation is claimed.
 **Date:** 2026-10-10 (+07), STEP 78.
 **Workspace:** `/Users/paolo_cu/GitHub Desktop/Maplegotchi-r1a-02-world-model`
 **Branch / starting HEAD:** `feat/r1a-02-world-model` / `a754efc9cd35f66e15efb8707dc9b4066d5ab54d`.

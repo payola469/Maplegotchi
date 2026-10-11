@@ -96,6 +96,7 @@ These are set during implementation and changed only together with the pinned si
   - **Update 2026-10-09:** they are now defined by the **Room Final Design Spec** (`docs/architecture/maple-room-final-design-spec.md`): a 44×26 grid, 8 regions and 7 doors in a star around the Central Hall.
   - Their status is **SPEC, owner-approved in principle, not implemented**, and **not** an ADR-level lock. They bind R1b once R1a/R1b are authorized. Changes before then need an owner decision.
   - The spec also records owner decision O1: the placeholder rooms are interior and windowless.
+- **R1A-05 provisional tuning (STEP 107):** isolated grid engine selects 250 ms/step and integer turn penalty 1 with step-cost units 4576; all 49 T6 lengths unchanged. Bounded speed/penalty evidence and separate test-only grid digest: [R1A-05 plan](../implementation/maple-room-r1a-05-pathfinding.md#selected-provisional-tuning-and-deterministic-evidence). Legacy runtime, existing 30-day simulation pin and production speed remain unchanged; no R1b activation or full R1A-17 completion is claimed.
 - Spike evidence for `ms_per_step` (M05): 300 ms gives 1 px per 60 Hz frame with 11 % zero-advance frames; 250 ms gives mostly 1 px, occasionally 2. Either is acceptable; the choice is made in R1a with the simulation digest.
 
 ## Deferred

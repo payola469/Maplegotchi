@@ -1,6 +1,6 @@
 # R1A-04 — Walkability, Collision and Emergency Recovery
 
-**Status:** REVIEW / PENDING OWNER ACCEPTANCE (STEP 104, 2026-10-11). STEP 103 recovery policy and STEP 104 dynamic K4 decisions implemented and validated in isolation. No commit, push, PR, merge or production activation.
+**Status:** DONE / OWNER ACCEPTED / MERGED — PR #4 integrated into `v0.2-development` at `02efa73964a4f4d611b755970e26d38e0b0b7d31`; verified in STEP 107. Earlier STEP-specific status/authorization statements below are historical and superseded by this completion record. No production activation is claimed.
 
 ## Baseline, sources and boundaries
 
