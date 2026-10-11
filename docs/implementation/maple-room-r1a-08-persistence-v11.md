@@ -1,6 +1,8 @@
 # R1A-08 — Persistence model / schema-v11 preparation
 
-Status: REVIEW / PENDING OWNER ACCEPTANCE, STEP 115 (2026-10-11). Verified base `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` (PR #7 merge); R1A-01–07 DONE / OWNER ACCEPTED / MERGED. Isolated branch `codex/r1a-08-persistence-v11-preparation`.
+**Current status (STEP 119): DONE / OWNER ACCEPTED / MERGED.** PR #8 merge `aefa9c2ac9ca78afab57b251e768a9970e1ebe13` fetched and verified; owner acceptance/integration confirmed by STEP 119. Synthetic-only scope and R1b gates remain unchanged. Earlier validation/CI statements below retain their original time context.
+
+Historical STEP 115 status: REVIEW / PENDING OWNER ACCEPTANCE, STEP 115 (2026-10-11). Verified base `82b37ea3ddcc6571062d8d8bffc9fd231bf27b60` (PR #7 merge); R1A-01–07 DONE / OWNER ACCEPTED / MERGED. Isolated branch `codex/r1a-08-persistence-v11-preparation`.
 
 ## Authority and safety gates
 
