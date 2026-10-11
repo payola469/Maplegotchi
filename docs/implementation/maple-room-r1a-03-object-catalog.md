@@ -1,6 +1,6 @@
 # R1A-03 — Object Catalog and Capability Metadata
 
-**Status:** REVIEW / PENDING OWNER ACCEPTANCE (STEP 97, 2026-10-11). Stages B–E complete under explicit owner authorization. No commit/push/merge/deployment authorization. STEP 96 stop evidence below is historical.
+**Status:** DONE / OWNER ACCEPTED / MERGED — PR #3 integrated into `v0.2-development` at `cd382d430c2da41954ffcc072b3525404def3761`; verified in STEP 107. Earlier STEP-specific status/authorization statements below are historical and superseded by this completion record. No production activation is claimed.
 
 ## Inputs, dependencies and scope
 

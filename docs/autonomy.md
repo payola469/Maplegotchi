@@ -4,6 +4,18 @@ Implementation notes for ADR-0026 (AI Director), ADR-0027 (room and movement)
 and ADR-0028 (activity set v2, events, schema). These are [PROPOSED]
 implementation details unless the ADRs fix them.
 
+## Isolated R1A-05 grid movement (STEP 107)
+
+R1A-02/03/04 are merged; R1A-05 is REVIEW / PENDING OWNER ACCEPTANCE.
+The new `core/world/pathfinding.py` / `core/world/movement.py` models preserve
+arrival-dependent activity start and exact current-position replanning using
+integer route/time arithmetic. A temporary partial edge is derived from supplied
+time and integer tile endpoints, without fractional-tile persistence. Provisional
+250 ms/step and penalty 1 reproduce all T6 lengths. These modules have no live
+caller; the legacy movement described below remains the running behavior.
+See [contracts and evidence](implementation/maple-room-r1a-05-pathfinding.md).
+No activity resolver, migration, state-machine or production change is included.
+
 ## Room and movement (A1, ADR-0027)
 
 - `core/room.py` is the single source of the room: interaction points

@@ -161,7 +161,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 ### R1A-04 — Walkability, collision and recovery
 
 - **Objective:** the walkable mask, connectivity and the recorded recovery rule.
-- **Detailed plan / current gate:** [R1A-04 breakdown](maple-room-r1a-04-walkability-recovery.md); STEP 104 REVIEW / PENDING OWNER ACCEPTANCE. Emergency recovery and revised dynamic K4 implemented in isolation; focused evidence in the detailed plan.
+- **Detailed plan / current gate:** [R1A-04 breakdown](maple-room-r1a-04-walkability-recovery.md); DONE / OWNER ACCEPTED / MERGED in PR #4 at `02efa73964a4f4d611b755970e26d38e0b0b7d31` (verified STEP 107).
 - **Scope:**
   - walkable = floors of open rooms + passages of open doors − blocking masks (spec §K);
   - closed floors and passages never walkable;
@@ -181,6 +181,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 ### R1A-05 — Deterministic A\* pathfinding
 
 - **Objective:** one flat, deterministic, integer 4-direction A\* and route timing.
+- **Detailed plan / current status:** [R1A-05 breakdown](maple-room-r1a-05-pathfinding.md), REVIEW / PENDING OWNER ACCEPTANCE (STEP 107); 250 ms/step, turn penalty 1, T6 exact, 1,184 focused tests PASS. R1A-02/03/04 are merged prerequisites; R1A-17 supporting tuning only, not workstream completion.
 - **Scope:**
   - integer step cost, PROVISIONAL turn penalty, Manhattan heuristic, ties on `(f, h, ty, tx)`; no `sqrt`, no float geometry, no hierarchy, no cache;
   - compressed route waypoints `(tx, ty, cumulative_steps)`;

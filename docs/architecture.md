@@ -3,7 +3,17 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A-03 catalog metadata status (STEP 97, 2026-10-11)
+## R1A current repository status (STEP 107, 2026-10-11)
+
+R1A-01–04 are DONE / OWNER ACCEPTED / MERGED; PR #2/#3/#4 are integrated at
+`3779456`, `cd382d4`, `02efa73`. R1A-05 is REVIEW / PENDING OWNER ACCEPTANCE.
+Pure `core/world/pathfinding.py` consumes the canonical Walkability mask;
+`core/world/movement.py` derives grid travel and temporary mid-edge replanning
+from supplied timestamps. Production still uses the legacy room/movement modules.
+No world startup, schema, API or renderer activation. See [R1A-05 evidence](implementation/maple-room-r1a-05-pathfinding.md)
+and the append-only worklog. Earlier dated status sections below are historical.
+
+## Historical R1A-03 catalog metadata status (STEP 97, 2026-10-11)
 
 REVIEW / PENDING OWNER ACCEPTANCE. Pure `core/world/catalog.py` owns frozen type,
 instance, point, slot and explicit override metadata, deterministic transforms,
@@ -19,7 +29,7 @@ See [detailed plan](implementation/maple-room-r1a-03-object-catalog.md) and work
 Earlier STEP 90/96 sections describe historical evidence and pending gates;
 R1A-02 is present in the merged baseline `3779456` (PR #2).
 
-## R1A-02 current implementation status (STEP 90, 2026-10-10)
+## Historical R1A-02 implementation status (STEP 90, 2026-10-10)
 
 REVIEW / PENDING FINAL OWNER ACCEPTANCE; Checkpoints 1–6 implemented, 4–6
 uncommitted. Pure `core/world` owns immutable geometry, topology, lighting and
