@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** R1A-01–15 DONE / OWNER ACCEPTED / MERGED; verified baseline `78953ce60d929a4e0a595b8c957ad5dd6b9fa49e`. R1A-16 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 144, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR to `v0.2-development` and CI inspection. Fresh Windows backend 3842 PASS / 21 expected skips; frontend 586 and asset 69 PASS; lint, typing, ten import contracts, exact exports, build and atlas golden hashes PASS. 15 DONE / 1 REVIEW / 4 TODO = 75%; 16/20 = 80% only after confirmed merge. Ubuntu/native CI and ShellCheck await the PR. No merge, deployment, production access, schema-v11 activation or B14 approval; R1A-17–20 remain TODO. [R1A-16 plan/evidence](maple-room-r1a-16-validators-property-tests.md).
+**Status:** R1A-01–16 DONE / OWNER ACCEPTED / MERGED; verified PR #17 integration baseline `50ec74865cee9c65ed566251476df7bbeed2dbd2`. R1A-17 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 147, 2026-10-12). Owner accepts STEP 146 and authorizes final review, fresh checks, commit, normal feature-branch push, PR to `v0.2-development` and CI inspection. 16 DONE / 1 REVIEW / 3 TODO = 80%; 17/20 = 85% only after confirmed merge. R1A-18–20 remain TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch or B14 approval. [R1A-17 evidence](maple-room-r1a-17-fixtures-simulation.md).
 
 **Historical STEP140B browser closure:** PASS; actual five-DPR × three-form-factor matrix15/15,production isolation3/3 and fresh586+69 regression tests/static/build gates PASS. Accepted historical evidence,not rerun in STEP141;R1A-15 OWNER ACCEPTED / MERGE PENDING. See [fresh coexistence evidence](maple-room-r1a-15-coexistence.md).
 
@@ -10,7 +10,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. STEP 144 authorizes R1A-16 final review, fresh checks, commit, normal push, PR and CI inspection; merge remains separately gated. R1A-15 is merged; earlier STEP authorization and browser evidence remain historical in the append-only worklog.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. STEP 147 authorizes R1A-17 final review/checks, commit, normal push, PR and CI inspection; merge requires separate authorization. R1A-01–16 are merged; earlier STEP authorization and browser evidence remain historical in the append-only worklog.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -416,7 +416,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-16 — Validators and property tests (continuous)
 
-- **STEP 144 status:** REVIEW / OWNER ACCEPTED / MERGE PENDING; [implementation plan and evidence](maple-room-r1a-16-validators-property-tests.md).
+- **STEP 146 status:** DONE / OWNER ACCEPTED / MERGED (PR #17 at `50ec74865cee9c65ed566251476df7bbeed2dbd2`); [implementation plan and evidence](maple-room-r1a-16-validators-property-tests.md).
 
 - **Objective:** one complete, pure validation surface and the property-test suite, grown with each item.
 - **Scope:**
@@ -435,6 +435,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** R1A-20. **Blocks R1b:** yes (B14 criterion 3 property tests).
 
 ### R1A-17 — Fixtures and simulation coverage (continuous)
+
+**STEP 147 status:** REVIEW / OWNER ACCEPTED / MERGE PENDING. [Design, A–N cases, reviewed digest, timing and fresh Windows evidence](maple-room-r1a-17-fixtures-simulation.md). Test-only grid simulation and offline JSON reuse accepted engine/data; no production changes or R1A-18–20 implementation.
 
 - **Objective:** deterministic fixtures and a grid-world simulation that exercise the engine end to end.
 - **Scope:**
