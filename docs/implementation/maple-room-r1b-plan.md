@@ -1,5 +1,9 @@
 # Maple Room R1b — Master Plan and Readiness
 
+**STEP162 — R1B-01 REVIEW / ACCEPTED FOR INTEGRATION REVIEW / MERGE PENDING.** Owner accepts STEP161 local work for final publication review, subject to fresh validation, and authorizes documentation corrections, reviewed commit, normal push, PR and CI inspection for01 only. Separate owner merge approval is required. R1B-02–12 remain11TODO;0/12DONE=0%. D01–D06 OPEN; no projection strategy or future implementation approved. No runtime/test changes, schema11 registration/activation, DB migration/data access, production/paolo-core, deployment, default switch, repin, B14 orR4. Earlier dated authorization/evidence below is historical. [R1B-01 inventory](maple-room-r1b-01-contract-inventory.md).
+
+**STEP161 — R1B-01 REVIEW / pending owner acceptance.** Verified PR22 merge baseline `edb6b128e41590d2822bdbe41c16e68d3f634206`. Bounded G2 authorizes only R1B-01 inventory, source inspection, existing-contract verification and test-case planning. No runtime or test implementation. R1B-02–12 remain 11 TODO; completion is 0/12 DONE = 0%. D01–D06 remain OPEN; no projection strategy selected. No current publication P, stage, commit, push, PR, merge, real-data access/copy/migration, production/paolo-core, deployment, default switch, repin, B14 or R4. Planning PR22 is merged; earlier dated status blocks below are historical. [R1B-01 inventory](maple-room-r1b-01-contract-inventory.md).
+
 **STEP159,2026-10-12 — PLANNING REVIEW / OWNER ACCEPTED / MERGE PENDING.** G1 is accepted for planning-document integration only: final review, documentation corrections, commit, normal push, PR and CI inspection are authorized. Merge requires separate owner authorization. G2 implementation and G3–G7 operational/default-switch authority are NOT granted; future implementation publication P is also NOT granted. All12implementation workstreams remain TODO (0/12 DONE, including after a future planning-only merge). D01–D06 remain OPEN; no projection strategy is approved. Historical STEP158 records below describe the planning stage.
 
 **STEP158,2026-10-12 — PLANNING ONLY / REVIEW pending G1 owner acceptance.** All12 proposed implementation workstreams are TODO. No implementation, migration, real-data copy, production access, stage/commit/push/PR/merge/deploy authorized. Open decisions below prevent affected implementation/cutover, not completion of this planning packet. This is a proposal subordinate to accepted ADRs, not an amendment or execution runbook approval.
@@ -41,7 +45,7 @@ R1b migration acceptance is separate from B14 visual/default-switch acceptance a
 
 ## 5. Proposed workstreams
 
-Stable IDs below were accepted for planning integration in STEP159, not derived mechanically from the seven scope paragraphs; no implementation authorization follows. All future implementation entries remain TODO in the [checklist](maple-room-r1b-checklist.md).
+Stable IDs below were accepted for planning integration in STEP159, not derived mechanically from the seven scope paragraphs; no implementation authorization follows. Current [checklist](maple-room-r1b-checklist.md):01 REVIEW after bounded STEP161 inventory;02–12 TODO;0DONE. Workstream definitions below remain the accepted future requirements.
 
 | ID | Objective / title | Dependencies | Execution classification | Required authorization |
 |---|---|---|---|---|
@@ -286,7 +290,7 @@ This is a dependency-critical release path, not a duration estimate:01 →02 →
 |04,05|Directly blocked|No implementation while D01 is OPEN, even if local-only. D01 resolution does not waive D02/D03/G2/dependencies.|
 |06,07,08,09,10,11,12|Transitively blocked|Depend on04/05 integration, then exact candidate/CI/rehearsal/readiness. Do not present partial preparation as independently startable full workstream or evidence of completion.|
 
-**Only01 is immediately independently authorizable after G1;02 and03 are D01-independent successors, not simultaneously startable tasks.** Every implementation status remains TODO because no G2 scope is granted now. The D01 gate is separate from01's inventory completion; the graph no longer forces isolated persistence behind an unrelated projection choice.
+**Only01 is immediately independently authorizable after G1;02 and03 are D01-independent successors, not simultaneously startable tasks.** Current STEP161 status:01 inventory REVIEW under bounded G2;02–12 remain TODO and are not authorized. The D01 gate is separate from01's inventory completion; the graph no longer forces isolated persistence behind an unrelated projection choice.
 
 Parallelizable only after future authorization:01 inventory can prepare source/test references while D01 stays OPEN; once02 contract is accepted,03 synthetic development can proceed while runtime04 waits for D01. After D01 is resolved and04/05 are authorized,03 and runtime/integration work may run in parallel. All04–12 implementation remains blocked as described while D01 is OPEN; no operational or publication authority follows from that future parallelism. If09 changes behavior after08, repeat affected candidate evidence before10.
 
@@ -310,7 +314,7 @@ No new CPU/latency/downtime/RPO/RTO limits are invented. Existing renderer limit
 
 ## 8. Owner authorization gates and open decisions
 
-G labels coordinate the plan; accepted ADR rules remain authoritative. Each approval states exact scope/release/data/environment and may be denied independently. STEP158 authorized drafting only; STEP159 accepts G1 and authorizes this planning-document integration. G2–G7 and future implementation publication remain ungranted; merge of this planning PR still requires separate approval.
+G labels coordinate the plan; accepted ADR rules remain authoritative. Each approval states exact scope/release/data/environment and may be denied independently. STEP158 authorized drafting only; STEP159 accepts G1 and authorizes this planning-document integration. PR22 planning merge is verified. STEP161 grants G2 for01 inventory only;G2 for02–12 andG3–G7 remain ungranted. STEP162 separately authorizes01 documentation commit/push/PR/CI only;merge and future publication remain ungranted.
 
 | Gate | Decision / evidence | Authority / does NOT authorize |
 |---|---|---|
@@ -346,7 +350,7 @@ Existing [CI workflow](../../.github/workflows/ci.yml) has backendUbuntu/backend
 
 Detailed plans: [migration safety](maple-room-r1b-migration-safety.md), [cutover/compatibility](maple-room-r1b-cutover-plan.md), [risk/gate matrix](maple-room-r1b-risk-gates.md). One BEGIN IMMEDIATE includes verification and version bump; definite pre-commit rollback is distinct from an ambiguous commit or post-commit failure. Application rollback does not revert schema/data. Prefer reviewed forward-fix for intact v11; v10 return requires owner-selected verified snapshot, quarantine of current DB/WAL/SHM, old compatible code and explicit acceptance of lost life. No auto-restore/down-migration.
 
-Definition of Done for future R1b: accepted decisions; reviewed/authorized integrations; all local/CI proof; accepted actual owner-copy rehearsal/restore; approved current snapshot gate; one authorized final-house migration/grid cutover; passing actual production/restart/compatibility verification; explicit G6 owner acceptance; truthful checklist/worklog/ADR/spec/deployment/API status. A code task becomes DONE only after required review/integration; an operational task only after its authorized execution/evidence/owner acceptance. All future implementation work remains TODO now; planning REVIEW is recorded separately, outside the12-task counters. B14 or R4 completion is not required or implied.
+Definition of Done for future R1b: accepted decisions; reviewed/authorized integrations; all local/CI proof; accepted actual owner-copy rehearsal/restore; approved current snapshot gate; one authorized final-house migration/grid cutover; passing actual production/restart/compatibility verification; explicit G6 owner acceptance; truthful checklist/worklog/ADR/spec/deployment/API status. A code task becomes DONE only after required review/integration; an operational task only after its authorized execution/evidence/owner acceptance. Current STEP161 inventory01 is REVIEW;02–12 remain TODO and completion is0/12DONE. Planning acceptance/integration is recorded separately from implementation counters. B14 or R4 completion is not required or implied.
 
 Recommended ordering: G1 review → explicit bounded G2 for01 inventory with D01 OPEN →02/D02 →03 synthetic-only; separately resolve D01 before any04/05 implementation and D03 before05 contracts →04/05/06 →07 →G3/08 →09/P →10/G4 →11/G5 →12/G6. First workstream is **R1B-01 inventory**; first coding is02 only after its own contract review/G2 and accepted01 inventory, without production access or D01 resolution. No further action is authorized by this recommendation.
 
