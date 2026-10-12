@@ -1,5 +1,7 @@
 # R1A-17 — Fixtures and simulation coverage
 
+**Current integration reconciliation — STEP 155, 2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR #18 merge `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe` independently verified in the acceptance baseline ancestry. Earlier dated implementation/review/publication statements below are historical. Accepted decisions and measurement provenance remain unchanged. [Current R1A-20 audit](maple-room-r1a-20-acceptance-gate.md).
+
 ## Design recorded before major implementation — STEP 146, 2026-10-12
 
 Verified integration baseline: `50ec74865cee9c65ed566251476df7bbeed2dbd2`, R1A-16 PR #17 merge. Clean Windows main fetched and fast-forwarded only. Worktree `C:/GitHub/Maplegotchi-worktrees/r1a-17-fixtures-simulation`, branch `codex/r1a-17-fixtures-simulation`. R1A-15/16 and unrelated worktrees/branches preserved; no Mac-only commit imported/reconstructed or baseline branch repaired. Authorization is local implementation/tests/docs only; no commit, push, PR, merge, deployment or production access.

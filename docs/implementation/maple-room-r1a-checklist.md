@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** R1A-01–18 DONE / OWNER ACCEPTED / MERGED; baseline `26c4a959322aaab1d38779739cea583be75455ea`. STEP 153 (2026-10-12) authorizes final review, fresh checks, commit, normal feature push, PR into `v0.2-development` and CI inspection. R1A-19 REVIEW / OWNER ACCEPTED / MERGE PENDING; 18 DONE / 1 REVIEW / 1 TODO = 90%; R1A-20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. STEP 152 hardware measurements remain accepted historical evidence. [R1A-19 evidence](maple-room-r1a-19-performance-soak.md).
+- **R1a authorization:** R1A-01–19 DONE / OWNER ACCEPTED / MERGED; baseline `6e861f2c199827098f3603e6952d44e87e8eff0a`. Owner ACCEPTS the STEP 155 audit and authorizes STEP 156 final review, fresh checks, documentation commit, normal push, PR into `v0.2-development` and CI inspection. R1A-20 **REVIEW / OWNER ACCEPTED / MERGE PENDING**; **19 DONE / 1 REVIEW / 0 TODO = 95%**. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. Historical hardware/DPR/Linux evidence remains historical; actual new PR CI will be recorded separately. [Acceptance report](maple-room-r1a-20-acceptance-gate.md).
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 1 | 0 | 0 | 1 | 18 | 0 |
+| 20 | 0 | 0 | 0 | 1 | 19 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -72,8 +72,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-16 | Validators and property tests | DONE / OWNER ACCEPTED / MERGED | 01–15 merged | 2026-10-12 |
 | R1A-17 | Fixtures and simulation coverage | DONE / OWNER ACCEPTED / MERGED | 01–16 merged | 2026-10-12 |
 | R1A-18 | CI and Linux reproducibility | DONE / OWNER ACCEPTED / MERGED | 01–17 merged | 2026-10-12 |
-| R1A-19 | Performance and soak validation | REVIEW / OWNER ACCEPTED / MERGE PENDING | 14, 15, 17 | 2026-10-12 |
-| R1A-20 | R1a Acceptance Gate | TODO | 01-19 | 2026-10-09 |
+| R1A-19 | Performance and soak validation | DONE / OWNER ACCEPTED / MERGED | 14, 15, 17 | 2026-10-12 |
+| R1A-20 | R1a Acceptance Gate | REVIEW / OWNER ACCEPTED / MERGE PENDING | 01–19 merged | 2026-10-12 |
 
 ## Items
 
@@ -296,24 +296,24 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-19 — Performance and soak validation
 
-- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 14, 15, 17 (merged)
 - **Branch:** `codex/r1a-19-performance-soak`
 - **Start commit:** `26c4a959322aaab1d38779739cea583be75455ea`
-- **End commit:** — (merge pending; feature SHA/PR recorded in STEP 153 final report)
+- **End commit:** `6e861f2c199827098f3603e6952d44e87e8eff0a` (PR #20 merge verified STEP 155)
 - **Evidence / tests:** [Measurement plan and evidence](maple-room-r1a-19-performance-soak.md)
 - **Notes:** All six locked budgets pass; owner accepted STEP 152 evidence and authorized STEP 153 integration. Real-device/production-art/seven-day production soak and B14 remain deferred.
-- **Last updated:** 2026-10-12 (STEP 153)
+- **Last updated:** 2026-10-12 (STEP 155 merge reconciliation)
 - **Detailed task plan:** [Plan](maple-room-r1a-19-performance-soak.md)
 
 ### R1A-20 — R1a Acceptance Gate
 
-- **Status:** TODO
-- **Dependencies:** 01-19
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** Gate criteria: plan §3 R1A-20. Passing the gate does not authorize R1b.
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Dependencies:** 01–19 DONE / OWNER ACCEPTED / MERGED; all actual merges/graph edges verified
+- **Branch:** `codex/r1a-20-acceptance-gate`
+- **Start commit:** `6e861f2c199827098f3603e6952d44e87e8eff0a`
+- **End commit:** — (feature commit/PR/CI recorded after execution in the STEP 156 PR evidence; merge pending)
+- **Evidence / tests:** [Formal 86-criterion acceptance matrix, dependency/CI/history audit and fresh full Windows results](maple-room-r1a-20-acceptance-gate.md). 3899 backend PASS/21 platform skips;586 Vitest +130 Node PASS;119 repeated assets;Discord22/Brain28;30 validation gates,local browser4/4,world/BFS and integrity PASS.
+- **Notes:** Local PASS, not R1a completion. Historical Linux/RTX/DPR evidence explicitly labeled. R01 original-base CI/raw baseline remain unavailable, explicitly owner-accepted provenance limitation; current invariants directly verified.250ms/step +penalty1 selected with accepted R17 evidence; remains tunable under ADR0035. No mandatory gap or new technical owner decision. STEP 156 owner accepts the audit and authorizes reviewed commit/push/PR/CI; separate merge authorization and confirmed merge remain required for20/20=100%. No R1b/B14/production authorization.
+- **Last updated:** 2026-10-12 (STEP 156 owner acceptance)
+- **Detailed task plan:** [Plan and acceptance evidence](maple-room-r1a-20-acceptance-gate.md)

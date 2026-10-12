@@ -1,5 +1,7 @@
 # R1A-15 — Feature flag and Legacy/new Room coexistence
 
+**Current integration reconciliation — STEP 155, 2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR #16 merge `78953ce60d929a4e0a595b8c957ad5dd6b9fa49e` independently verified in the acceptance baseline ancestry. Earlier dated implementation/review/publication statements below are historical. Accepted decisions and measurement provenance remain unchanged. [Current R1A-20 audit](maple-room-r1a-20-acceptance-gate.md).
+
 Status: REVIEW / OWNER ACCEPTED / MERGE PENDING — STEP141,2026-10-12. Owner accepts implementation and STEP140B browser results;authorizes reviewed commit,normal push,PR and CI inspection only. Baseline `a85f226fb664056482baf8f27389870fce14fd45`;branch `codex/r1a-15-room-coexistence`;existing Windows worktree retained.
 
 ## Owner clarification and binding boundary

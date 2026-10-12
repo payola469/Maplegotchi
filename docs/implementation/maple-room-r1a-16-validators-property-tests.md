@@ -1,5 +1,7 @@
 # R1A-16 — Validators and property tests
 
+**Current integration reconciliation — STEP 155, 2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR #17 merge `50ec74865cee9c65ed566251476df7bbeed2dbd2` independently verified in the acceptance baseline ancestry. Earlier dated implementation/review/publication statements below are historical. Accepted decisions and measurement provenance remain unchanged. [Current R1A-20 audit](maple-room-r1a-20-acceptance-gate.md).
+
 ## Plan recorded before implementation — STEP 143, 2026-10-12
 
 Verified integration baseline: `78953ce60d929a4e0a595b8c957ad5dd6b9fa49e` (PR #16, R1A-15 merged). Clean main was fetched and fast-forwarded only. Worktree: `C:\GitHub\Maplegotchi-worktrees\r1a-16-validators-property-tests`; branch: `codex/r1a-16-validators-property-tests`. Other checkouts/branches are preserved.

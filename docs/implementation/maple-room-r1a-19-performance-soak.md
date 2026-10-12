@@ -1,5 +1,7 @@
 # R1A-19 — Performance and soak validation
 
+**Current integration reconciliation — STEP 155, 2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR #20 merge `6e861f2c199827098f3603e6952d44e87e8eff0a` independently verified in the acceptance baseline ancestry. Earlier dated implementation/review/publication statements below are historical. Accepted decisions and measurement provenance remain unchanged. [Current R1A-20 audit](maple-room-r1a-20-acceptance-gate.md).
+
 **STEP 153, 2026-10-12: REVIEW / OWNER ACCEPTED / MERGE PENDING.** Owner accepted STEP 152 local measurements and authorized review, fresh checks, commit, normal push, PR and CI inspection. No merge is authorized. Historical STEP 152: PASS / REVIEW / pending owner acceptance. All six locked renderer budgets pass. R1A-01–18 are DONE / OWNER ACCEPTED / MERGED; R1A-19 is REVIEW / OWNER ACCEPTED / MERGE PENDING; R1A-20 is TODO. Counters: 18 DONE / 1 REVIEW / 1 TODO = 90%. Separate owner authorization is required for merge.
 
 ## Baseline, scope and plan recorded before instrumentation

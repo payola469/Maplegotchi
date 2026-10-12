@@ -1,5 +1,7 @@
 # Deployment on paolo-core (Phase 7)
 
+> **STEP 156 current authorization/status — 2026-10-12:** R1A-01–19 DONE / OWNER ACCEPTED / MERGED; baseline `6e861f2c199827098f3603e6952d44e87e8eff0a`. Owner ACCEPTS the STEP 155 audit and authorizes STEP 156 final review, fresh checks, documentation commit, normal push, PR into `v0.2-development` and CI inspection. R1A-20 **REVIEW / OWNER ACCEPTED / MERGE PENDING**; **19 DONE / 1 REVIEW / 0 TODO = 95%**. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. Historical hardware/DPR/Linux evidence remains historical; actual new PR CI will be recorded separately. [Acceptance evidence](implementation/maple-room-r1a-20-acceptance-gate.md). Earlier dated records below are historical.
+
 How Maplegotchi runs in production. Facts about the host come from the Stage A
 survey (`deploy/survey/findings.md`); decisions are ADR-0020 … ADR-0024. The
 owner-run procedure is `deploy/install.md`.
