@@ -1,5 +1,7 @@
 # R1A-13 — Lighting zones and emitter hooks
 
+**Current integration reconciliation — STEP 155, 2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR #15 merge `a85f226fb664056482baf8f27389870fce14fd45` independently verified in the acceptance baseline ancestry. Earlier dated implementation/review/publication statements below are historical. Accepted decisions and measurement provenance remain unchanged. [Current R1A-20 audit](maple-room-r1a-20-acceptance-gate.md).
+
 Status: REVIEW / OWNER ACCEPTED / MERGE PENDING — STEP138 (2026-10-12). Owner accepts local implementation,QA and temporary placeholder colors;authorizes reviewed commit,normal push,PR and CI inspection. Integration baseline `48897c8e6b81a674441f089336930ba20ae53913`,branch `codex/r1a-13-lighting-zones`. No merge,deployment or new workstream authorization. Earlier STEP137 records below retain their original context.
 
 ## Binding inputs and checkpoints
