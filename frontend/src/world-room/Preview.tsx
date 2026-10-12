@@ -7,11 +7,12 @@ import type { DayPhase } from "../api/world.generated";
 import { actorSample } from "./presentation";
 import type { CreateWorldScene, WorldScene } from "./scene";
 import "./preview.css";
+import { RoomSummary } from "./RoomSummary";
 
 // Provisional development test setting; no product default is selected here.
 export const PREVIEW_FOLLOW_LEVEL: LogicalZoom = 2;
 const defaultScene: CreateWorldScene = async (host, options) => (await import("./scene")).createWorldScene(host, options);
-export function WorldPreview({ createScene = defaultScene }: { createScene?: CreateWorldScene }) {
+export function WorldPreview({ createScene = defaultScene, onReturnLegacy }: { createScene?: CreateWorldScene; onReturnLegacy?: () => void }) {
   const [scenario, setScenario] = useState<"idle" | "walking">("idle");
   const [phase, setPhase] = useState<DayPhase>(fixtureWorlds.idle.snapshot.day_phase);
   const sourceWorld = fixtureWorlds[scenario];
@@ -67,7 +68,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
   return <main class="world-preview">
     <h1>Maple Room development preview</h1>
     <p class="world-preview__disclosure"><strong>FIXTURE / DEMO DATA — not live Maple.</strong> Checked-in R1A-10 synthetic data only. No API, database or SSE connection.</p>
-    <nav><a href="/">Return to legacy Room</a></nav>
+    <nav>{onReturnLegacy ? <button type="button" onClick={onReturnLegacy}>Return to legacy Room</button> : <a href="/">Return to legacy Room</a>}</nav>
     <fieldset><legend>Deterministic fixture controls (DOM)</legend>
       <label>Fixture lighting phase (provisional) <select value={phase} onChange={(e) => setPhase(e.currentTarget.value as DayPhase)}>{DAY_PHASES.map((p) => <option value={p} key={p}>{p}</option>)}</select></label>
       <label>Scenario <select value={scenario} onChange={(e) => { setScenario(e.currentTarget.value as "idle" | "walking"); setElapsed(0); setPlaying(false); }}><option value="idle">Idle</option><option value="walking">Walking</option></select></label>
@@ -81,7 +82,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
       <label>Focus region <select value={regionId} disabled={mode !== "focus"} onChange={(e) => setRegionId(e.currentTarget.value)}>{world.regions.map((r) => <option key={r.id} value={r.id}>{r.id} — {r.status}</option>)}</select></label>
     </fieldset>
     <p>Overview and Focus select the largest fitting L1–L4. Default zoom by form factor is undecided.</p>
-    <p role="status">{status}</p>
+    <p role="status" aria-label="Fixture renderer">{status}</p>
     {reduced && <p>Reduced motion: playback is disabled. Select a fixed route time to inspect a snapped frame.</p>}
     <div class={`world-preview__viewport${unavailable && mode === "overview" ? " world-preview__viewport--fallback" : ""}`}>
       <div ref={host} class="world-preview__host" />
@@ -90,6 +91,7 @@ export function WorldPreview({ createScene = defaultScene }: { createScene?: Cre
       </nav>
     </div>
     {unavailable && <p>Overview cannot fit at locked integer zoom. Use the room list; select a room to Focus or switch to Follow.</p>}
+    <RoomSummary region={room} />
     <section aria-label="Accessible fixture description">
       <h2>Canonical house fixture</h2>
       <p>{world.grid.width_tiles} × {world.grid.height_tiles} tiles; {world.regions.length} regions; {world.doors.length} doors; {world.objects.length} objects; {world.points.length} interaction points; {world.slots.length} slots; {world.walkable.length} backend walkable cells.</p>

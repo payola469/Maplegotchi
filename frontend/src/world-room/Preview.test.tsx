@@ -37,7 +37,7 @@ describe("fixture-only DOM preview", () => {
   });
   it("has accessible initialization failure and preserves the full DOM description", async () => {
     render(<WorldPreview createScene={async () => { throw new Error("WebGL unavailable"); }} />);
-    expect(screen.getByRole("status").textContent).toContain("Loading");
+    expect(screen.getByRole("status", { name: "Fixture renderer" }).textContent).toContain("Loading");
     await screen.findByText(/Renderer unavailable/);
     expect(screen.getByRole("region", { name: "Accessible fixture description" })).toBeTruthy();
   });
@@ -91,4 +91,33 @@ it("selects four explicitly synthetic lighting phases without remounting",async(
     expect(f.updates.at(-1)?.world.source).toBe("development_fixture");
   }
   expect(f.create).toHaveBeenCalledTimes(1);
+});
+
+
+it("names the actor's canonical current room and status independently of focused camera, without frame announcements", async () => {
+  const f = fake(); render(<WorldPreview createScene={f.create} />);
+  await screen.findByText(/Synthetic fixture renderer ready/);
+  const region = screen.getByRole("region", { name: "Current fixture room" });
+  expect(region.getAttribute("tabindex")).toBe("0");
+  const announcement = region.querySelector('[role="status"]');
+  expect(announcement?.textContent).toBe("Central Hall — open. FIXTURE / DEMO, not live Maple.");
+  fireEvent.click(screen.getByRole("button", { name: "Focus creation_room (closed)" }));
+  expect(announcement?.textContent).toContain("Central Hall — open");
+  fireEvent.change(screen.getByRole("combobox", { name: "Scenario" }), { target: { value: "walking" } });
+  const text = announcement?.textContent;
+  for (const time of [125, 250, 375]) fireEvent.input(screen.getByRole("slider"), { target: { value: String(time) } });
+  expect(announcement?.textContent).toBe(text);
+  region.focus(); expect(document.activeElement).toBe(region);
+});
+it("cancels fixture playback on unmount and aborts the renderer", async () => {
+  let scheduled: FrameRequestCallback | undefined;
+  vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => { scheduled = callback; return 42; }));
+  const cancel = vi.fn(); vi.stubGlobal("cancelAnimationFrame", cancel);
+  const f = fake(); const view = render(<WorldPreview createScene={f.create} />);
+  await screen.findByText(/Synthetic fixture renderer ready/);
+  fireEvent.change(screen.getByRole("combobox", { name: "Scenario" }), { target: { value: "walking" } });
+  fireEvent.click(screen.getByRole("button", { name: "Play fixture route" }));
+  await waitFor(() => expect(scheduled).toBeDefined());
+  view.unmount(); expect(cancel).toHaveBeenCalledWith(42);
+  expect(f.handle.destroy).toHaveBeenCalledTimes(1); expect(f.create.mock.calls[0]?.[1].signal.aborted).toBe(true);
 });

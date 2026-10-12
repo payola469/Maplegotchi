@@ -12,9 +12,13 @@ export function verifyBundle(rootDir = root) {
   }
   for (const file of files) {
     const path = file.split('\\').join('/');
+    if (file.endsWith('.js.map')) {
+      const map = JSON.parse(readFileSync(file, 'utf8'));
+      if (map.sources.some((source) => /(?:^|\/)(?:dev\/RoomSwitcher|world-room\/|docs\/fixtures\/)/.test(source))) throw new Error('Development source leaked into production map');
+    }
     if (/art\/(?:export|palette)|meta\.json|maple-master|\.hex$/.test(path)) throw new Error('Source art leaked: ' + path);
     if (file.endsWith('.png') && !pages.some((p) => digest(readFileSync(join(generated, p))) === digest(readFileSync(file)))) throw new Error('Unprocessed PNG in bundle: ' + path);
-    if (file.endsWith('.js') && /FIXTURE \/ DEMO DATA|world-preview|fixture-sha256:|world-idle\.json/.test(readFileSync(file, 'utf8'))) throw new Error('Fixture preview leaked into production');
+    if (file.endsWith('.js') && /FIXTURE \/ DEMO DATA|world-preview|fixture-sha256:|world-idle\.json|Development Room view|Current fixture room/.test(readFileSync(file, 'utf8'))) throw new Error('Fixture preview leaked into production');
   }
   return { hashedPages: pages.length, rawSourceFiles: 0, productionPreview: false };
 }

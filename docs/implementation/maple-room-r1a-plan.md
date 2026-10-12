@@ -1,6 +1,8 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** AUTHORIZED — R1A-01–12 and R1A-14 DONE / OWNER ACCEPTED / MERGED. PR #14 merged at `48897c8e6b81a674441f089336930ba20ae53913`; verified integration baseline. R1A-13 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP138,2026-10-12): owner accepts lighting and provisional contrast-safe art corrections and authorizes commit,push,PR and CI inspection. Fresh local integration gates PASS;native Windows atlas reproduction is required on the PR. No merge or deployment authorization. R1A-15–20 TODO. Counters20 total/13 DONE/1 REVIEW/6 TODO (65% integrated). STEP138 authorizes reviewed R1A-13 commit,push,PR and CI inspection only;no merge,deployment,Production access,schema-v11 activation or R1A-15. Default zoom and final lighting colors/strengths remain UNDECIDED.
+**Status:** R1A-01–14 DONE / OWNER ACCEPTED / MERGED; R1A-15 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP141,2026-10-12). Owner accepts implementation and STEP140B browser evidence and authorizes final review,local checks,commit,normal feature-branch push,PR into v0.2-development and CI inspection. Legacy default/Pixi preserved;New Room development fixture-only.14 DONE/1 REVIEW/5 TODO=70%;after confirmed merge15/20=75%. No merge,deployment,production access,schema-v11 activation,B14 approval or R1A-16–20 work authorized.
+
+**STEP140B browser closure:** PASS; actual five-DPR × three-form-factor matrix15/15,production isolation3/3 and fresh586+69 regression tests/static/build gates PASS. Accepted historical evidence,not rerun in STEP141;R1A-15 OWNER ACCEPTED / MERGE PENDING. See [fresh coexistence evidence](maple-room-r1a-15-coexistence.md).
 
 **Baseline:** `v0.2-development` @ `dfd5972` (schema v10)
 
@@ -8,7 +10,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP138 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. Current authorization covers reviewed R1A-13 commit,normal push,PR and CI inspection;owner acceptance is recorded,merge/production activation are not authorized.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. Current STEP141 status is recorded above and in the checklist; earlier STEP-specific authorization/evidence remains historical in the append-only worklog. Current authorization covers reviewed R1A-15 commit,normal push,PR and CI inspection;owner acceptance is recorded,merge/production activation remain unauthorized.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -392,6 +394,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** yes (11 completion, 18, 19). **Blocks R1b:** no (art is not part of the cutover), but blocks the B14 switch.
 
 ### R1A-15 — Feature flag and old/new Room coexistence
+
+**Current status:** REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP141). [Implementation and fresh Windows evidence](maple-room-r1a-15-coexistence.md). Legacy Pixi preservation clarification accepted by owner; development fixture switch and rollback implemented. Production remains Legacy.
 
 - **Objective:** both views coexist; the legacy view remains the default and is unchanged.
 - **Scope:**

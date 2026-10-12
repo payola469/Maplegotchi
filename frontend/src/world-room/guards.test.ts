@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 const sources = import.meta.glob<string>(["./*.{ts,tsx}", "!./*.test.{ts,tsx}"], { query: "?raw", import: "default", eager: true });
 import main from "../main.tsx?raw";
+import switcher from "../dev/RoomSwitcher.tsx?raw";
+import legacy from "../ui/legacy.tsx?raw";
 
 describe("R1A-11 presentation-only architecture", () => {
   it.each([
@@ -19,10 +21,15 @@ describe("R1A-11 presentation-only architecture", () => {
     expect(sources["./scene.ts"]).toContain("world.structure");
     expect(sources["./scene.ts"]).toContain("world.passages");
   });
-  it("isolates preview before all legacy/live initialization and production dead-code eliminates it", () => {
-    expect(main).toContain("root && import.meta.env.DEV && fixturePreviewEnabled");
-    expect(main.indexOf('import("./world-room/Preview")')).toBeLessThan(main.indexOf("const store = new Store()"));
+  it("isolates preview behind a compile-time development boundary and keeps Legacy bootstrap separate", () => {
+    expect(main).toContain("root && import.meta.env.DEV");
+    expect(main).toContain('import("./dev/RoomSwitcher")');
     expect(main).toContain("} else if (root) {");
+    expect(main).toContain("mountLegacy(root)");
+    expect(main).not.toMatch(/Preview|fixtureWorlds|createWorldScene/);
+    expect(switcher).toContain('import("../world-room/Preview")');
+    expect(switcher).toContain("if (!enabled) dispose = mountLegacy(element)");
+    expect(legacy).not.toMatch(/world-room|fixture|RoomSwitcher/);
   });
   it("retains CSP-safe loading and locked renderer/sampling flags", () => {
     expect(sources["./assets.ts"]).toContain('import "pixi.js/unsafe-eval"');
