@@ -8,11 +8,12 @@
     "build": "node tools/art/cli.mjs && tsc --noEmit && vite build && node tools/art/bundle.mjs",
     "typecheck": "node tools/art/cli.mjs && tsc --noEmit",
     "lint": "eslint .",
-    "test": "node tools/art/cli.mjs && node --test tools/art/*.test.mjs && vitest run",
+    "test": "node tools/art/cli.mjs && node --test tools/art/*.test.mjs tools/performance/*.test.mjs && vitest run",
     "assets:build": "node tools/art/cli.mjs",
     "assets:test": "node --test tools/art/*.test.mjs",
     "assets:manifest": "node tools/art/reproducibility.mjs manifest",
-    "assets:compare": "node tools/art/reproducibility.mjs compare"
+    "assets:compare": "node tools/art/reproducibility.mjs compare",
+    "perf:browser": "node tools/performance/browser.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.21.0",

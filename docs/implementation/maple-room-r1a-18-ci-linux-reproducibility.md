@@ -1,5 +1,7 @@
 # R1A-18 — CI and Linux reproducibility
 
+**STEP 152 reconciliation (2026-10-12): DONE / OWNER ACCEPTED / MERGED.** PR #19 merge `26c4a959322aaab1d38779739cea583be75455ea` verified before R1A-19. Earlier dated pending-CI/publication/status statements below are historical; no new R1A-18 execution or GitHub integration is claimed here.
+
 ## STEP 149 design before implementation — 2026-10-12
 
 Baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe` is the verified PR #18 merge. Clean main fast-forwarded only; isolated worktree `C:/GitHub/Maplegotchi-worktrees/r1a-18-ci-linux-reproducibility`, branch `codex/r1a-18-ci-linux-reproducibility`. R1A15/16/17 and unrelated heads preserved. Local implementation/testing/evidence only; no commit, push, PR, merge, deployment or production access.

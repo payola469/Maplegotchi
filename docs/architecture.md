@@ -3,7 +3,11 @@
 `CLAUDE.md` §3 is the source of truth for architecture while v0.1 is being
 built; this file collects longer-form notes as each phase lands.
 
-## R1A current repository status (STEP 150, 2026-10-12)
+## R1A current repository status (STEP 153, 2026-10-12)
+
+R1A-01–18 DONE / OWNER ACCEPTED / MERGED; R1A-19 REVIEW / OWNER ACCEPTED / MERGE PENDING. STEP 153 authorizes final review, fresh checks, commit, normal push, PR and CI inspection only. 18 DONE / 1 REVIEW / 1 TODO = 90%; R1A-20 TODO. Legacy default and production boundaries remain unchanged. [R1A-19 evidence](implementation/maple-room-r1a-19-performance-soak.md).
+
+### Historical STEP 150 status
 
 R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified integration baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 150, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR into `v0.2-development` and CI/artifact inspection. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 approval. Actual cross-platform CI evidence will be recorded in the PR and final integration report; earlier dated evidence remains historical. [R1A-18 evidence](implementation/maple-room-r1a-18-ci-linux-reproducibility.md).
 

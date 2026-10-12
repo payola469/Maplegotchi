@@ -540,3 +540,14 @@ STEP140B closes the fractional-DPR browser gap: Playwright1.62.1/Chrome154.0.803
 
 
 STEP141 owner accepts the implementation and STEP140B QA for commit,normal push,PR and CI inspection. R1A-15 remains REVIEW / OWNER ACCEPTED / MERGE PENDING;14/20 DONE=70%,75% only after confirmed merge. Browser QA above is accepted historical evidence,not a fresh STEP141 rerun. Production default and all API/SSE/security/schema boundaries remain unchanged;no B14,merge,deployment or production access authorization.
+
+
+## R1A-19 measured renderer budgets — STEP 152
+
+The integrated development-flagged New Room with the full 44×26 house and accepted placeholder atlases passes all six L20/L21 budgets on Windows/Chrome 154 hardware ANGLE RTX 3060: maximum actual draw submissions 4/40; worst synchronous Pixi render p95 2.0/4 ms desktop (including soak), 3.4/8 ms DPR-3 phone EMULATED at actual CDP 4× CPU throttle; zero >33 ms intervals in each of two ≥60-second desktop windows; 621,924 bytes retained JS heap growth over 631.946 seconds; conservative resident texture/render-target bound 12,656,568/33,554,432 bytes. The bound includes actual atlas/utility textures, backing buffers and Pixi's retained 1×1 capability framebuffer, not compressed PNG sizes.
+
+CPU timing wraps the synchronous render invocation, separate from update/compositing/GPU completion. Every measured outlier is retained. Six Legacy/New round trips dispose the replaced renderer and preserve selector focus; post-GC DOM/listener counts remain stable. Phone Overview correctly uses the existing integer-zoom fallback and contributes no hidden cheap samples to its CPU gate. Runtime code, geometry, atlas bytes, Legacy default and production flag/API/SSE/security boundaries remain unchanged. Production query/direct-route isolation is freshly verified locally.
+
+R1A-19 REVIEW / pending owner acceptance; 18 DONE / 1 REVIEW / 1 TODO = 90%. Physical devices, final production art, native Linux performance and seven-day production soak remain separate B14 work; R1A-20 is TODO. [Method, full scenario matrix, raw-evidence hashes, corrected allocation accounting and fresh tests](implementation/maple-room-r1a-19-performance-soak.md).
+
+STEP 153: R1A-19 REVIEW / OWNER ACCEPTED / MERGE PENDING; 18 DONE / 1 REVIEW / 1 TODO = 90%. Hardware numbers above are accepted STEP 152 evidence. Fresh integration checks and deterministic harness/archive validation are recorded in the R1A-19 evidence document and PR; hosted CI does not measure RTX 3060 timing budgets.
