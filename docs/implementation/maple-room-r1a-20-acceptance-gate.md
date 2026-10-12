@@ -1,5 +1,7 @@
 # R1A-20 — Final Acceptance Gate
 
+**STEP158 merge reconciliation —2026-10-12: DONE / OWNER ACCEPTED / MERGED.** PR21 merge `3e89996216336f453b03939467e6a06cb33da3fb` verified; owner accepted STEP155 audit inSTEP156 and all eight PR21 CI jobs passed ([actual evidence](https://github.com/payola469/Maplegotchi/pull/21#issuecomment-6123181550)). R1a20/20=100% at repository level. All dated STEP155/156 pending-merge/test statements below retain their historical context; no tests freshly rerun STEP158. [R1b master planning](maple-room-r1b-plan.md) is separately authorized planning only, not implementation, production readiness, B14 or R4.
+
 **STEP 156 current status, 2026-10-12: REVIEW / OWNER ACCEPTED / MERGE PENDING.** Owner accepts the complete STEP 155 local audit and authorizes final documentation review, fresh applicable validation, commit, normal push, PR and CI inspection. No merge/deployment/production/paolo-core/schema11/default switch/R1b/B14 authorization. Integrated progress stays19/20=95%;100% needs separate merge authorization and confirmed merge. STEP 155 evidence/provenance and its then-pending owner decision below retain their historical context. New PR CI evidence will be an identifiable PR comment, avoiding a commit solely for a run ID.
 
 **STEP 155, 2026-10-12: PASS local evidence audit; REVIEW / pending owner acceptance.**

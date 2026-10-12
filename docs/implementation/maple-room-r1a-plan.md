@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** R1A-01–19 DONE / OWNER ACCEPTED / MERGED; baseline `6e861f2c199827098f3603e6952d44e87e8eff0a`. Owner ACCEPTS the STEP 155 audit and authorizes STEP 156 final review, fresh checks, documentation commit, normal push, PR into `v0.2-development` and CI inspection. R1A-20 **REVIEW / OWNER ACCEPTED / MERGE PENDING**; **19 DONE / 1 REVIEW / 0 TODO = 95%**. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. Historical hardware/DPR/Linux evidence remains historical; actual new PR CI will be recorded separately. [Acceptance report](maple-room-r1a-20-acceptance-gate.md).
+**Status:** R1a **20 DONE /0 REVIEW /0 TODO =100% (repository integration only)**; PR21 merged at `3e89996216336f453b03939467e6a06cb33da3fb` on2026-10-12T11:21:59Z and independently verified. STEP159 accepts G1 for **R1b planning integration only** in `codex/r1b-master-plan`: final review, doc corrections, commit, normal push, PR and CI inspection authorized; planning REVIEW / OWNER ACCEPTED / MERGE PENDING. All12implementation tasks remainTODO (0/12 DONE even after a planning merge); G2 is NOT GRANTED, D01–D06 OPEN. No merge, implementation, data-copy/migration, production/paolo-core access, schema11/default change, B14/R4 or deployment authorization. [R1b master plan](maple-room-r1b-plan.md).
 
 **Historical STEP140B browser closure:** PASS; actual five-DPR × three-form-factor matrix15/15,production isolation3/3 and fresh586+69 regression tests/static/build gates PASS. Accepted historical evidence,not rerun in STEP141;R1A-15 OWNER ACCEPTED / MERGE PENDING. See [fresh coexistence evidence](maple-room-r1a-15-coexistence.md).
 
@@ -499,59 +499,59 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Gate criteria (all required):**
 
 **Domain / world**
-- [x] Final Design Spec geometry reproduced exactly (oracle equality T1–T5). — [M01, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] 44×26 world validated; 8 room regions valid. — [M02, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] 5 open rooms connected; 3 closed rooms inaccessible. — [M03, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] All 7 door corridors valid. — [M04, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] **431** open walkable tiles (unless an approved spec revision changes this). — [M05, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Recovery stays inside the open connected component. — [M06, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Final Design Spec geometry reproduced exactly (oracle equality T1–T5). — [M01, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] 44×26 world validated; 8 room regions valid. — [M02, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] 5 open rooms connected; 3 closed rooms inaccessible. — [M03, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] All 7 door corridors valid. — [M04, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] **431** open walkable tiles (unless an approved spec revision changes this). — [M05, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Recovery stays inside the open connected component. — [M06, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Objects / interactions**
-- [x] Blocking masks valid (34 tiles, no overlaps). — [M07, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Approach/slot reuse rules valid (29 references, 26 tiles, 3 declared reuses). — [M08, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Capability candidates resolve correctly. — [M09, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] `sleep`, `rest`, `think`, `read`, `write`, `observe_server`, `idle` (and `walk`) supported. — [M10, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Slot rules validated; Maple cannot place into unauthorized locations. — [M11, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Blocking masks valid (34 tiles, no overlaps). — [M07, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Approach/slot reuse rules valid (29 references, 26 tiles, 3 declared reuses). — [M08, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Capability candidates resolve correctly. — [M09, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] `sleep`, `rest`, `think`, `read`, `write`, `observe_server`, `idle` (and `walk`) supported. — [M10, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Slot rules validated; Maple cannot place into unauthorized locations. — [M11, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Pathing**
-- [x] Deterministic 4-direction A\*; stable tie behaviour across runs and OS. — [M12, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] No path into closed rooms. — [M13, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] All required interaction points reachable. — [M14, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Recovery deterministic. — [M15, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Deterministic 4-direction A\*; stable tie behaviour across runs and OS. — [M12, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] No path into closed rooms. — [M13, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] All required interaction points reachable. — [M14, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Recovery deterministic. — [M15, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Persistence**
-- [x] v11 model rehearsal passes (synthetic v10 databases). — [M16, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] No production migration; v11 unreachable from production startup/activation. — [M17, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Legacy projection stays truthful. — [M18, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] v11 model rehearsal passes (synthetic v10 databases). — [M16, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] No production migration; v11 unreachable from production startup/activation. — [M17, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Legacy projection stays truthful. — [M18, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Compatibility**
-- [x] Existing Room view still works and is the default. — [M19, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] New view remains feature-flagged. — [M20, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] No duplicated backend business rules in the renderer. — [M21, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Existing Room view still works and is the default. — [M19, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] New view remains feature-flagged. — [M20, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] No duplicated backend business rules in the renderer. — [M21, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Rendering**
-- [x] DPR rules pass. — [M22, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Camera rules pass, including the Central Hall oversize fallback. — [M23, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Lighting partition has no overlaps or gaps. — [M24, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Atlases load through hashed Vite imports. — [M25, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] `preferWorkers: false` valid under the unchanged CSP. — [M26, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] DPR rules pass. — [M22, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Camera rules pass, including the Central Hall oversize fallback. — [M23, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Lighting partition has no overlaps or gaps. — [M24, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Atlases load through hashed Vite imports. — [M25, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] `preferWorkers: false` valid under the unchanged CSP. — [M26, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Quality**
-- [x] Validators green; property tests green. — [M27, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Fixtures and simulations green; existing 30-day digest unchanged. — [M28, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] CI green. — [M29, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Linux atlas reproducibility verified. — [M30, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Performance budgets pass; soak test passes. — [M31, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Validators green; property tests green. — [M27, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Fixtures and simulations green; existing 30-day digest unchanged. — [M28, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] CI green. — [M29, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Linux atlas reproducibility verified. — [M30, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Performance budgets pass; soak test passes. — [M31, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Documentation**
-- [x] Checklist current; worklog current. — [M32, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Architecture/spec/ADR changes documented where applicable. — [M33, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] No unresolved, undocumented architectural deviation. — [M34, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] Checklist current; worklog current. — [M32, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Architecture/spec/ADR changes documented where applicable. — [M33, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] No unresolved, undocumented architectural deviation. — [M34, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 **Production safety**
-- [x] No production migration performed. — [M35, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] No production default switch performed. — [M36, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
-- [x] Rollback / coexistence path preserved. — [M37, local PASS / owner accepted / merge pending](maple-room-r1a-20-acceptance-gate.md).
+- [x] No production migration performed. — [M35, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] No production default switch performed. — [M36, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
+- [x] Rollback / coexistence path preserved. — [M37, owner accepted / merged PR21](maple-room-r1a-20-acceptance-gate.md).
 
 - **Outputs:** a gate report (worklog entry + checklist) listing evidence per criterion.
 - **Completion criteria:** every box checked with linked evidence; owner review of the gate report. **Passing R1a does not authorize R1b**; R1b needs its own owner authorization.
