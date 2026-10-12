@@ -230,3 +230,9 @@ of the shared life events, and a separate owner Inspector (`docs/frontend.md`).
   argv, absolute path, no shell) and `MAPLE_BRAIN_MODEL`. Auto-approve flags are refused.
 - `deploy/brain/` holds the hardened unit (`maple-brain-svc`, no access to Maple's data
   or configuration), the env template and the install/update/rollback procedure.
+
+## R1A-17 simulation timing evidence (STEP 146)
+
+A supplied test-only schedule exercises all eight activities without changing Director selection or production transitions. Across the 49 canonical T6 trips, 250/300 ms per step and integer turn penalties 0/1/2/4 preserve every route length. Penalty 1 reduces total turns from 166 to 130; larger candidates add no benefit in this corpus. The longest relevant route is 53 steps: 13.25 seconds at 250 ms/step, 15.9 seconds at 300. Walking occupies at most about 4.23% or 5.03% of movement plus the destination minimum activity duration, respectively. These are complete-cycle shares, unlike the earlier travel/activity ratio.
+
+Recommendation: retain provisional 250 ms/step and penalty 1. Penalty affects path cost, not elapsed turn delay. No new parameter is locked and no production default changes. [R1A-17 evidence and reproduction](implementation/maple-room-r1a-17-fixtures-simulation.md).
