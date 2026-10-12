@@ -138,3 +138,10 @@ test('source palette must be a regular file', () => sandbox((d) => {
   const path = join(d, 'art/palette/maple-master.hex'); rmSync(path); mkdirSync(path);
   assert.throws(() => readInputs(d), /E24.*regular file/);
 }));
+
+if (process.platform === 'win32') test('effective Git attributes survive Windows short-path aliases', () => sandbox((d) => {
+  execFileSync('git', ['init', '--quiet', d], { stdio: 'ignore' });
+  writeFileSync(join(d, '.git/info/attributes'), 'art/export/** filter=lfs\n');
+  const alias = execFileSync('cmd.exe', ['/d', '/s', '/c', `for %I in ("${d}") do @echo %~sI`], { encoding: 'utf8', windowsVerbatimArguments: true }).trim();
+  assert.throws(() => readInputs(alias), /E24\/C1.*forbidden effective Git attribute/);
+}));

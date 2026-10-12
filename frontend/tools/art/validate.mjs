@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, lstatSync } from 'node:fs';
-import { join, relative, basename, resolve } from 'node:path';
+import { readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
+import { join, relative, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { decodePNG, crop } from './png.mjs';
 import { canonical } from './pack.mjs';
@@ -56,7 +56,7 @@ export function repositoryAttributes(root, files) {
   const paths = ['art/export', 'art/palette', ...files];
   let top;
   try { top = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* Clean archive: no repository metadata. */ }
-  if (top && resolve(top) === resolve(root)) {
+  if (top && realpathSync.native(top) === realpathSync.native(root)) {
     const attrs = execFileSync('git', ['-C', root, 'check-attr', '-z', 'filter', 'export-ignore', '--', ...paths], { encoding: 'utf8' }).split('\0');
     for (let i = 0; i + 2 < attrs.length; i += 3) demand(!(attrs[i + 1] === 'filter' && attrs[i + 2] === 'lfs') && !(attrs[i + 1] === 'export-ignore' && ['set', 'true'].includes(attrs[i + 2])), 'E24/C1', attrs[i], 'forbidden effective Git attribute');
   } else {
