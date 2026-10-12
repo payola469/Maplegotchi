@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, lstatSync } from 'node:fs';
-import { join, relative, basename } from 'node:path';
+import { join, relative, basename, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { decodePNG, crop } from './png.mjs';
 import { canonical } from './pack.mjs';
@@ -56,7 +56,7 @@ export function repositoryAttributes(root, files) {
   const paths = ['art/export', 'art/palette', ...files];
   let top;
   try { top = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* Clean archive: no repository metadata. */ }
-  if (top === root) {
+  if (top && resolve(top) === resolve(root)) {
     const attrs = execFileSync('git', ['-C', root, 'check-attr', '-z', 'filter', 'export-ignore', '--', ...paths], { encoding: 'utf8' }).split('\0');
     for (let i = 0; i + 2 < attrs.length; i += 3) demand(!(attrs[i + 1] === 'filter' && attrs[i + 2] === 'lfs') && !(attrs[i + 1] === 'export-ignore' && ['set', 'true'].includes(attrs[i + 2])), 'E24/C1', attrs[i], 'forbidden effective Git attribute');
   } else {
@@ -67,11 +67,12 @@ export function repositoryAttributes(root, files) {
 }
 export function readInputs(root) {
   const files = [];
-  function walk(dir) { for (const name of readdirSync(dir).sort()) { const path = join(dir, name), stat = lstatSync(path); demand(!stat.isSymbolicLink(), 'E24', path, 'symlinks forbidden'); if (stat.isDirectory()) walk(path); else files.push(path); } }
+  function walk(dir) { for (const name of readdirSync(dir).sort()) { const path = join(dir, name), stat = lstatSync(path); demand(!stat.isSymbolicLink(), 'E24', path, 'symlinks forbidden'); if (stat.isDirectory()) walk(path); else { demand(stat.isFile(), 'E24', path, 'regular source file required'); files.push(path); } } }
   walk(join(root, 'art/export'));
   for (const file of files) demand(file.endsWith('.png') || file.endsWith('.meta.json'), 'E24', relative(root, file), 'only PNG and metadata permitted');
   const paletteFile = join(root, 'art/palette/maple-master.hex');
-  demand(!lstatSync(paletteFile).isSymbolicLink(), 'E24', 'palette', 'symlink forbidden');
+  const paletteStat = lstatSync(paletteFile);
+  demand(!paletteStat.isSymbolicLink() && paletteStat.isFile(), 'E24', 'palette', 'regular file required; symlinks forbidden');
   repositoryAttributes(root, [...files, paletteFile].map((p) => relative(root, p).split('\\').join('/')));
   const palette = new Set(readFileSync(paletteFile, 'utf8').trim().split(/\s+/).map((h) => { demand(/^#[0-9a-f]{6}$/.test(h), 'E5', 'palette', 'expected lowercase RGB hex'); return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(','); }));
   const metas = files.filter((f) => f.endsWith('.meta.json')).map((f) => { let m; try { m = JSON.parse(readFileSync(f, 'utf8')); } catch { throw new Error(`E1 ${f}: invalid JSON metadata`); } return { meta: m, file: f }; });

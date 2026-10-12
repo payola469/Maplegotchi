@@ -1,5 +1,9 @@
 # CLAUDE.md — Maplegotchi
 
+> **STEP 150 current authorization/status:** R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified integration baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 150, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR into `v0.2-development` and CI/artifact inspection. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 approval. Actual cross-platform CI evidence will be recorded in the PR and final integration report; earlier dated evidence remains historical. [Evidence](docs/implementation/maple-room-r1a-18-ci-linux-reproducibility.md).
+
+> **STEP 149 current authorization/status:** R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified PR #18 merge `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / pending owner acceptance (STEP 149, 2026-10-12), local CI/reproducibility implementation, validation and evidence only. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No commit, push, PR, merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default change, R1b or B14 approval. Native cross-platform CI remains pending. Earlier dated blocks are historical. [Evidence](docs/implementation/maple-room-r1a-18-ci-linux-reproducibility.md).
+
 > **STEP 147 current authorization/status:** R1A-01–16 DONE / OWNER ACCEPTED / MERGED; verified PR #17 integration baseline `50ec74865cee9c65ed566251476df7bbeed2dbd2`. R1A-17 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 147, 2026-10-12). Owner accepts STEP 146 and authorizes final review, fresh checks, commit, normal feature-branch push, PR to `v0.2-development` and CI inspection. 16 DONE / 1 REVIEW / 3 TODO = 80%; 17/20 = 85% only after confirmed merge. R1A-18–20 remain TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch or B14 approval. Earlier dated blocks are historical. [Evidence](docs/implementation/maple-room-r1a-17-fixtures-simulation.md).
 
 > **STEP 146 current authorization/status:** R1A-01-16 DONE / OWNER ACCEPTED / MERGED; PR #17 merge verified at `50ec74865cee9c65ed566251476df7bbeed2dbd2`. R1A-17 REVIEW / pending owner acceptance: local fixtures, synthetic simulation, tests and evidence only. 16 DONE / 1 REVIEW / 3 TODO = 80%. No commit, push, PR, merge, deployment, production access, schema-v11 activation, Legacy default change, B14 approval or R1A-18-20 work. Earlier dated blocks are historical. [Plan/evidence](docs/implementation/maple-room-r1a-17-fixtures-simulation.md).
@@ -536,9 +540,9 @@ On paolo-core, `deploy/verify/check_boundaries.py` (owner, no sudo) asserts §4.
 - **Small, reviewable changes.** One concern per PR; update `docs/`, ADRs, and this file when architecture changes.
 
 ### Commands
-Run from the repo root (Git Bash on Windows, bash on Linux/CI):
+Run the wrapper from the repo root in Bash (Git Bash on Windows, Bash on Linux/CI). Native PowerShell verification uses the commands below from each project directory; the Bash wrapper was not run in STEP 149:
 ```
-scripts/check.sh              # everything below
+scripts/check.sh              # native commands below; Bash required for wrapper
 
 # backend (cd backend)
 uv sync --locked
@@ -566,6 +570,11 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+# From frontend: validate all actual generated files; use a full Git SHA
+pnpm assets:manifest --revision <sha>
+# Optional artifact staging, then compare downloaded same-run OS artifacts
+pnpm assets:manifest --revision <sha> --output ../var/atlas-local
+pnpm assets:compare ../var/artifacts/windows ../var/artifacts/linux
 ```
 
 ---

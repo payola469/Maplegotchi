@@ -40,5 +40,6 @@ step "frontend: eslint";    "$PNPM" lint
 step "frontend: tsc";       "$PNPM" typecheck
 step "frontend: vitest";    "$PNPM" test
 step "frontend: build";     "$PNPM" build
+step "art: actual generated-byte manifest"; "$PNPM" assets:manifest --revision "$(git rev-parse HEAD)"
 
 printf '\nAll checks passed.\n'

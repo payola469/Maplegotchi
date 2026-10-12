@@ -16,9 +16,9 @@ export function verifyBundle(rootDir = root) {
       const map = JSON.parse(readFileSync(file, 'utf8'));
       if (map.sources.some((source) => /(?:^|\/)(?:dev\/RoomSwitcher|world-room\/|docs\/fixtures\/)/.test(source))) throw new Error('Development source leaked into production map');
     }
-    if (/art\/(?:export|palette)|meta\.json|maple-master|\.hex$/.test(path)) throw new Error('Source art leaked: ' + path);
+    if (/art\/(?:export|palette)|meta\.json|maple-master|\.hex$|\.(?:aseprite|psd|kra|sqlite|db|py|ts)$/.test(path)) throw new Error('Source art leaked: ' + path);
     if (file.endsWith('.png') && !pages.some((p) => digest(readFileSync(join(generated, p))) === digest(readFileSync(file)))) throw new Error('Unprocessed PNG in bundle: ' + path);
-    if (file.endsWith('.js') && /FIXTURE \/ DEMO DATA|world-preview|fixture-sha256:|world-idle\.json|Development Room view|Current fixture room/.test(readFileSync(file, 'utf8'))) throw new Error('Fixture preview leaked into production');
+    if (/\.(?:js|json|map)$/.test(file) && /r1a17-grid-v1|scripted-room-states|SIMULATION - synthetic R1A-17|FIXTURE \/ DEMO DATA|world-preview|fixture-sha256:|world-idle\.json|Development Room view|Current fixture room/.test(readFileSync(file, 'utf8'))) throw new Error('Fixture preview leaked into production');
   }
   return { hashedPages: pages.length, rawSourceFiles: 0, productionPreview: false };
 }

@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "node tools/art/cli.mjs && node --test tools/art/*.test.mjs && vitest run",
     "assets:build": "node tools/art/cli.mjs",
-    "assets:test": "node --test tools/art/*.test.mjs"
+    "assets:test": "node --test tools/art/*.test.mjs",
+    "assets:manifest": "node tools/art/reproducibility.mjs manifest",
+    "assets:compare": "node tools/art/reproducibility.mjs compare"
   },
   "dependencies": {
     "pixi.js": "^8.21.0",
