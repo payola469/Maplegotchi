@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** R1A-01–16 DONE / OWNER ACCEPTED / MERGED; verified PR #17 integration baseline `50ec74865cee9c65ed566251476df7bbeed2dbd2`. R1A-17 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 147, 2026-10-12). Owner accepts STEP 146 and authorizes final review, fresh checks, commit, normal feature-branch push, PR to `v0.2-development` and CI inspection. 16 DONE / 1 REVIEW / 3 TODO = 80%; 17/20 = 85% only after confirmed merge. R1A-18–20 remain TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch or B14 approval. [R1A-17 evidence](maple-room-r1a-17-fixtures-simulation.md).
+- **R1a authorization:** R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified integration baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 150, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR into `v0.2-development` and CI/artifact inspection. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 approval. Actual cross-platform CI evidence will be recorded in the PR and final integration report; earlier dated evidence remains historical. [R1A-18 evidence](maple-room-r1a-18-ci-linux-reproducibility.md).
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 3 | 0 | 0 | 1 | 16 | 0 |
+| 20 | 2 | 0 | 0 | 1 | 17 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -70,8 +70,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-14 | Asset pipeline and atlas integration | DONE / OWNER ACCEPTED / MERGED | 01, 03, 11 shell merged; native Windows PASS | 2026-10-11 |
 | R1A-15 | Feature flag and old/new Room coexistence | DONE / OWNER ACCEPTED / MERGED | 10–14 merged | 2026-10-12 |
 | R1A-16 | Validators and property tests | DONE / OWNER ACCEPTED / MERGED | 01–15 merged | 2026-10-12 |
-| R1A-17 | Fixtures and simulation coverage | REVIEW / OWNER ACCEPTED / MERGE PENDING | 01–16 merged | 2026-10-12 |
-| R1A-18 | CI and Linux reproducibility | TODO | 01 (continuous; completion: 14) | 2026-10-09 |
+| R1A-17 | Fixtures and simulation coverage | DONE / OWNER ACCEPTED / MERGED | 01–16 merged | 2026-10-12 |
+| R1A-18 | CI and Linux reproducibility | REVIEW / OWNER ACCEPTED / MERGE PENDING | 01–17 merged | 2026-10-12 |
 | R1A-19 | Performance and soak validation | TODO | 14, 15, 17 | 2026-10-09 |
 | R1A-20 | R1a Acceptance Gate | TODO | 01-19 | 2026-10-09 |
 
@@ -274,27 +274,27 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-17 — Fixtures and simulation coverage
 
-- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 01–16 merged
 - **Branch:** `codex/r1a-17-fixtures-simulation`
 - **Start commit:** `50ec74865cee9c65ed566251476df7bbeed2dbd2`
-- **End commit:** — (merge pending; feature commit/PR recorded by STEP 147 integration)
+- **End commit:** `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe` (PR #18 merge verified STEP 149)
 - **Evidence / tests:** [A–N matrix, full local gates, reviewed long-run digest and timing](maple-room-r1a-17-fixtures-simulation.md).
-- **Notes:** Test-only simulation and offline JSON; original 30-day digest preserved. Native Ubuntu/Windows CI execution will be inspected after PR creation. 16 DONE / 1 REVIEW / 3 TODO = 80%; owner acceptance and confirmed merge required for DONE.
-- **Last updated:** 2026-10-12 (STEP 147)
+- **Notes:** Test-only simulation and offline JSON; original 30-day digest preserved. PR #18 merged; historical STEP 147 CI-pending entries remain historical. STEP 149 starts separately authorized R1A-18.
+- **Last updated:** 2026-10-12 (STEP 149 merge reconciliation)
 - **Detailed task plan:** [Design and implementation evidence](maple-room-r1a-17-fixtures-simulation.md)
 
 ### R1A-18 — CI and Linux reproducibility
 
-- **Status:** TODO
-- **Dependencies:** 01 (continuous; completion: 14)
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** Continuous. Includes the Linux atlas reproducibility deferred from the spike.
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Dependencies:** 01–17 merged
+- **Branch:** `codex/r1a-18-ci-linux-reproducibility`
+- **Start commit:** `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`
+- **End commit:** — (merge pending; feature commit/PR reported by STEP 150)
+- **Evidence / tests:** [Coverage, actual-byte artifact comparison and local validation](maple-room-r1a-18-ci-linux-reproducibility.md).
+- **Notes:** STEP 150 authorizes integration and CI/artifact inspection. Actual results belong in the PR/final report. DONE requires full cross-platform evidence and confirmed merge.
+- **Last updated:** 2026-10-12 (STEP 150)
+- **Detailed task plan:** [Design and evidence](maple-room-r1a-18-ci-linux-reproducibility.md)
 
 ### R1A-19 — Performance and soak validation
 

@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -127,3 +128,20 @@ test('R1A-13 placeholder recolor preserves geometry/alpha and uses approved pale
     }
   }
 });
+
+test('effective Git info attributes reject LFS on Windows and Linux', () => sandbox((d) => {
+  execFileSync('git', ['init', '--quiet', d], { stdio: 'ignore' });
+  writeFileSync(join(d, '.git/info/attributes'), 'art/export/** filter=lfs\n');
+  assert.throws(() => readInputs(d), /E24\/C1.*forbidden effective Git attribute/);
+}));
+test('source palette must be a regular file', () => sandbox((d) => {
+  const path = join(d, 'art/palette/maple-master.hex'); rmSync(path); mkdirSync(path);
+  assert.throws(() => readInputs(d), /E24.*regular file/);
+}));
+
+if (process.platform === 'win32') test('effective Git attributes survive Windows short-path aliases', () => sandbox((d) => {
+  execFileSync('git', ['init', '--quiet', d], { stdio: 'ignore' });
+  writeFileSync(join(d, '.git/info/attributes'), 'art/export/** filter=lfs\n');
+  const alias = execFileSync('cmd.exe', ['/d', '/s', '/c', `for %I in ("${d}") do @echo %~sI`], { encoding: 'utf8', windowsVerbatimArguments: true }).trim();
+  assert.throws(() => readInputs(alias), /E24\/C1.*forbidden effective Git attribute/);
+}));
