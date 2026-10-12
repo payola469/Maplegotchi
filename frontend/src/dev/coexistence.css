@@ -1,0 +1,3 @@
+/* Explicit development control; the Legacy component tree stays intact. */
+.room-switcher { padding: .75rem; text-align: center; }
+.room-switcher select { max-width: 100%; margin-inline-start: .5rem; }

@@ -18,3 +18,8 @@ test('bundle allows only matching processed hashed atlas pages', () => fixture((
 test('bundle rejects source sidecars', () => fixture((d, out) => { writeFileSync(join(out, 'furniture.meta.json'), '{}'); assert.throws(() => verifyBundle(d), /Source art leaked/); }));
 test('bundle rejects unprocessed raw PNG bytes', () => fixture((d, out) => { writeFileSync(join(out, 'raw.png'), 'foreign'); assert.throws(() => verifyBundle(d), /Unprocessed PNG/); }));
 test('bundle rejects leaked fixture entry', () => fixture((d, out) => { writeFileSync(join(out, 'preview.js'), 'FIXTURE / DEMO DATA'); assert.throws(() => verifyBundle(d), /Fixture preview leaked/); }));
+
+
+test('bundle rejects development view controls', () => fixture((d, out) => { writeFileSync(join(out, 'switcher.js'), 'Development Room view'); assert.throws(() => verifyBundle(d), /Fixture preview leaked/); }));
+test('bundle rejects development source maps', () => fixture((d, out) => { writeFileSync(join(out, 'preview.js.map'), JSON.stringify({ sources: ['../../src/world-room/Preview.tsx'] })); assert.throws(() => verifyBundle(d), /Development source leaked/); }));
+test('bundle rejects fixture JSON source maps', () => fixture((d, out) => { writeFileSync(join(out, 'preview.js.map'), JSON.stringify({ sources: ['../../../docs/fixtures/maple-room/r1a-10/world-idle.json'] })); assert.throws(() => verifyBundle(d), /Development source leaked/); }));

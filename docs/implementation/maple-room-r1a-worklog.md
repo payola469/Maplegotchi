@@ -559,3 +559,46 @@ Owner approves narrow original-placeholder palette/pixel changes while preservin
 ### STEP138 — R1A-13 owner acceptance and integration preparation (2026-10-12)
 
 Owner accepts R1A-13 local implementation/QA and temporary original-placeholder skin/shirt/head-hair palette corrections;authorizes reviewed commit,normal push,PR to `v0.2-development` and CI inspection only. Existing worktree/branch verified at48897c8;freshly fetched remote development unchanged,feature remote absent before publication.29 reviewed files only;approved binary substitutions preserve dimensions/alpha/geometry/metadata,palette,faces andpants. Fresh549 frontend+66 asset/bundle+237 backend/security tests PASS;10 import contracts kept;ESLint/TypeScript/build,exports and two complete deterministic atlas outputs/reference match PASS. Browser checks are reused STEP137 CONTINUE evidence,not rerun:5DPR×4phases,22880cell/640edge checks,832doorway samples(min1.802),12face/skin and exact emissive. Native Windows atlas result pending PR CI;unchanged reproduction gate required. R1A-13 REVIEW / OWNER ACCEPTED / MERGE PENDING,notDONE;13DONE/1REVIEW/6TODO=65%,intended after merge14/20=70%. Final artwork/lighting,hardware andfullL21 remain deferred. Commit/PR/CI facts reported after execution. No merge,deployment,Production,schema-v11 activation or next workstream;unrelated worktrees and40f0eb7 preserved. [Evidence](maple-room-r1a-13-lighting-zones.md).
+
+### STEP 140 CONTINUE — owner clarification and R1A-15 planning (2026-10-12)
+
+Owner approved preserving Legacy's existing Pixi renderer when the flag is OFF; only the NEW-WORLD renderer must remain uninitialized. Existing isolated Windows worktree and branch retained at a85f226fb664056482baf8f27389870fce14fd45. Local implementation/testing/browser QA/docs authorized; no publication, deployment or production access. Detailed pre-implementation design: [R1A-15 evidence](maple-room-r1a-15-coexistence.md). Integrated 14/20 DONE (70%); R1A-15 IN PROGRESS, acceptance and merge pending.
+
+
+### STEP 140 CONTINUE — R1A-15 local implementation and validation (2026-10-12)
+
+Owner clarification preserves Legacy's existing Pixi initialization/rendering/lifecycle/data flow; flag OFF prohibits only NEW-WORLD initialization. Existing Windows worktree/branch reused at `a85f226fb664056482baf8f27389870fce14fd45`; no main-tree/pre-existing branch edits. R1A-10–14 merged (R1A-13 PR #15); R1A-15 REVIEW / PENDING OWNER ACCEPTANCE.20 total/14 DONE/1 REVIEW/5 TODO=70%;75% only after acceptance and merge.
+
+Implemented strict development fixture flag/persistent DOM selector, owned Legacy bootstrap, async-cancellation-safe switching, canonical current-region summary and production JS/source-map leak checks. Existing scene/camera/lighting/atlas reused. Legacy business panels stay with their real typed source; no fabricated WorldOut-to-SnapshotOut adapter or production configuration. Rollback selects Legacy/removes query.
+
+Fresh Windows586 frontend and69 asset/bundle PASS;3674 backend PASS/21 expected Windows skips (18 Bash,1 POSIX/non-root,2 symlink privilege). TypeScript/ESLint/build,Ruff/format,strict Windows/Linux-target mypy228 files,10 import contracts,exact OpenAPI/DTO/five-fixture exports and native atlas reproduction PASS. Legacy App/RoomView/panels/scene and backend/security/schema/pin/art/lockfiles unchanged. No Linux execution or Full Release Gate claim.
+
+Browser Chrome155/Windows hardware ANGLE/NVIDIA RTX3060,DPR1: Legacy/fixture,keyboard toggles/focus,cleanup,1440/820/390 emulation,no overflow,cameraL1–L4,four phases,eight zones1144 cells,canvas-failure fallback and actual production query/direct-route rejection PASS. Zero uncaught application errors or mutation fetches. Fresh browser DPR1.25/1.5/2/3 unsupported by available controls; automated five-DPR suite PASS. Physical devices/spoken screen reader and R1A-19/20/fullL21/B14 remain deferred. CONCERN / ready for local owner review with explicit limitations.
+
+[Complete20-point report,browser matrix,hashes and exact20-file manifest](maple-room-r1a-15-coexistence.md). No commit,push,PR,merge,deployment,production access,schema-v11 activation or later workstream. No B14 approval; production Legacy default retained.
+
+
+## STEP 140B — R1A-15 fractional DPR browser QA closure — 2026-10-12
+
+Owner authorized Playwright contexts in the existing Windows worktree/branch at a85f226fb664056482baf8f27389870fce14fd45. No recreation or discarded progress. Owner's STEP140 Legacy clarification remains binding: OFF disables only NEW-WORLD Pixi; Legacy Pixi remains unchanged.
+
+Fresh Playwright1.62.1/Chrome154.0.8037.98, actual DPR1/1.25/1.5/2/3 × desktop1440×1000,tablet820×1180,phone390×844:15/15 PASS. Actual WebGL2 ANGLE NVIDIA RTX3060 D3D11 recorded, not assumed. Legacy/new/legacy/new keyboard switching, focus, camera Overview/Follow/Focus/L1–L4, canvas backing, four phases, packed atlas assets, cleanup, console and overflow PASS. Supplemental15 direct fixture entries produce zero API/SSE requests. Production build/audit and3 query/direct-route isolation checks PASS; Legacy remains default and preview runtime/fixtures remain excluded.
+
+Fresh586 frontend+69 asset/bundle tests,lint,typecheck,build PASS. Backend3674 PASS/21 skips and backend static/export/import results remain STEP140 historical evidence, not rerun. No product defect found; application/tests/dependencies/backend/security unchanged. Cached Chromium failed spawn; installed Chrome fallback succeeded. Disposable harness corrections only.75 ignored screenshots and raw JSON/scripts/logs retained under var/r1a15-dpr*.
+
+PASS / ready for owner acceptance; fractional-DPR concern closed. R1A-15 stays REVIEW/PENDING OWNER ACCEPTANCE,14DONE/1REVIEW/5TODO=70%;75% only after acceptance+merge. Physical devices,other engines/software renderer,spoken screen reader,final art/defaults and soak remain unclaimed. Detailed matrix and limits: [R1A-15 evidence](maple-room-r1a-15-coexistence.md). No commit/push/PR/merge/deployment/production access,paolo-core change or later workstream.
+
+STEP140B final local audit:78 current-document links,counters,exact earlier worklog prefix and diff whitespace PASS;baseline/branch unchanged,staging empty,main clean,original20-file manifest retained. Verified no remaining QA listeners on5173/4173/8470;browser contexts closed. Stopped after QA/evidence updates as requested.
+
+
+### STEP141 — R1A-15 owner acceptance and GitHub integration preparation — 2026-10-12
+
+Owner ACCEPTS implementation and STEP140B QA and authorizes final review,local validation,commit,normal push,PR to v0.2-development and CI inspection only. Existing Windows worktree/branch retained at a85f226fb664056482baf8f27389870fce14fd45;origin/base verified,feature remote absent before publication.20 reviewed paths derived from Git;temporary QA files stay ignored. Legacy Pixi clarification,default,data flow and accepted panel-reuse/source boundary preserved. Production JS/source-map audit excludes new-world/fixture runtime;hashed processed pages intentionally retained. No material binding conflict or security failure.
+
+Fresh586 frontend+69 asset/bundle tests,lint,typecheck,build,native Windows PNG/metadata/index reproduction,exports,10 import contracts,Ruff and strict Windows/Linux-target mypy PASS. Full backend results appended after completion. Accepted15/15 DPR/form-factor and15/15 switching results,measured hardware renderer and3 production bypass cases remain STEP140B historical evidence,not rerun. R1A-15 REVIEW / OWNER ACCEPTED / MERGE PENDING;14DONE/1REVIEW/5TODO=70%,75% after confirmed merge only. Physical devices,other engines,spoken screen reader and long-soak/performance remain deferred. No merge,deployment,production access,paolo-core modification,40f0eb7 import/reconstruction,baseline-branch repair/push or later workstream. [Detailed evidence](maple-room-r1a-15-coexistence.md).
+
+
+Fresh STEP141 full Windows backend: **3674 PASS,21 SKIPPED in142.37s**;18 Bash-unavailable deployment cases,1 POSIX/non-root permissions case,2 file-symlink privilege cases. No failures;no Linux execution or full release-gate claim. Includes API/security,Oracle/Harness,projection and pinned simulation regressions. Logs remain ignored under var/r1a15-step141-frontend.log and var/r1a15-step141-backend.log.
+
+
+Final precommit audit: **20 reviewed paths**,93 local-document links PASS;exact pre-STEP141 worklog byte prefix and original baseline history preserved;14DONE/1REVIEW/5TODO counters PASS;source/secret/temp/generated-file review PASS;git diff --check PASS. Main checkout clean at baseline,staging empty before explicit staging,unrelated branches/worktrees unchanged. No critical gate failure. Commit and normal push authorized;PR/CI pending execution.
