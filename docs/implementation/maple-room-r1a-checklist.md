@@ -3,7 +3,7 @@
 **Live status of the R1a workstreams.** Plan: `maple-room-r1a-plan.md`. History: `maple-room-r1a-worklog.md`.
 
 - **Starting baseline:** `v0.2-development` @ `5c6db41c0139e1da6a2178b36d838e4da57074b1` (original planning baseline: `dfd5972`).
-- **R1a authorization:** R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified integration baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 150, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR into `v0.2-development` and CI/artifact inspection. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 approval. Actual cross-platform CI evidence will be recorded in the PR and final integration report; earlier dated evidence remains historical. [R1A-18 evidence](maple-room-r1a-18-ci-linux-reproducibility.md).
+- **R1a authorization:** R1A-01–18 DONE / OWNER ACCEPTED / MERGED; baseline `26c4a959322aaab1d38779739cea583be75455ea`. STEP 153 (2026-10-12) authorizes final review, fresh checks, commit, normal feature push, PR into `v0.2-development` and CI inspection. R1A-19 REVIEW / OWNER ACCEPTED / MERGE PENDING; 18 DONE / 1 REVIEW / 1 TODO = 90%; R1A-20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. STEP 152 hardware measurements remain accepted historical evidence. [R1A-19 evidence](maple-room-r1a-19-performance-soak.md).
 - **This checklist was created by the planning framework.** The framework itself is **not** an R1A work item; creating these documents does not complete or start R1A-01.
 
 ## Pre-R1 Gate
@@ -26,7 +26,7 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 | Total | TODO | IN PROGRESS | BLOCKED | REVIEW | DONE | DEFERRED |
 |---|---|---|---|---|---|---|
-| 20 | 2 | 0 | 0 | 1 | 17 | 0 |
+| 20 | 1 | 0 | 0 | 1 | 18 | 0 |
 
 ## Status vocabulary (only these values)
 
@@ -71,8 +71,8 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 | R1A-15 | Feature flag and old/new Room coexistence | DONE / OWNER ACCEPTED / MERGED | 10–14 merged | 2026-10-12 |
 | R1A-16 | Validators and property tests | DONE / OWNER ACCEPTED / MERGED | 01–15 merged | 2026-10-12 |
 | R1A-17 | Fixtures and simulation coverage | DONE / OWNER ACCEPTED / MERGED | 01–16 merged | 2026-10-12 |
-| R1A-18 | CI and Linux reproducibility | REVIEW / OWNER ACCEPTED / MERGE PENDING | 01–17 merged | 2026-10-12 |
-| R1A-19 | Performance and soak validation | TODO | 14, 15, 17 | 2026-10-09 |
+| R1A-18 | CI and Linux reproducibility | DONE / OWNER ACCEPTED / MERGED | 01–17 merged | 2026-10-12 |
+| R1A-19 | Performance and soak validation | REVIEW / OWNER ACCEPTED / MERGE PENDING | 14, 15, 17 | 2026-10-12 |
 | R1A-20 | R1a Acceptance Gate | TODO | 01-19 | 2026-10-09 |
 
 ## Items
@@ -286,27 +286,25 @@ Gate statuses: OPEN · RESOLVED · BLOCKED. They are separate from the item stat
 
 ### R1A-18 — CI and Linux reproducibility
 
-- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Status:** DONE / OWNER ACCEPTED / MERGED
 - **Dependencies:** 01–17 merged
 - **Branch:** `codex/r1a-18-ci-linux-reproducibility`
 - **Start commit:** `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`
-- **End commit:** — (merge pending; feature commit/PR reported by STEP 150)
-- **Evidence / tests:** [Coverage, actual-byte artifact comparison and local validation](maple-room-r1a-18-ci-linux-reproducibility.md).
-- **Notes:** STEP 150 authorizes integration and CI/artifact inspection. Actual results belong in the PR/final report. DONE requires full cross-platform evidence and confirmed merge.
-- **Last updated:** 2026-10-12 (STEP 150)
-- **Detailed task plan:** [Design and evidence](maple-room-r1a-18-ci-linux-reproducibility.md)
+- **End commit:** `26c4a959322aaab1d38779739cea583be75455ea` (PR #19 merge)
+- **Evidence / tests:** [Accepted R1A-18 evidence](maple-room-r1a-18-ci-linux-reproducibility.md). STEP 152 confirms the merge; earlier pending-CI/publication statements remain historical.
+- **Last updated:** 2026-10-12 (STEP 152 reconciliation)
 
 ### R1A-19 — Performance and soak validation
 
-- **Status:** TODO
-- **Dependencies:** 14, 15, 17
-- **Branch:** —
-- **Start commit:** —
-- **End commit:** —
-- **Evidence / tests:** —
-- **Notes:** —
-- **Last updated:** 2026-10-09 (planning framework created)
-- **Detailed task plan:** — (created only when this item starts)
+- **Status:** REVIEW / OWNER ACCEPTED / MERGE PENDING
+- **Dependencies:** 14, 15, 17 (merged)
+- **Branch:** `codex/r1a-19-performance-soak`
+- **Start commit:** `26c4a959322aaab1d38779739cea583be75455ea`
+- **End commit:** — (merge pending; feature SHA/PR recorded in STEP 153 final report)
+- **Evidence / tests:** [Measurement plan and evidence](maple-room-r1a-19-performance-soak.md)
+- **Notes:** All six locked budgets pass; owner accepted STEP 152 evidence and authorized STEP 153 integration. Real-device/production-art/seven-day production soak and B14 remain deferred.
+- **Last updated:** 2026-10-12 (STEP 153)
+- **Detailed task plan:** [Plan](maple-room-r1a-19-performance-soak.md)
 
 ### R1A-20 — R1a Acceptance Gate
 

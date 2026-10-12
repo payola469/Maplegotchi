@@ -1,6 +1,6 @@
 # Maple Room R1a Master Implementation Plan
 
-**Status:** R1A-01–17 DONE / OWNER ACCEPTED / MERGED; verified integration baseline `4dc0e095470bcb572aeaebccb7bfa8e624f9b2fe`. R1A-18 REVIEW / OWNER ACCEPTED / MERGE PENDING (STEP 150, 2026-10-12). Owner authorizes final review, fresh local checks, commit, normal feature-branch push, PR into `v0.2-development` and CI/artifact inspection. 17 DONE / 1 REVIEW / 2 TODO = 85%; R1A-19/20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 approval. Actual cross-platform CI evidence will be recorded in the PR and final integration report; earlier dated evidence remains historical. [R1A-18 evidence](maple-room-r1a-18-ci-linux-reproducibility.md).
+**Status:** R1A-01–18 DONE / OWNER ACCEPTED / MERGED; baseline `26c4a959322aaab1d38779739cea583be75455ea`. STEP 153 (2026-10-12) authorizes final review, fresh checks, commit, normal feature push, PR into `v0.2-development` and CI inspection. R1A-19 REVIEW / OWNER ACCEPTED / MERGE PENDING; 18 DONE / 1 REVIEW / 1 TODO = 90%; R1A-20 TODO. No merge, deployment, production/paolo-core access, schema-v11 activation, Legacy default switch, R1b or B14 authorization. STEP 152 hardware measurements remain accepted historical evidence. [R1A-19 evidence](maple-room-r1a-19-performance-soak.md).
 
 **Historical STEP140B browser closure:** PASS; actual five-DPR × three-form-factor matrix15/15,production isolation3/3 and fresh586+69 regression tests/static/build gates PASS. Accepted historical evidence,not rerun in STEP141;R1A-15 OWNER ACCEPTED / MERGE PENDING. See [fresh coexistence evidence](maple-room-r1a-15-coexistence.md).
 
@@ -10,7 +10,7 @@
 
 **Purpose:** R1a builds and validates the new Maple Room engine in isolation. It must **not** migrate production state and must **not** switch the production default view.
 
-> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. STEP 150 authorizes R1A-18 final review/checks, commit, normal push, PR and CI inspection; merge requires separate authorization. R1A-01–17 are merged; earlier STEP authorization and browser evidence remain historical in the append-only worklog.
+> - **R1a preparation and implementation AUTHORIZED** by explicit owner decision, 2026-10-10. STEP 153 authorizes R1A-19 final review/checks, commit, normal push, PR and CI inspection; merge requires separate authorization. R1A-01–18 are merged; earlier STEP authorization and browser evidence remain historical in the append-only worklog.
 > - **Pre-R1 gate (§9): APPROVED / CLEAR** by owner, 2026-10-10. R-01 implemented/merged/deployed to paolo-core and HTTP Health PASS per owner; exact deployed SHA and detailed production evidence not supplied. OD-01 boundary and restore remain **PASS / CLOSED** with recorded limitations. Baseline full release gate PASS is now recorded from owner-supplied isolated Docker evidence; PR-head GitHub CI now PASS on Ubuntu/Windows backend, frontend and ShellCheck (run `38062574000`, HEAD `26aed831…`); computed 30-day simulation is recorded. This is not a separate original-base CI execution; owner explicitly accepted R1A-01 on 2026-10-10 acknowledging this distinction and unavailable raw baseline gate details; PR #1 merged at `a754efc9cd35f66e15efb8707dc9b4066d5ab54d` (see R1A-01 baseline record). Phase 8/M3 status is unchanged.
 > - This is a planning document; completion/evidence pointers above record R1A-01 repository truth, not new world implementation. Live status is in `maple-room-r1a-checklist.md`; history is in `maple-room-r1a-worklog.md`.
 > - Planning depth: every workstream is defined by scope, dependencies, outputs, evidence and completion criteria. Detailed task breakdowns are written **only immediately before** an item starts (§7).
@@ -457,7 +457,7 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 
 ### R1A-18 — CI and Linux reproducibility (continuous)
 
-**STEP 150 status:** REVIEW / OWNER ACCEPTED / MERGE PENDING; local implementation accepted and GitHub Integration authorized. [Design, coverage matrix and local evidence](maple-room-r1a-18-ci-linux-reproducibility.md). Same-commit actual Linux/Windows artifacts and mandatory comparison proposed; native CI execution remains pending.
+**STEP 152 reconciliation:** DONE / OWNER ACCEPTED / MERGED; PR #19 merged at `26c4a959322aaab1d38779739cea583be75455ea`. Historical STEP 150: local implementation accepted and GitHub Integration authorized. [Design, coverage matrix and local evidence](maple-room-r1a-18-ci-linux-reproducibility.md). Same-commit actual Linux/Windows artifacts and mandatory comparison proposed; STEP 150 native-CI-pending statements are historical after the confirmed merge.
 
 - **Objective:** every new check runs in `scripts/check.sh` and CI, including the deferred Linux atlas reproduction.
 - **Scope:**
@@ -475,6 +475,8 @@ R1A-01 DONE / OWNER ACCEPTED / MERGED at `a754efc9cd35f66e15efb8707dc9b4066d5ab5
 - **Blocks later R1a items:** R1A-20. **Blocks R1b:** no (but required for any release containing R1a art).
 
 ### R1A-19 — Performance and soak validation
+
+**STEP 153 status:** REVIEW / OWNER ACCEPTED / MERGE PENDING. [Plan and local measurement evidence](maple-room-r1a-19-performance-soak.md). All six locked budgets pass; owner accepted STEP 152 evidence and authorized GitHub integration.
 
 - **Objective:** prove the integrated candidate meets the locked budgets.
 - **Scope:**
