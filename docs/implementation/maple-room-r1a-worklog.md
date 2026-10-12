@@ -602,3 +602,37 @@ Fresh STEP141 full Windows backend: **3674 PASS,21 SKIPPED in142.37s**;18 Bash-u
 
 
 Final precommit audit: **20 reviewed paths**,93 local-document links PASS;exact pre-STEP141 worklog byte prefix and original baseline history preserved;14DONE/1REVIEW/5TODO counters PASS;source/secret/temp/generated-file review PASS;git diff --check PASS. Main checkout clean at baseline,staging empty before explicit staging,unrelated branches/worktrees unchanged. No critical gate failure. Commit and normal push authorized;PR/CI pending execution.
+
+
+### STEP 143 — R1A-15 merge reconciliation and R1A-16 local validation — 2026-10-12 (+07)
+
+**Before:** Clean Windows integration checkout safely fetched and fast-forwarded to verified PR #16 merge `78953ce60d929a4e0a595b8c957ad5dd6b9fa49e`. R1A-15 is DONE / OWNER ACCEPTED / MERGED. A new isolated worktree `C:\GitHub\Maplegotchi-worktrees\r1a-16-validators-property-tests`, branch `codex/r1a-16-validators-property-tests`, was created from that HEAD after checking conflicts. Existing R1A-15 worktree and unrelated branches/checkouts were retained; no Mac-only commit was imported or reconstructed. STEP 143 authorizes local implementation/tests/docs only. Detailed plan was recorded before implementation in [R1A-16 evidence](maple-room-r1a-16-validators-property-tests.md).
+
+**Change:** Added the pure `validate_layout(LayoutCandidate)` aggregate, frozen S1–S17 errors with stable numeric/location order and fixed actionable messages, explicit immutable art geometry/legacy inputs, a17-rule named negative corpus and168 deterministic tests. Existing geometry/catalog/walkability/capability/projection validators are composed; no production loader, endpoint, schema, behavior or renderer is added. Two isolated-library guards now permit only aggregate composition and additionally prevent production callers; no-object-type-dispatch assertions and Oracle/Harness pins remain unchanged. The initial full run exposed the resolver blanket-import guard (3841 PASS/1 FAIL/21 skips); corrected this narrow test boundary and reran the entire suite. Canonical data, artwork, lockfiles and simulation digests are unchanged.
+
+**Evidence:** Final full Windows backend **3842 PASS/21 expected SKIPPED in130.77s** (18 Bash unavailable,1 POSIX/non-root permissions,2 Windows file-symlink privileges). Final affected corpus/property/purity/projection batch802 PASS; new suites168 cases. Fresh586 frontend+69 asset/bundle tests,ESLint,TypeScript,production build,exact contract exports,Ruff lint/format,strict Windows/Linux-target mypy233 files and10 import contracts PASS. Native Windows193-frame/two-page atlas PNG/metadata/index golden hashes unchanged. Valid/invalid/multi-error validation20 repeats each stable; median86.083/24.284/0.051ms, error counts0/1/16. Seed143 recorded with reproduction commands. Full matrices, ranges and exact13-file manifest are in the evidence document. Ubuntu execution/CI,ShellCheck/full release gate and R1A-19 performance acceptance are unclaimed. STEP140B browser QA remains historical, not rerun.
+
+**Status and boundaries:** PASS / READY FOR OWNER ACCEPTANCE; R1A-16 REVIEW, not DONE.15 DONE/1 REVIEW/4 TODO=75%; eventual accepted merge16/20=80%. No commit,push,PR,merge,deployment,production/paolo-core access,schema-v11 activation,Legacy default change,B14 approval or R1A-17–20 implementation. Documentation/scope/prefix audit follows in a separate append-only entry.
+
+
+### STEP 143 — final local audit closure — 2026-10-12 (+07)
+
+**Before:** Local implementation and all requested test/static/build/export gates completed; R1A-16 REVIEW pending owner acceptance.
+
+**Change:** Evidence/checklist/Master Plan/architecture/CLAUDE reconciled to verified R1A-15 merge and R1A-16 local review status; no additional application change.
+
+**Evidence:** Exact13 changed/new files match the evidence manifest;91 local documentation link targets PASS. Checklist summary15 DONE/1 REVIEW/4 TODO and counters match. Exact136,873-byte pre-STEP143 worklog prefix preserved. Changed source/document LF checks and `git diff --check` PASS. Main and R1A-15 worktrees clean; current HEAD remains78953ce60d929a4e0a595b8c957ad5dd6b9fa49e,staging empty. No art/frontend/deploy/dependency changes,Oracle/Harness/simulation pin edits or generated/log files in the manifest. PASS / READY FOR OWNER ACCEPTANCE,not DONE; owner acceptance and later authorized Windows/Ubuntu CI/merge remain required. No commit,push,PR,merge,deployment or production access occurred.
+
+
+### STEP 144 — R1A-16 owner acceptance and GitHub integration preparation — 2026-10-12 (+07)
+
+**Before:** Owner accepts STEP 143 implementation/evidence and authorizes review, fresh checks, commit, normal push, PR into v0.2-development and CI inspection. Existing worktree and feature branch retained at 78953ce60d929a4e0a595b8c957ad5dd6b9fa49e. Main and R1A-15 checkouts clean; unrelated branches untouched; no Mac-only commit imported or reconstructed.
+
+**Review and change:** Final review of the 13 intended paths confirms pure immutable validate_layout API, stable S1–S17 errors, 17 named mutations and 168 new deterministic tests, existing art-validator composition and no production caller. Corrected only garbled module-docstring punctuation to ASCII S1-S17. Documentation records OWNER ACCEPTED / MERGE PENDING; this worklog preserves all prior bytes.
+
+**Fresh evidence:** Full Windows backend 3842 PASS/21 expected SKIPPED in135.76s (18 Bash unavailable,1 POSIX/non-root permissions,2 file-symlink privileges); frontend586/25 files and69 asset/bundle tests PASS. Ruff lint/format235 files, strict mypy233 files,ten import contracts,exact API/type/five-fixture exports,ESLint,TypeScript and production build PASS.193-frame/two-page atlas PNG/metadata/index hashes match accepted golden values;raw source files0,productionPreview=false. Oracle/Harness,simulation digests,canonical geometry,art metadata and dependencies unchanged. Performance medians86.083/24.284/0.051ms and STEP140B browser QA remain historical,not freshly rerun. [Detailed manifest/API/coverage/evidence](maple-room-r1a-16-validators-property-tests.md).
+
+**Integration boundary:** Commit/normal push/PR/CI are authorized next; native Ubuntu/Windows CI and ShellCheck pending PR execution. Actual CI outcomes will be reported in the PR and final report. R1A-16 REVIEW / OWNER ACCEPTED / MERGE PENDING;15 DONE/1 REVIEW/4 TODO=75%,80% only after confirmed merge. No merge,deployment,production access,paolo-core changes,Legacy default change,schema-v11 activation,B14 approval or R1A-17–20 work.
+
+
+STEP 144 final precommit integrity audit PASS: exact13 reviewed paths,93 local documentation links,15 DONE/1 REVIEW/4 TODO counters,LF source/docs and git diff --check. Complete140,854-byte pre-STEP144 worklog prefix and136,873-byte baseline prefix preserved. Main and R1A-15 checkouts remain clean at their original SHAs;staging empty before explicit staging. No generated/log/temp files or unrelated changes included.

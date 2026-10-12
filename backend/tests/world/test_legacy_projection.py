@@ -434,9 +434,14 @@ def test_forged_context_rejected(context: DevelopmentWorld, problem: str) -> Non
 def test_production_source_and_frontend_have_no_projection_callers() -> None:
     root = Path(__file__).resolve().parents[3]
     own = Path(legacy_projection.__file__)
+    # R1A-16 composes projection only inside the isolated pure validator.
+    # Neither library may gain a production caller.
+    validator = own.with_name("layout_validation.py")
     for path in (root / "backend/src").rglob("*.py"):
-        if path != own:
-            assert "legacy_projection" not in path.read_text(encoding="utf-8")
+        if path not in (own, validator):
+            source = path.read_text(encoding="utf-8")
+            assert "legacy_projection" not in source
+            assert "layout_validation" not in source
     for path in (root / "frontend/src").rglob("*"):
         if path.suffix in (".ts", ".tsx"):
             assert "legacy_projection" not in path.read_text(encoding="utf-8")

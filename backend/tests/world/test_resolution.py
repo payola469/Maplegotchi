@@ -520,7 +520,12 @@ def test_structural_no_object_type_dispatch_or_live_callers() -> None:
     )
     root = Path(__file__).resolve().parents[3]
     for path in (root / "backend/src").rglob("*.py"):
-        if path == Path(resolution.__file__):
+        if path in (
+            Path(resolution.__file__),
+            Path(resolution.__file__).with_name("layout_validation.py"),
+        ):
+            # R1A-16 composes pure validation; the projection guard separately
+            # proves the aggregate validator has no production callers.
             continue
         assert "core.world.resolution" not in path.read_text(encoding="utf-8")
     for path in (root / "frontend/src").rglob("*"):
