@@ -1,5 +1,9 @@
 # Maple Room R1b — Risk and Authorization Gates
 
+**STEP162 — R1B-01 REVIEW / ACCEPTED FOR INTEGRATION REVIEW / MERGE PENDING.** Owner accepts STEP161 local work for final publication review, subject to fresh validation, and authorizes documentation corrections, reviewed commit, normal push, PR and CI inspection for01 only. Separate owner merge approval is required. R1B-02–12 remain11TODO;0/12DONE=0%. D01–D06 OPEN; no projection strategy or future implementation approved. No runtime/test changes, schema11 registration/activation, DB migration/data access, production/paolo-core, deployment, default switch, repin, B14 orR4. Earlier dated authorization/evidence below is historical. [R1B-01 inventory](maple-room-r1b-01-contract-inventory.md).
+
+**STEP161 — R1B-01 REVIEW / pending owner acceptance.** Verified PR22 merge baseline `edb6b128e41590d2822bdbe41c16e68d3f634206`. Bounded G2 authorizes only R1B-01 inventory, source inspection, existing-contract verification and test-case planning. No runtime or test implementation. R1B-02–12 remain 11 TODO; completion is 0/12 DONE = 0%. D01–D06 remain OPEN; no projection strategy selected. No current publication P, stage, commit, push, PR, merge, real-data access/copy/migration, production/paolo-core, deployment, default switch, repin, B14 or R4. Planning PR22 is merged; earlier dated status blocks below are historical. [R1B-01 inventory](maple-room-r1b-01-contract-inventory.md).
+
 **STEP159,2026-10-12 — PLANNING REVIEW / OWNER ACCEPTED / MERGE PENDING.** G1 is accepted for planning-document integration only: final review, documentation corrections, commit, normal push, PR and CI inspection are authorized. Merge requires separate owner authorization. G2 implementation and G3–G7 operational/default-switch authority are NOT granted; future implementation publication P is also NOT granted. All12implementation workstreams remain TODO (0/12 DONE, including after a future planning-only merge). D01–D06 remain OPEN; no projection strategy is approved. Historical STEP158 records below describe the planning stage.
 
 **STEP158,2026-10-12 — planning only.** No actual production control, backup or data-copy condition is verified here. [Master Plan/decisions](maple-room-r1b-plan.md#8-owner-authorization-gates-and-open-decisions), [migration safety](maple-room-r1b-migration-safety.md), [cutover](maple-room-r1b-cutover-plan.md). Source authority: ADR0023/0024/0028 R1–R8; ADR0035–0041; Final Spec; R08/R09/R10/R15/R17/R18/R19/R20 linked by the master plan.
@@ -8,7 +12,7 @@
 
 BLOCKER prevents the affected implementation/acceptance until a decision is resolved; REQUIRED BEFORE MIGRATION or CUTOVER identifies evidence needed before those future actions; REQUIRED BEFORE B14 is retained for the separate default-switch gate; NON-BLOCKING/DEFERRED must have an accepted later destination. A risk label is not proof that a control exists or has passed. All future production controls below are **UNVERIFIED / NOT EXECUTED IN STEP158**. No high-risk step is declared safe merely because synthetic tests or historical backup descriptions exist.
 
-Planning readiness: packet REVIEW / OWNER ACCEPTED / MERGE PENDING under STEP159 G1;12implementation tasksTODO. D01/D02/D03/D04/D05/D06 remain OPEN in the master plan. Owner replied after STEP158: **Keep D01 OPEN; resolve before affected implementation.** This approves continued tracking, not a strategy or implementation. Exact schema/DTO decisions must be reviewed before affected work; operational data/backup readiness is intentionally unknown until separately authorizedG3/G4. No binding-source conflict was found; deliberate R1a isolation gaps are not silently amended.
+Planning packet accepted and PR22 merged;current STEP16101 inventory REVIEW,02–12 TODO,0DONE. No other implementation authority. D01/D02/D03/D04/D05/D06 remain OPEN in the master plan. Owner replied after STEP158: **Keep D01 OPEN; resolve before affected implementation.** This approves continued tracking, not a strategy or implementation. Exact schema/DTO decisions must be reviewed before affected work; operational data/backup readiness is intentionally unknown until separately authorizedG3/G4. No binding-source conflict was found; deliberate R1a isolation gaps are not silently amended.
 
 ## Risk matrix
 
@@ -41,9 +45,9 @@ Planning readiness: packet REVIEW / OWNER ACCEPTED / MERGE PENDING under STEP159
 
 | Gate | Required evidence | Current status / effect |
 |---|---|---|
-|G1|Owner review of five planning docs,12workstreams,OPENdecision policy|ACCEPTED STEP159 for planning integration only;G2 remains NOT GRANTED|
-|G2|Explicit selected local IDs/branch/scope/contract decisions|NOT GRANTED;no implementation|
-|P|Reviewed publication/PR/CI/merge scope for implementation changes|STEP159 authorizes planning commit/push/PR/CI only;planning merge and future implementation publication NOT GRANTED|
+|G1|Owner review of five planning docs,12workstreams,OPENdecision policy|ACCEPTED; planning PR22 merged at edb6b128e41590d2822bdbe41c16e68d3f634206|
+|G2|Explicit selected local IDs/branch/scope/contract decisions|STEP161 bounded01 inventory/source verification/test planning ONLY;02–12 NOT GRANTED; no runtime/test changes|
+|P|Reviewed publication/PR/CI/merge scope for implementation changes|Planning PR22 merged;STEP162 authorizes01 documentation commit/push/PR/CI only;01 merge and future publication NOT GRANTED|
 |G3|Owner-approved real-data snapshot/copy/host/path/privacy/retention and offline rehearsal scope|NOT GRANTED;no data accessed|
 |G4|Exact final candidate,rehearsal/current dual snapshot/independent restore/operator-window evidence|NOT VERIFIED/NOT ACCEPTED;no production readiness claim|
 |G5|Exact single production migration plus grid cutover operation|NOT GRANTED;one approvedsource lineage,not blind retries|
