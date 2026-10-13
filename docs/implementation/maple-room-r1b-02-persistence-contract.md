@@ -6,6 +6,24 @@
 
 **STEP164 · 2026-10-13 Asia/Bangkok · LOCAL DESIGN ONLY.** Stage A audit/design packet complete for owner review; **R1B-02 IN PROGRESS**, not full REVIEW or DONE. **D02 OPEN / owner decision pending**. The Stage A proposal below was unapproved at STEP164; STEP166 records owner design acceptance, with the D02-F condition and no implementation authority. These decisions do not amend binding ADRs or create new ADR-level locks.
 
+## STEP185 — owner-approved SQLite compatibility clarification
+
+**Approved policy; bounded test-only Slice 1 implementation authorized.** Shipped
+schema v10 retains SQLite **>=3.38.0**. Schema v11 structural creation or activation
+requires SQLite **>=3.41.0**, because the physical Unicode code-point bound CHECK
+correction uses `unhex()`. Unsupported runtimes must fail closed before v11 DDL,
+writes or activation side effects. This does not alter the shipped v10 runtime
+guard. Test-only declarations are not an activated migration; this correction
+adds preflight only to their fresh in-memory factory.
+
+Future CI, migration/converter, runtime and deployment entry points must enforce
+this requirement when separately authorized; that enforcement is not implemented
+by this step. Exact linked SQLite versions in both Windows and Linux CI remain
+unverified pending explicit environment evidence. The 17 inherited bounded fields
+in rebuilt tables are preserved without hardening in this Slice 1 correction.
+Earlier Stage A authorization/status blocks retain their historical context; no
+production activation, publication or Slice 2 is authorized.
+
 ## 1. Baseline and authorization
 
 Repository `payola469/Maplegotchi`; integration `v0.2-development`; verified PR23 merge baseline **`c26edba311f8ac01de88f4d5e3bf759e9d9a4fe7`**. PR23 merged at2026-10-12T16:53:28Z; parents `edb6b128e41590d2822bdbe41c16e68d3f634206` and `64fe82401ee1f26d6fdc6608c173372c8ee8a021`. Fetch/PR metadata and ancestry were checked before creating dedicated worktree `C:/GitHub/Maplegotchi-worktrees/r1b-02-persistence`, branch `codex/r1b-02-persistence`, at that exact merge. Nine preexisting worktrees were clean and preserved. Main stays at `3e89996216336f453b03939467e6a06cb33da3fb`; no fast-forward/reset.

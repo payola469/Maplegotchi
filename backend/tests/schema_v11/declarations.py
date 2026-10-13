@@ -332,10 +332,10 @@ IMMUTABLE = (
 )
 NEW_TABLES = {
     "activity_kind": """CREATE TABLE activity_kind (
- id TEXT NOT NULL PRIMARY KEY CHECK(length(id) BETWEEN 1 AND 128)
+ id TEXT NOT NULL PRIMARY KEY CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128)
 ) STRICT;""",
     "room_kind": """CREATE TABLE room_kind (
- id TEXT NOT NULL PRIMARY KEY CHECK(length(id) BETWEEN 1 AND 128)
+ id TEXT NOT NULL PRIMARY KEY CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128)
 ) STRICT;""",
     "layout_revision": f"""CREATE TABLE layout_revision (
  id INTEGER PRIMARY KEY CHECK(id >= 1),
@@ -344,10 +344,10 @@ NEW_TABLES = {
  base_revision INTEGER REFERENCES layout_revision(id)
    CHECK(base_revision >= 1 AND base_revision < id),
  catalog_version INTEGER NOT NULL CHECK(catalog_version >= 1),
- catalog_hash TEXT NOT NULL CHECK(length(catalog_hash)=64 AND catalog_hash NOT GLOB '*[^0-9a-f]*'),
+ catalog_hash TEXT NOT NULL CHECK(length(catalog_hash)=64 AND catalog_hash NOT GLOB '*[^0-9a-f]*' AND instr(catalog_hash, char(0)) = 0),
  document TEXT NOT NULL CHECK(json_valid(document) AND length(CAST(document AS BLOB)) <= 262144),
  validation_digest TEXT NOT NULL
-   CHECK(length(validation_digest)=64 AND validation_digest NOT GLOB '*[^0-9a-f]*')
+   CHECK(length(validation_digest)=64 AND validation_digest NOT GLOB '*[^0-9a-f]*' AND instr(validation_digest, char(0)) = 0)
 ) STRICT;""",
     "world_state": """CREATE TABLE world_state (
  id INTEGER PRIMARY KEY CHECK(id=1),
@@ -355,30 +355,30 @@ NEW_TABLES = {
 ) STRICT;""",
     "layout_host": """CREATE TABLE layout_host (
  revision INTEGER NOT NULL REFERENCES layout_revision(id) CHECK(revision >= 1),
- id TEXT NOT NULL CHECK(length(id) BETWEEN 1 AND 128), PRIMARY KEY(revision,id)
+ id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128), PRIMARY KEY(revision,id)
 ) STRICT;""",
     "layout_room": """CREATE TABLE layout_room (
  revision INTEGER NOT NULL REFERENCES layout_revision(id) CHECK(revision >= 1),
- id TEXT NOT NULL CHECK(length(id) BETWEEN 1 AND 128),
- kind TEXT NOT NULL REFERENCES room_kind(id) CHECK(length(kind) BETWEEN 1 AND 128),
+ id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ kind TEXT NOT NULL REFERENCES room_kind(id) CHECK(length(CAST(unhex(replace(hex(kind), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
  PRIMARY KEY(revision,id)
 ) STRICT;""",
     "layout_point": """CREATE TABLE layout_point (
  revision INTEGER NOT NULL CHECK(revision >= 1),
- host_id TEXT NOT NULL CHECK(length(host_id) BETWEEN 1 AND 128),
- id TEXT NOT NULL CHECK(length(id) BETWEEN 1 AND 128), PRIMARY KEY(revision,host_id,id),
+ host_id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(host_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128), PRIMARY KEY(revision,host_id,id),
  FOREIGN KEY(revision,host_id) REFERENCES layout_host(revision,id)
 ) STRICT;""",
     "layout_slot": """CREATE TABLE layout_slot (
  revision INTEGER NOT NULL CHECK(revision >= 1),
- host_id TEXT NOT NULL CHECK(length(host_id) BETWEEN 1 AND 128),
- id TEXT NOT NULL CHECK(length(id) BETWEEN 1 AND 128), PRIMARY KEY(revision,host_id,id),
+ host_id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(host_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128), PRIMARY KEY(revision,host_id,id),
  FOREIGN KEY(revision,host_id) REFERENCES layout_host(revision,id)
 ) STRICT;""",
     "world_event": f"""CREATE TABLE world_event (
  id INTEGER PRIMARY KEY AUTOINCREMENT CHECK(id >= 1),
  maple_id INTEGER NOT NULL REFERENCES maple(id) CHECK(maple_id >= 1),
- type TEXT NOT NULL CHECK(length(type) BETWEEN 1 AND 80),
+ type TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(type), '0', '1')) AS TEXT)) BETWEEN 1 AND 80),
  at TEXT NOT NULL CHECK(at {UTC}), revision INTEGER NOT NULL CHECK(revision >= 1),
  layout_revision INTEGER REFERENCES layout_revision(id), goal_id INTEGER REFERENCES goal(id),
  action_id INTEGER CHECK(action_id >= 0), decision_id INTEGER REFERENCES decision(id),
@@ -386,11 +386,11 @@ NEW_TABLES = {
  payload TEXT NOT NULL CHECK(json_valid(payload))
 ) STRICT;""",
     "display_placement": """CREATE TABLE display_placement (
- id TEXT NOT NULL PRIMARY KEY CHECK(length(id) BETWEEN 1 AND 128),
- item_id TEXT NOT NULL CHECK(length(item_id) BETWEEN 1 AND 128),
+ id TEXT NOT NULL PRIMARY KEY CHECK(length(CAST(unhex(replace(hex(id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ item_id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(item_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
  layout_revision INTEGER NOT NULL CHECK(layout_revision >= 1),
- host_id TEXT NOT NULL CHECK(length(host_id) BETWEEN 1 AND 128),
- slot_id TEXT NOT NULL CHECK(length(slot_id) BETWEEN 1 AND 128),
+ host_id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(host_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ slot_id TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(slot_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
  active INTEGER NOT NULL CHECK(active IN (0,1)), link TEXT,
  origin_event INTEGER REFERENCES world_event(id),
  FOREIGN KEY(layout_revision,host_id,slot_id) REFERENCES layout_slot(revision,host_id,id)
@@ -426,7 +426,7 @@ def target_tables() -> dict[str, str]:
     life = replace_once(
         life,
         "point_id TEXT CHECK (length(point_id) BETWEEN 1 AND 40)",
-        "point_id TEXT NOT NULL CHECK (length(point_id) BETWEEN 1 AND 128)",
+        "point_id TEXT NOT NULL CHECK (length(CAST(unhex(replace(hex(point_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128)",
     )
     life = replace_once(
         life,
@@ -439,7 +439,7 @@ def target_tables() -> dict[str, str]:
         "\n CHECK ((reaction_kind",
         f"""
  layout_revision INTEGER NOT NULL REFERENCES layout_revision(id) CHECK(layout_revision >= 1),
- point_host TEXT NOT NULL CHECK(length(point_host) BETWEEN 1 AND 128),
+ point_host TEXT NOT NULL CHECK(length(CAST(unhex(replace(hex(point_host), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
  tx INTEGER NOT NULL CHECK(tx BETWEEN 0 AND 43),
  ty INTEGER NOT NULL CHECK(ty BETWEEN 0 AND 25),
  route_arrives_at TEXT CHECK(route_arrives_at {UTC}),
@@ -457,8 +457,8 @@ def target_tables() -> dict[str, str]:
         "\n) STRICT;",
         """,
  executed_layout_revision INTEGER REFERENCES layout_revision(id),
- executed_point_host TEXT CHECK(length(executed_point_host) BETWEEN 1 AND 128),
- executed_point_id TEXT CHECK(length(executed_point_id) BETWEEN 1 AND 128),
+ executed_point_host TEXT CHECK(executed_point_host IS NULL OR length(CAST(unhex(replace(hex(executed_point_host), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
+ executed_point_id TEXT CHECK(executed_point_id IS NULL OR length(CAST(unhex(replace(hex(executed_point_id), '0', '1')) AS TEXT)) BETWEEN 1 AND 128),
  CHECK((executed_layout_revision IS NULL) = (executed_point_host IS NULL)
    AND (executed_layout_revision IS NULL) = (executed_point_id IS NULL)),
  FOREIGN KEY(executed_layout_revision,executed_point_host,executed_point_id)
@@ -470,6 +470,9 @@ def target_tables() -> dict[str, str]:
 
 def fresh_database() -> sqlite3.Connection:
     """Own a new memory DB. No connection or path can be supplied by callers."""
+    if sqlite3.sqlite_version_info < (3, 41, 0):
+        version = ".".join(map(str, sqlite3.sqlite_version_info))
+        raise RuntimeError(f"Schema v11 requires SQLite >=3.41.0; linked SQLite is {version}")
     conn = sqlite3.connect(":memory:")
     try:
         conn.execute("PRAGMA foreign_keys=ON")

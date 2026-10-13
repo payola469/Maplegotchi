@@ -499,7 +499,7 @@ def test_life_revision_and_counters(db: sqlite3.Connection) -> None:
         db.execute("UPDATE life_state SET revision=3,tick_counter=0")
 
 
-EXPECTED_FINGERPRINT = "a36186a5f78dea35ea7a0fc703824c6fb3c97a458d8d42c0ab8d6bd2f63bd608"
+EXPECTED_FINGERPRINT = "1f3e90186092c906432037daa9356f5759f2bf156f5fee10ff27f7d3260942e5"
 
 
 @pytest.mark.parametrize("table", NEW_TABLES)
@@ -655,18 +655,6 @@ def test_seeding_failure_closes_connection(
         conn.execute("SELECT 1")
 
 
-@pytest.mark.parametrize("table", IDENTIFIER_FIELDS)
-@pytest.mark.parametrize(
-    "value", ["\0suffix", "x" * 129 + "\0suffix"], ids=["empty-prefix", "overlong-prefix"]
-)
-def test_nul_identifier_sql_bounds(db: sqlite3.Connection, table: str, value: str) -> None:
-    # §5 K bound, SQL layer: SQLite length(TEXT) stops at the first NUL.
-    # These prefixes are outside 1..128 regardless of remaining characters.
-    for field in IDENTIFIER_FIELDS[table]:
-        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
-            insert(db, table, ROWS[table] | {field: value})
-
-
 @pytest.mark.parametrize("field", ["catalog_hash", "validation_digest"])
 @pytest.mark.parametrize(
     "value", ["\0" + "a" * 63, "a" * 32 + "\0" + "a" * 31], ids=["leading-nul", "middle-nul"]
@@ -686,19 +674,6 @@ def test_nul_identifier_is_not_a_blanket_sql_ban(db: sqlite3.Connection) -> None
         "SELECT id,length(id) FROM activity_kind WHERE id=?", (value,)
     ).fetchone()
     assert actual == value and len(actual) == 3 and sql_length == 1
-    db.rollback()
-
-
-@pytest.mark.parametrize("field", ["catalog_hash", "validation_digest"])
-def test_nul_hash_suffix_exposes_sql_semantic_boundary(db: sqlite3.Connection, field: str) -> None:
-    # §5 H / §6 require full-string lowercase hex. SQL length/GLOB stop at NUL:
-    # a valid-looking prefix is NOT evidence of an acceptable persisted digest.
-    # This is a rolled-back negative semantic specimen, not a loader or codec.
-    value = HASH + "\0suffix"
-    insert(db, "layout_revision", ROWS["layout_revision"] | {field: value})
-    actual = db.execute(f"SELECT {field} FROM layout_revision WHERE id=2").fetchone()[0]  # noqa: S608
-    assert actual == value
-    assert len(actual) != 64 and not all(c in "0123456789abcdef" for c in actual)
     db.rollback()
 
 
@@ -879,15 +854,231 @@ def test_composite_fk_groups_against_stage_a_contract(db: sqlite3.Connection) ->
         assert all(r[5:7] == ("NO ACTION", "NO ACTION") for r in rows)
 
 
-@pytest.mark.parametrize("table", ["activity_kind", "layout_host"])
-def test_nul_identifier_suffix_exposes_sql_length_boundary(
-    db: sqlite3.Connection, table: str
+# Independent STEP185 field allowlist; includes changed life and nullable decision refs.
+BOUNDED_FIELDS = [
+    ("activity_kind", "id", 128),
+    ("room_kind", "id", 128),
+    ("layout_host", "id", 128),
+    ("layout_room", "id", 128),
+    ("layout_room", "kind", 128),
+    ("layout_point", "host_id", 128),
+    ("layout_point", "id", 128),
+    ("layout_slot", "host_id", 128),
+    ("layout_slot", "id", 128),
+    ("display_placement", "id", 128),
+    ("display_placement", "item_id", 128),
+    ("display_placement", "host_id", 128),
+    ("display_placement", "slot_id", 128),
+    ("life_state", "point_id", 128),
+    ("life_state", "point_host", 128),
+    ("decision", "executed_point_host", 128),
+    ("decision", "executed_point_id", 128),
+    ("world_event", "type", 80),
+]
+
+
+def bounded_row(
+    db: sqlite3.Connection, table: str, field: str, value: str, *, seed_refs: bool
+) -> dict[str, object]:
+    """Supply matching synthetic FKs for valid probes; never disable enforcement."""
+    row = ROWS[table] | {field: value}
+    if table == "decision":
+        row = row | dict(
+            executed_layout_revision=1, executed_point_host="host", executed_point_id="point"
+        )
+        row[field] = value
+    if not seed_refs:
+        return row
+    if table == "layout_room" and field == "kind":
+        insert(db, "room_kind", dict(id=value))
+    if (
+        (table in ("layout_point", "layout_slot", "display_placement") and field == "host_id")
+        or (table == "life_state" and field == "point_host")
+        or (table == "decision" and field == "executed_point_host")
+    ):
+        insert(db, "layout_host", dict(revision=1, id=value))
+    if table == "display_placement" and field in ("host_id", "slot_id"):
+        insert(db, "layout_slot", dict(revision=1, host_id=row["host_id"], id=row["slot_id"]))
+    if table in ("life_state", "decision"):
+        host = row["point_host" if table == "life_state" else "executed_point_host"]
+        point = row["point_id" if table == "life_state" else "executed_point_id"]
+        insert(db, "layout_point", dict(revision=1, host_id=host, id=point))
+    return row
+
+
+@pytest.mark.parametrize(("table", "field", "limit"), BOUNDED_FIELDS)
+@pytest.mark.parametrize(
+    "unit",
+    ["x", "ก", "界", "😀", "e\u0301"],
+    ids=["ascii", "thai", "japanese", "supplementary", "combining"],
+)
+@pytest.mark.parametrize("boundary", [1, 0, -1], ids=["minimum", "maximum", "overlong"])
+def test_complete_unicode_bounds(
+    db: sqlite3.Connection, table: str, field: str, limit: int, unit: str, boundary: int
 ) -> None:
-    # §5 K bounds Unicode code points, while SQLite length(TEXT) stops at NUL.
-    # Record a negative semantic specimen accepted by SQL, without adding a
-    # validator/codec or pretending the full contract is enforced by SQL alone.
-    value = "x" * 128 + "\0suffix"
-    insert(db, table, ROWS[table] | {"id": value})
-    actual = db.execute(f"SELECT id FROM {table} WHERE id=?", (value,)).fetchone()[0]  # noqa: S608
-    assert actual == value and len(actual) > 128
+    count = 1 if boundary == 1 else limit - boundary
+    value = (unit * count)[:count]
+    assert len(value) == count
+    if unit != "x" and count == limit:
+        assert len(value.encode("utf8")) > limit
+    valid = count <= limit
+    row = bounded_row(db, table, field, value, seed_refs=valid)
+    if valid:
+        insert(db, table, row)
+        query = f"SELECT {field} FROM {table} WHERE {field}=?"  # noqa: S608
+        assert db.execute(query, (value,)).fetchone() == (value,)
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    else:
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            insert(db, table, row)
+    # world_event rows are rolled-back structural probes, never enabled payloads.
     db.rollback()
+    assert db.execute("SELECT count(*) FROM world_event").fetchone() == (0,)
+
+
+@pytest.mark.parametrize(("table", "field", "limit"), BOUNDED_FIELDS)
+@pytest.mark.parametrize(
+    "case",
+    [
+        "empty",
+        "leading",
+        "middle",
+        "trailing",
+        "repeated",
+        "nul-only",
+        "max-nuls",
+        "hidden-overlong",
+        "nul-overlong",
+    ],
+)
+def test_complete_nul_bounds(
+    db: sqlite3.Connection, table: str, field: str, limit: int, case: str
+) -> None:
+    value = {
+        "empty": "",
+        "leading": "\0" + "界" * (limit - 1),
+        "middle": "ก" * (limit // 2) + "\0" + "😀" * (limit - limit // 2 - 1),
+        "trailing": "x" * (limit - 1) + "\0",
+        "repeated": "\0a\0b\0",
+        "nul-only": "\0",
+        "max-nuls": "\0" * limit,
+        "hidden-overlong": "x" * limit + "\0suffix",
+        "nul-overlong": "\0" * (limit + 1),
+    }[case]
+    valid = 1 <= len(value) <= limit
+    row = bounded_row(db, table, field, value, seed_refs=valid)
+    if valid:
+        insert(db, table, row)
+        query = f"SELECT {field} FROM {table} WHERE {field}=?"  # noqa: S608
+        assert db.execute(query, (value,)).fetchone() == (value,)
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    else:
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            insert(db, table, row)
+    db.rollback()
+    assert db.execute("SELECT count(*) FROM world_event").fetchone() == (0,)
+
+
+@pytest.mark.parametrize("field", ["catalog_hash", "validation_digest"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0123456789abcdef" * 4,
+        "a" * 63,
+        "a" * 65,
+        "A" * 64,
+        "g" * 64,
+        "\0" + "a" * 63,
+        "a" * 32 + "\0" + "a" * 31,
+        "a" * 63 + "\0",
+        "\0" * 64,
+        HASH + "\0suffix",
+        "界" * 64,
+        "😀" * 64,
+    ],
+)
+def test_complete_hash_bounds(db: sqlite3.Connection, field: str, value: str) -> None:
+    row = ROWS["layout_revision"] | {field: value}
+    if len(value) == 64 and all(c in "0123456789abcdef" for c in value):
+        insert(db, "layout_revision", row)
+        assert db.execute(f"SELECT {field} FROM layout_revision WHERE id=2").fetchone() == (value,)  # noqa: S608
+    else:
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            insert(db, "layout_revision", row)
+
+
+def test_nullable_decision_reference_preserved(db: sqlite3.Connection) -> None:
+    insert(db, "decision", DECISION)
+    assert db.execute(
+        "SELECT executed_layout_revision,executed_point_host,executed_point_id FROM decision"
+    ).fetchone() == (None, None, None)
+    db.rollback()
+    for field, value in (
+        ("executed_layout_revision", 1),
+        ("executed_point_host", "host"),
+        ("executed_point_id", "point"),
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            insert(db, "decision", DECISION | {field: value})
+
+
+@pytest.mark.parametrize(
+    ("version", "permitted"),
+    [
+        ((3, 38, 0), False),
+        ((3, 40, 0), False),
+        ((3, 40, 1), False),
+        ((3, 41, 0), True),
+        ((3, 53, 1), True),
+    ],
+)
+def test_simulated_sqlite_preflight(
+    monkeypatch: pytest.MonkeyPatch, version: tuple[int, int, int], permitted: bool
+) -> None:
+    from tests.schema_v11 import declarations
+
+    calls: list[str] = []
+
+    def intercepted_connect(path: str) -> sqlite3.Connection:
+        calls.append(path)
+        raise RuntimeError("preflight permitted connection")
+
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", version)
+    monkeypatch.setattr(sqlite3, "connect", intercepted_connect)
+    message = (
+        "preflight permitted connection" if permitted else "Schema v11 requires SQLite >=3.41.0"
+    )
+    with pytest.raises(RuntimeError, match=message) as exc:
+        declarations.fresh_database()
+    assert calls == ([":memory:"] if permitted else [])
+    if not permitted:
+        assert ".".join(map(str, version)) in str(exc.value)
+
+
+def test_inherited_17_bounded_fields_unchanged() -> None:
+    inherited = {
+        "life_state": ("task_target", "task_title", "task_category"),
+        "decision": (
+            "director_name",
+            "director_version",
+            "context_summary",
+            "proposed_goal_summary",
+            "proposed_abandon_reason",
+            "proposed_reason",
+            "reason_code",
+            "executed_reason",
+            "executed_point",
+        ),
+        "journal_entry": ("topic", "text", "brain_name", "brain_version", "template_id"),
+    }
+    assert sum(map(len, inherited.values())) == 17
+    targets = target_tables()
+    for table, fields in inherited.items():
+        for field in fields:
+            original = next(
+                line
+                for line in V10_TABLES[table].splitlines()
+                if line.strip().startswith(field + " TEXT")
+            )
+            assert "length(" in original
+            assert original in targets[table].splitlines()
