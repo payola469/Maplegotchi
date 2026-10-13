@@ -1,6 +1,7 @@
 # ADR-0035: World model — one house grid, derived room graph, 4-direction movement
 
 - **Status:** Accepted — FIXED design (CLAUDE.md D34). **NOT IMPLEMENTED.** Implementation is not yet authorized. **Amended 2026-10-09:** the art/PixiJS technical spike passed (`docs/spikes/2026-10-room-art-spike.md`). `FEET_IN_TILE` (§6) and the wall grid convention (§4) are **LOCKED** (ADR-0041 L4, L8). Room sizes, door positions and movement tuning (§7) stay undecided.
+- **Clarification (2026-10-13):** Owner approval of the exact STEP167 wording, recorded locally in STEP168: temporal Entry persistence and restart semantics in §3/§6. Documentation only; no implementation authorization. Not yet published or merged.
 - **Date:** 2026-10-08 (amended 2026-10-09)
 - **Decided by:** owner, Maple Room review decisions **B8** (geometry), **B9** (direction vocabulary), **B12** (feet in tile, provisional), and **B13** (baseline A1, A6, A7, A8).
 - **Supersedes (on implementation at R1b, ADR-0037):** the *geometry* of ADR-0027. That covers the single 1000×600 front-view room, the hard-coded points in `core/room.py`, and the waypoint graph with declared edge lengths. ADR-0027's movement *semantics* are kept unchanged. Until R1b, ADR-0027 describes the running system.
@@ -39,7 +40,15 @@ Rooms, doors and object placements are versioned **data** that core validates, n
   - `activity_started_at = arrives_at`;
   - phase is derived from `now`;
   - rerouting cancels the old destination and plans from Maple's current position.
-- **The route lives in state** as compressed waypoints `(tx, ty, cumulative_steps)`. Travel time is `steps × ms_per_step`. The position at `now` is interpolated with `+ - * /` only.
+- **The route lives in state** as compressed integer waypoints `(tx, ty, cumulative_steps)`, together with the movement rate and UTC timing required to reconstruct the same Travel. A route beginning between tiles may additionally retain temporal Entry metadata: adjacent integer edge endpoints, integer `progress_us` at that plan’s departure, and the selected endpoint joining the waypoint route’s origin. This metadata describes the plan’s temporal origin; it is not a continuously updated current-position snapshot.
+
+  `step_us = ms_per_step × 1000`. Total travel duration is `entry_duration_us + steps × step_us`, where `entry_duration_us` is zero without Entry. For Entry, the duration is `progress_us` when returning to the edge’s first endpoint, or `step_us − progress_us` when continuing to its second endpoint. Require `0 < progress_us < step_us`, adjacent walkable endpoints, and an Entry endpoint equal to the waypoint route’s origin.
+
+  Preserve `arrives_at = departed_at + total travel duration` and `activity_started_at = arrives_at`. Current position and travel phase are derived from the complete validated Travel and supplied evaluation time using the existing deterministic movement rules. Rerouting starts from that exact derived position without rounding or normal teleport.
+
+  Restart reconstructs the same Travel without restarting its clock or changing its original arrival time. At an evaluation time on or after `arrives_at`, travel is complete and its derived position is the destination. This does not by itself mean the destination activity is complete; activity completion and any subsequent downtime processing retain their existing semantics.
+
+  Loading performs no movement-history fabrication, event insertion, relocation or silent repair. Unsupported or inconsistent persisted data is refused. Deriving completed travel after downtime does not create a new movement or relocation event.
 - **No teleport (A7).** A destination with no path makes the action invalid (`no_destination`) and rule fallback applies. Normal movement never teleports. The only allowed non-walking position change is emergency **recorded recovery**, under the owner-approved policy below.
 
 #### Prevention first, recovery last resort — owner amendment, STEP 103
@@ -79,6 +88,7 @@ House geometry, K1–K3, S5/S13, fallback coordinates and approved Oracle values
 ### 6. Feet point inside a tile (B12) — LOCKED 2026-10-09
 - **Accepted:**
   - Stored world positions are **tile coordinates only**.
+  - The tile-coordinate-only rule applies to persisted world-position fields. Temporal Entry metadata permitted by §3 belongs to the route’s reconstruction state and does not introduce a separately authoritative fractional or pixel position. During travel, the stored integer tile reference is interpreted together with that route; it must not be treated as a rounded replacement for the derived current position.
   - One shared constant `FEET_IN_TILE` maps a tile to the pixel where Maple's feet stand. Backend and renderer use the same constant, and so do route positions and walking interpolation.
   - Feet are horizontally centred in the tile and sit slightly toward its south (lower) side.
 - **LOCKED (2026-10-09, ADR-0041 L4):** `FEET_IN_TILE = (T/2, ⌊13T/16⌋) = (8, 13)` at the locked `T = 16`.
