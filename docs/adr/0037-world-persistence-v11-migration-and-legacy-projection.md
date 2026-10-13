@@ -1,6 +1,7 @@
 # ADR-0037: World persistence, the R1b schema-v11 migration, and the legacy projection
 
 - **Status:** Accepted — FIXED design (CLAUDE.md D36). **Production migration NOT IMPLEMENTED / NOT AUTHORIZED.** STEP 115 authorizes only [R1A-08 synthetic, unshipped rehearsal](../implementation/maple-room-r1a-08-persistence-v11.md). This is an implementation-status clarification, not an amendment of the accepted decisions. Exact table and column shapes are [PROPOSED] and are fixed in the migration PR, which must follow the ADR-0028 R1–R8 discipline.
+- **Clarification (2026-10-13):** Owner approval of the exact STEP167 wording, recorded locally in STEP168: §1 aligns temporal Entry persistence and restart semantics with ADR-0035. Documentation only; no migration or implementation authorization. Not yet published or merged.
 - **Date:** 2026-10-08
 - **Decided by:** owner, Maple Room review decisions **B10** (R1 staging and cutover), **B13** (baseline A10, A17), together with **B2** and **B8** (the initial house).
 - **Extends:** ADR-0028 (schema policy, rollback/recovery), ADR-0023 (owner migration gate), ADR-0024 (backup). **Related:** ADR-0035, ADR-0036, ADR-0038, ADR-0039, ADR-0040.
@@ -24,7 +25,7 @@ The world must survive restarts and deploys (roadmap R3), and the renderer must 
   - console state.
 
   Only true state is stored.
-- **Maple's position** lives in `life_state` as `(tx, ty)` on the house grid, plus the route waypoints (ADR-0035). The room is derived from the region.
+- **Maple’s persisted world-position fields** in `life_state` remain integer tile coordinates `(tx, ty)`. Persisted travel includes the compressed waypoints, movement rate, UTC timing and optional temporal Entry metadata defined in ADR-0035 §3. Current position and travel phase are derived from that validated state and the evaluation time; no independent fractional-position field is stored. Restart preserves original arrival timing and reconstructs completed travel when that time has passed, without load-time writes or fabricated history. Inconsistent or unsupported state is refused. The room is derived from the region.
 
 ### 2. Lookup tables instead of CHECK enums (A17)
 The R1b v11 migration replaces literal CHECK enums for activity kinds and location/room kinds with **lookup tables plus foreign keys**. Future activities or room kinds then become row inserts, not table rebuilds. `RoomLocation` is retired in favour of instance points; legacy values stay derivable (§4).
