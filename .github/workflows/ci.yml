@@ -26,6 +26,34 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv python install 3.12
       - run: uv sync --locked
+      - name: "v11 structural validation: linked SQLite evidence"
+        run: |
+          uv run --no-sync python -B - <<'PY'
+          import sqlite3
+          import sys
+          from contextlib import closing
+
+          print(f"Python executable: {sys.executable}")
+          print(f"Python version: {sys.version}")
+          print(f"sqlite3.sqlite_version: {sqlite3.sqlite_version}")
+          print(f"sqlite3.sqlite_version_info: {sqlite3.sqlite_version_info}")
+
+          if sqlite3.sqlite_version_info < (3, 41, 0):
+              raise SystemExit(
+                  "v11 structural validation requires SQLite >=3.41.0"
+              )
+
+          try:
+              with closing(sqlite3.connect(":memory:")) as conn:
+                  result = conn.execute("SELECT unhex('4D61706C65')").fetchone()
+          except sqlite3.Error as exc:
+              raise SystemExit(f"v11 unhex() probe failed: {exc}") from exc
+
+          if result != (b"Maple",):
+              raise SystemExit("v11 unhex() probe returned an unexpected result")
+
+          print("v11 SQLite >=3.41.0 and unhex() probe: PASS")
+          PY
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - name: "ruff (stdlib deploy tools: survey, backup staging, verification)"
