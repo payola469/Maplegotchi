@@ -14,14 +14,14 @@ from typing import Any, NoReturn, cast
 
 import pytest
 
-from tests.schema_v11 import layout_codec, layout_keys
-from tests.schema_v11.layout_codec import (
+from maplegotchi.persistence import layout_codec, layout_keys
+from maplegotchi.persistence.layout_codec import (
     CatalogSnapshot,
     LayoutContext,
     LayoutDocument,
     encode_layout_document,
 )
-from tests.schema_v11.layout_keys import (
+from maplegotchi.persistence.layout_keys import (
     LayoutKeys,
     V11LayoutKeysError,
     project_layout_keys,
@@ -417,7 +417,12 @@ def test_pure_dependency_isolation(fixture: Fixture, monkeypatch: pytest.MonkeyP
     source = Path(layout_keys.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
-    assert imports == {"__future__", "dataclasses", "typing", "tests.schema_v11.layout_codec"}
+    assert imports == {
+        "__future__",
+        "dataclasses",
+        "typing",
+        "maplegotchi.persistence.layout_codec",
+    }
     assert not any(isinstance(node, ast.Import) for node in ast.walk(tree))
     wanted = expected()
 

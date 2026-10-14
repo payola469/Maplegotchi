@@ -17,8 +17,8 @@ from typing import Any, NoReturn, cast
 import pytest
 
 from maplegotchi.core.world.coordinates import Tile
-from tests.schema_v11 import layout_codec
-from tests.schema_v11.layout_codec import (
+from maplegotchi.persistence import layout_codec
+from maplegotchi.persistence.layout_codec import (
     MAX_LAYOUT_BYTES,
     CatalogSnapshot,
     LayoutContext,

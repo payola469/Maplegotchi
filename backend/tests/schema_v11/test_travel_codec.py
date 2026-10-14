@@ -21,8 +21,8 @@ from maplegotchi.core.world.coordinates import Tile, tile_to_feet
 from maplegotchi.core.world.movement import EdgeStart, Entry, Travel
 from maplegotchi.core.world.pathfinding import Route, Waypoint
 from maplegotchi.core.world.walkability import Walkability
-from tests.schema_v11 import travel_codec
-from tests.schema_v11.travel_codec import (
+from maplegotchi.persistence import travel_codec
+from maplegotchi.persistence.travel_codec import (
     V11TravelFormatError,
     decode_travel_path,
     encode_travel_path,

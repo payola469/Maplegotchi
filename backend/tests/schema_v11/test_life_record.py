@@ -22,20 +22,28 @@ from maplegotchi.core.world.coordinates import Tile
 from maplegotchi.core.world.movement import EdgeStart, Entry, Travel
 from maplegotchi.core.world.pathfinding import Route, Waypoint
 from maplegotchi.core.world.walkability import validate_safe_layout
-from tests.schema_v11 import life_record, travel_codec
-from tests.schema_v11.declarations import target_tables
-from tests.schema_v11.layout_codec import CatalogSnapshot, LayoutContext, encode_layout_document
-from tests.schema_v11.layout_keys import project_layout_keys
-from tests.schema_v11.life_record import (
+from maplegotchi.persistence import life_record, travel_codec
+from maplegotchi.persistence.layout_codec import (
+    CatalogSnapshot,
+    LayoutContext,
+    encode_layout_document,
+)
+from maplegotchi.persistence.layout_keys import project_layout_keys
+from maplegotchi.persistence.life_record import (
     LIFE_FIELDS,
     CanonicalLife,
     CanonicalLifeRecord,
     V11LifeError,
     life_fields,
     reconstruct_life,
-    validate_restart_equivalence,
 )
-from tests.schema_v11.revision_snapshot import LifeReference, RevisionRow, validate_layout_snapshot
+from maplegotchi.persistence.revision_snapshot import (
+    LifeReference,
+    RevisionRow,
+    validate_layout_snapshot,
+)
+from tests.schema_v11.declarations import target_tables
+from tests.schema_v11.life_record import validate_restart_equivalence
 from tests.schema_v11.row_conservation import (
     DECISION_REFS,
     HISTORY_SCHEMA,

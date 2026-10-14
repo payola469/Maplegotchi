@@ -14,15 +14,15 @@ from typing import Any, NoReturn, cast
 import pytest
 
 from maplegotchi.core.world.coordinates import Tile
-from tests.schema_v11 import revision_snapshot, travel_codec
-from tests.schema_v11.layout_codec import (
+from maplegotchi.persistence import revision_snapshot, travel_codec
+from maplegotchi.persistence.layout_codec import (
     CatalogSnapshot,
     LayoutContext,
     decode_layout_document,
     encode_layout_document,
 )
-from tests.schema_v11.layout_keys import LayoutKeys, project_layout_keys
-from tests.schema_v11.revision_snapshot import (
+from maplegotchi.persistence.layout_keys import LayoutKeys, project_layout_keys
+from maplegotchi.persistence.revision_snapshot import (
     LayoutSnapshotProof,
     LifeReference,
     RevisionRow,
