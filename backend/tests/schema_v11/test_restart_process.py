@@ -30,11 +30,31 @@ def scope() -> Iterator[OwnedRoot]:
             print("Owned failure artifacts retained:", owned.path)
 
 
+def worker_interpreter() -> tuple[str, dict[str, str]]:
+    """Bypass Windows venv trampolines while retaining their venv context.
+
+    uv's Windows python.exe spawns the base interpreter, so its Popen PID is
+    not the worker PID. CPython getpath uses __PYVENV_LAUNCHER__ to retain
+    the venv while sys._base_executable identifies the actual interpreter.
+    Calling it directly makes wait/kill apply to the worker itself.
+    """
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    executable = sys.executable
+    if sys.platform == "win32":
+        base_executable = getattr(sys, "_base_executable", None)
+        assert isinstance(base_executable, str) and base_executable
+        executable = base_executable
+        env["__PYVENV_LAUNCHER__"] = sys.executable
+    return executable, env
+
+
 def child(owned: OwnedRoot, operation: str, mode: str = "stationary") -> tuple[int, int, str]:
     """Track exactly this child; bounded time, output and termination scope."""
     owned._root()
+    executable, env = worker_interpreter()
     argv = [
-        sys.executable,
+        executable,
         "-B",
         "-m",
         "tests.schema_v11.restart_worker",
@@ -45,8 +65,6 @@ def child(owned: OwnedRoot, operation: str, mode: str = "stationary") -> tuple[i
         "maple.db",
         mode,
     ]
-    env = os.environ.copy()
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
     process = subprocess.Popen(  # noqa: S603 -- exact owned child argv
         argv,
         cwd=Path(__file__).parents[2],
@@ -144,3 +162,17 @@ def test_reader_never_creates_missing_database(scope: OwnedRoot) -> None:
     _, code, output = child(scope, "reader")
     assert code == 3 and result(output) == {"error": "ownership"}
     assert not (scope.path / "maple.db").exists()
+
+
+def test_direct_interpreter_retains_venv_and_real_restart(
+    scope: OwnedRoot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Exercise the Windows launch configuration with actual child processes on
+    # Linux too. Only platform selection is overridden; storage/processes are real.
+    with monkeypatch.context() as selection:
+        selection.setattr(sys, "platform", "win32")
+        executable, env = worker_interpreter()
+    assert executable == getattr(sys, "_base_executable", None)
+    assert env["__PYVENV_LAUNCHER__"] == sys.executable
+    monkeypatch.setattr(sys.modules[__name__], "worker_interpreter", lambda: (executable, env))
+    test_writer_exits_then_distinct_reader_restores_exact_state(scope, "stationary")
