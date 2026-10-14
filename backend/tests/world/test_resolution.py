@@ -46,6 +46,7 @@ from maplegotchi.core.world.resolution import (
 )
 from maplegotchi.runtime.world_catalog import load_initial_catalog
 from maplegotchi.runtime.world_layout import load_initial_house
+from tests.world.import_guards import repository_sources, violations
 from tests.world.oracle import Oracle
 
 AT = datetime(2026, 10, 11, tzinfo=UTC)
@@ -519,15 +520,7 @@ def test_structural_no_object_type_dispatch_or_live_callers() -> None:
         for n in ast.walk(tree)
     )
     root = Path(__file__).resolve().parents[3]
-    for path in (root / "backend/src").rglob("*.py"):
-        if path in (
-            Path(resolution.__file__),
-            Path(resolution.__file__).with_name("layout_validation.py"),
-        ):
-            # R1A-16 composes pure validation; the projection guard separately
-            # proves the aggregate validator has no production callers.
-            continue
-        assert "core.world.resolution" not in path.read_text(encoding="utf-8")
+    assert not violations(repository_sources(root))
     for path in (root / "frontend/src").rglob("*"):
         if path.suffix in (".ts", ".tsx"):
             assert "core.world.resolution" not in path.read_text(encoding="utf-8")

@@ -15,7 +15,6 @@ from maplegotchi.core.goals import Goal, GoalSource, GoalType
 from maplegotchi.core.room import ADJACENCY, POINT_BY_ID, POINTS, Facing, Pose, shortest_path
 from maplegotchi.core.state import Expression, Needs, Reaction, ReactionKind, birth
 from maplegotchi.core.tasks import Task, Tool
-from maplegotchi.core.world import legacy_projection
 from maplegotchi.core.world.catalog import (
     Capability,
     Catalog,
@@ -36,6 +35,7 @@ from maplegotchi.core.world.movement import EdgeStart, Entry, Travel
 from maplegotchi.core.world.pathfinding import Route, Waypoint, find_route
 from maplegotchi.runtime.world_catalog import load_initial_catalog
 from maplegotchi.runtime.world_layout import load_initial_house
+from tests.world.import_guards import repository_sources, violations
 from tests.world.oracle import Oracle
 
 AT = datetime(2026, 10, 11, tzinfo=UTC)
@@ -433,15 +433,7 @@ def test_forged_context_rejected(context: DevelopmentWorld, problem: str) -> Non
 
 def test_production_source_and_frontend_have_no_projection_callers() -> None:
     root = Path(__file__).resolve().parents[3]
-    own = Path(legacy_projection.__file__)
-    # R1A-16 composes projection only inside the isolated pure validator.
-    # Neither library may gain a production caller.
-    validator = own.with_name("layout_validation.py")
-    for path in (root / "backend/src").rglob("*.py"):
-        if path not in (own, validator):
-            source = path.read_text(encoding="utf-8")
-            assert "legacy_projection" not in source
-            assert "layout_validation" not in source
+    assert not violations(repository_sources(root))
     for path in (root / "frontend/src").rglob("*"):
         if path.suffix in (".ts", ".tsx"):
             assert "legacy_projection" not in path.read_text(encoding="utf-8")
