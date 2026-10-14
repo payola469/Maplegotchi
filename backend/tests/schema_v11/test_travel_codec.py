@@ -611,3 +611,139 @@ def test_codec_never_calls_core_tiles(monkeypatch: pytest.MonkeyPatch, travel: T
     with pytest.raises(V11TravelFormatError, match=r"^walkability$"):
         decode(expected, travel, blocked)
     assert (travel, MASK) == before
+
+
+@pytest.mark.parametrize("count,accepted", [(65536, True), (65537, False)])
+def test_step220_exact_utf8_byte_gate_before_parser(
+    monkeypatch: pytest.MonkeyPatch, count: int, accepted: bool
+) -> None:
+    called = False
+
+    def parser(*args: object, **kwargs: object) -> NoReturn:
+        nonlocal called
+        called = True
+        raise ValueError("synthetic invalid JSON")
+
+    monkeypatch.setattr(json, "loads", parser)
+    with pytest.raises(V11TravelFormatError, match=r"^json$" if accepted else "^bytes$"):
+        decode("x" * count)
+    assert called is accepted
+
+
+def test_step220_multibyte_and_surrogate_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "é" * 32769
+    assert len(text) < 65536 and len(text.encode("utf-8")) == 65538
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        pytest.fail("oversized UTF-8 reached parser")
+
+    monkeypatch.setattr(json, "loads", forbidden)
+    with pytest.raises(V11TravelFormatError, match=r"^bytes$"):
+        decode(text)
+    with pytest.raises(V11TravelFormatError, match=r"^json$"):
+        decode("\ud800")
+
+
+@pytest.mark.parametrize("count,accepted", [(2048, True), (2049, False)])
+def test_step220_waypoint_boundary_before_geometry(
+    monkeypatch: pytest.MonkeyPatch, count: int, accepted: bool
+) -> None:
+    points = [[1 + i % 2, 1, i] for i in range(count)]
+    raw = payload() | {"waypoints": points}
+    text = canonical(raw)
+    calls = 0
+    original = Waypoint
+
+    def waypoint(*args: int) -> Waypoint:
+        nonlocal calls
+        calls += 1
+        return original(*args)
+
+    monkeypatch.setattr(travel_codec, "Waypoint", waypoint)
+    if accepted:
+        travel = Travel(Route(tuple(original(*p) for p in points)), AT, 317)
+        assert decode(text, travel).route.waypoints == travel.route.waypoints
+        assert calls == count
+    else:
+        with pytest.raises(V11TravelFormatError, match=r"^waypoints$"):
+            decode(text)
+        assert calls == 0
+
+
+@pytest.mark.parametrize("count,accepted", [(32768, True), (32769, False)])
+def test_step220_work_counter_exact_boundary(count: int, accepted: bool) -> None:
+    if accepted:
+        travel_codec._work_gate(count)
+    else:
+        with pytest.raises(V11TravelFormatError, match=r"^work$"):
+            travel_codec._work_gate(count)
+
+
+def test_step220_streaming_work_counts_repeated_visits_and_stops_before_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Legal reversals, each 5 steps. Many visits to the same six tiles must count.
+    points = tuple(Waypoint(0 if i % 2 == 0 else 5, 0, i * 5) for i in range(2048))
+    travel = Travel(Route(points), AT, 1)
+    seen = 0
+    original = travel_codec._route_tiles
+
+    def observed(route: Route) -> Iterator[Tile]:
+        nonlocal seen
+        for tile in original(route):
+            seen += 1
+            yield tile
+
+    monkeypatch.setattr(travel_codec, "_route_tiles", observed)
+    monkeypatch.setattr(travel_codec, "MAX_WORK", 100)
+    with pytest.raises(V11TravelFormatError, match=r"^work$"):
+        travel_codec._walkable(travel, MASK)
+    assert seen == 100  # No generated unit above the approved counter.
+
+
+def test_step220_entry_examinations_count_toward_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    travel = with_entry(Tile(1, 1))  # Four route tiles plus two Entry examinations.
+    monkeypatch.setattr(travel_codec, "MAX_WORK", 6)
+    travel_codec._walkable(travel, MASK)
+    monkeypatch.setattr(travel_codec, "MAX_WORK", 5)
+    with pytest.raises(V11TravelFormatError, match=r"^work$") as failure:
+        travel_codec._walkable(travel, MASK)
+    assert failure.value.args == ("work",)
+
+
+@pytest.mark.parametrize("work,accepted", [(32768, True), (32769, False)])
+def test_step220_real_route_work_boundary(
+    monkeypatch: pytest.MonkeyPatch, work: int, accepted: bool
+) -> None:
+    steps = work - 1  # Origin examination is one actual unit of traversal work.
+    points = [Waypoint(0, 0, 0)]
+    remaining = steps
+    while remaining:
+        length = min(43, remaining)
+        last = points[-1]
+        x = last.tx + length if last.tx == 0 else last.tx - length
+        points.append(Waypoint(x, 0, last.cumulative_steps + length))
+        remaining -= length
+    travel = Travel(Route(tuple(points)), AT, 1)
+    cells = tuple(Tile(x, 0) for x in range(44))
+    mask = replace(MASK, walkable=cells)
+    original = travel_codec._route_tiles
+    generated = 0
+
+    def observe(route: Route) -> Iterator[Tile]:
+        nonlocal generated
+        for tile in original(route):
+            generated += 1
+            yield tile
+
+    monkeypatch.setattr(travel_codec, "_route_tiles", observe)
+    if accepted:
+        text = encode_travel_path(travel, walkability=mask)
+        assert generated == 32768
+        generated = 0
+        assert decode(text, travel, mask) == travel
+        assert generated == 32768
+    else:
+        with pytest.raises(V11TravelFormatError, match=r"^work$"):
+            encode_travel_path(travel, walkability=mask)
+        assert generated == 32768

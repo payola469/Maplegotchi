@@ -26,6 +26,9 @@ Category = Literal[
     "origin",
     "timing",
     "travel",
+    "bytes",
+    "waypoints",
+    "work",
 ]
 
 
@@ -34,6 +37,31 @@ class V11TravelFormatError(ValueError):
 
     def __init__(self, category: Category) -> None:
         super().__init__(category)
+
+
+# STEP 220 synthetic-test policy only, never production configuration.
+MAX_BYTES = 65_536
+MAX_WAYPOINTS = 2_048
+MAX_WORK = 32_768
+
+
+def _byte_gate(text: str) -> None:
+    """Count actual UTF-8 bytes before JSON parsing; lone surrogates refuse."""
+    try:
+        if len(text.encode("utf-8")) > MAX_BYTES:
+            raise V11TravelFormatError("bytes")
+    except UnicodeError:
+        raise V11TravelFormatError("json") from None
+
+
+def _waypoint_gate(count: int) -> None:
+    if count > MAX_WAYPOINTS:
+        raise V11TravelFormatError("waypoints")
+
+
+def _work_gate(count: int) -> None:
+    if count > MAX_WORK:
+        raise V11TravelFormatError("work")
 
 
 def _pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -91,6 +119,7 @@ def _travel(value: object, departed_at: datetime) -> Travel:
     points = data["waypoints"]
     if not isinstance(points, list):
         raise V11TravelFormatError("fields")
+    _waypoint_gate(len(points))
     try:
         waypoints = []
         for point in points:
@@ -135,12 +164,24 @@ def _walkable(travel: Travel, walkability: Walkability) -> None:
     if not isinstance(walkability, Walkability):
         raise V11TravelFormatError("walkability")
     allowed = frozenset(walkability.walkable)
-    if any(tile not in allowed for tile in _route_tiles(travel.route)):
-        raise V11TravelFormatError("walkability")
-    if travel.entry is not None and (
-        travel.entry.start.a not in allowed or travel.entry.start.b not in allowed
-    ):
-        raise V11TravelFormatError("walkability")
+    # Work counts each origin/edge tile generated/examined, including repeated
+    # visits, plus both Entry endpoint examinations. No unique-tile shortcut.
+    # Check the next unit BEFORE asking the generator to create another tile.
+    work = 0
+    tiles = _route_tiles(travel.route)
+    expected = 1 + travel.route.waypoints[-1].cumulative_steps
+    for _ in range(expected):
+        _work_gate(work + 1)
+        tile = next(tiles)
+        work += 1
+        if tile not in allowed:
+            raise V11TravelFormatError("walkability")
+    if travel.entry is not None:
+        for tile in (travel.entry.start.a, travel.entry.start.b):
+            _work_gate(work + 1)
+            work += 1
+            if tile not in allowed:
+                raise V11TravelFormatError("walkability")
 
 
 def _arrival(travel: Travel) -> datetime:
@@ -154,6 +195,7 @@ def encode_travel_path(travel: Travel, *, walkability: Walkability) -> str:
     """Validate and encode an immutable Travel; times stay outside the JSON."""
     if not isinstance(travel, Travel):
         raise V11TravelFormatError("travel")
+    _waypoint_gate(len(travel.route.waypoints))
     entry = travel.entry
     data = {
         "format_version": 1,
@@ -174,7 +216,9 @@ def encode_travel_path(travel: Travel, *, walkability: Walkability) -> str:
         raise V11TravelFormatError("entry")
     _walkable(validated, walkability)
     _arrival(validated)
-    return _canonical(data)
+    text = _canonical(data)
+    _byte_gate(text)
+    return text
 
 
 def decode_travel_path(
@@ -193,6 +237,7 @@ def decode_travel_path(
     """
     if type(text) is not str:
         raise V11TravelFormatError("json")
+    _byte_gate(text)
     try:
         data: object = json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant)
     except V11TravelFormatError:
