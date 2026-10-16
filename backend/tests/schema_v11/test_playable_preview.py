@@ -8,6 +8,7 @@ from typing import Any, cast
 
 import pytest
 
+from tests.schema_v11.owned_store import OwnedRoot
 from tests.schema_v11.playable_preview import Preview, handler
 
 
@@ -65,6 +66,7 @@ def test_preview_state_mismatch_stops_without_retry_reset_or_database_mutation()
         assert preview.scope.check("maple.db").read_bytes() == before_bytes
     finally:
         # This test owns the fresh capability; the preview itself retains failed artifacts.
+        assert isinstance(preview.scope, OwnedRoot)
         preview.scope.cleanup()
 
 

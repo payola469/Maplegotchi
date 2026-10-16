@@ -37,7 +37,7 @@ def image_of(snapshot: CanonicalSnapshot) -> store.Snapshot:
 
 @dataclass(frozen=True)
 class OwnedBinding:
-    scope: store.OwnedRoot
+    scope: store.OwnedFiles
     name: str
     catalogs: tuple[CatalogSnapshot, ...]
     contexts: tuple[tuple[int, LayoutContext], ...]

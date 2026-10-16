@@ -1,4 +1,56 @@
-# First playable canonical preview (STEP 243)
+# Persistent synthetic Local Alpha (STEP 244)
+
+On the Linux development host, from the repository root:
+
+```sh
+# First use ONLY: create an exclusive, new synthetic session and start it.
+./frontend/tools/life-preview/alpha.sh init
+# Ctrl+C stops the entire controller, retaining state.
+# Every later start: restore only, never create/reset/repair.
+./frontend/tools/life-preview/alpha.sh start
+# From another terminal: pause, verify the owned session, and stop the controller.
+./frontend/tools/life-preview/alpha.sh stop
+```
+
+Open **http://127.0.0.1:8474/**. This localhost belongs to the machine running the
+command (the current Codex host is `paolo-ubuntu`), not an unrelated owner's
+computer. If already authorized SSH access exists from another machine:
+`ssh -N -L 8474:127.0.0.1:8474 USER@HOST`, then open the same URL there. No public
+listener, Tailscale Serve, production service or paolo-core configuration is used.
+Owner access has not been confirmed until the owner actually tries it.
+
+The launcher uses the existing backend venv, or `uv run --locked`; install the
+existing locked frontend dependencies first if needed. `MAPLE_ALPHA_PYTHON` can
+explicitly select an already-installed compatible interpreter.
+
+Data stays in this checkout's ignored `var/maple-local-alpha`. Do not delete,
+move, copy, change permissions or re-run init to reset it. Existing directories
+are refused by init, and missing/foreign/corrupt/incompatible data is refused by
+start. Failed initialization is retained for explicit inspection, never repaired
+or overwritten automatically. Closing the browser does not stop the controller;
+use Ctrl+C in its terminal or the `stop` command above. Starting a second
+controller is refused. After starting again, reload the browser page to obtain
+the new controller's security token before using its controls.
+
+This persistent mode has separate development ownership admission: a root created
+exclusively by init, private Linux owner/permissions, immutable root/database
+identity, synthetic session marker and an exclusive controller lock. Workers
+receive a parent-bound capability and inherit the lock until exit, protecting
+in-flight work even if the controller is abruptly killed. Existing temporary
+OwnedRoot guards are unchanged. SQLite schema, codecs, complete state admission,
+atomic/CAS writer and canonical life rules are the same existing implementation.
+No arbitrary existing user/test/production database is adopted.
+
+Restart begins paused and does not advance clock, revision or actions. Compare
+`/state` before/after for controller PID, database identity, session, digest,
+revision, RNG counters and history. Then click Live heartbeat to continue. The
+existing UI is unchanged. This alpha is Linux-only; other platforms fail closed
+until their ownership/locking implementation is validated. It is not R1B-04
+completion, a D01/D03/D05 resolution, production migration or default activation.
+
+---
+
+# Temporary canonical preview (STEP 243)
 
 This is an **isolated synthetic preview**, not the shipped Room, production
 runtime, public API/SSE contract, or a resolution of D01/D03/D05.

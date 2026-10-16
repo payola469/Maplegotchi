@@ -1,39 +1,56 @@
 """Explicit localhost-only synthetic playable preview, outside shipped startup.
 
 Run from backend: PYTHONPATH=src python -m tests.schema_v11.playable_preview
-The controller owns a fresh root; it never adopts an existing database. Each
-runtime process exits before the next is launched. Closing the controller ends
-the preview session; restarting a worker retains the same current-owned state.
+Temporary mode owns a fresh execution root. Explicit alpha mode reopens only
+its initialized private development session; it never adopts foreign databases.
+Runtime processes exit before the next starts. Alpha data survives controller exit.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import secrets
+import signal
 import subprocess  # noqa: TID251 -- explicit owned preview children only
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
+from types import FrameType
 from typing import Any, cast
 
 from tests.schema_v11 import owned_store as store
+from tests.schema_v11.alpha_files import AlphaFiles
 from tests.schema_v11.test_restart_process import worker_interpreter
 
 
 class Preview:
-    def __init__(self) -> None:
-        self.scope = store.OwnedRoot.new()
+    def __init__(self, alpha: Path | None = None, *, initialize: bool = False) -> None:
+        self.scope: store.OwnedRoot | AlphaFiles
+        if alpha is None:
+            if initialize:
+                raise ValueError("initialize requires an explicit alpha root")
+            self.scope = store.OwnedRoot.new()
+        else:
+            self.scope = AlphaFiles.initialize(alpha) if initialize else AlphaFiles(alpha)
+            self.scope.lock()
         self.state: dict[str, Any] = {}
         self.paused = True
+        self.stopping = False
         self.error: str | None = None
         self.restarts = 0
         self.previous_pid: int | None = None
         try:
-            self.command("init")
+            self.command("init" if alpha is None or initialize else "read")
+            if initialize and isinstance(self.scope, AlphaFiles):
+                self.scope.seal()
         except BaseException:
-            self.scope.cleanup()
+            if isinstance(self.scope, AlphaFiles):
+                self.scope.close()
+            else:
+                self.scope.cleanup()
             raise
 
     def command(self, operation: str) -> dict[str, Any]:
@@ -41,22 +58,37 @@ class Preview:
             raise ValueError("unknown preview operation")
         self.scope._root()
         executable, env = worker_interpreter()
+        argv = [
+            executable,
+            "-B",
+            "-m",
+            "tests.schema_v11.playable_worker",
+            operation,
+            str(self.scope.path),
+            str(self.scope.identity[0]),
+            str(self.scope.identity[1]),
+            str(
+                self.state.get(
+                    "digest",
+                    "restore"
+                    if isinstance(self.scope, AlphaFiles) and operation == "read"
+                    else "new",
+                )
+            ),
+        ]
+        if isinstance(self.scope, AlphaFiles):
+            if self.scope.fd is None:
+                raise ValueError("alpha controller lock required")
+            argv.extend([str(os.getpid()), self.scope.token, str(self.scope.fd)])
         process = subprocess.Popen(  # noqa: S603 -- fixed child module + owned capability
-            [
-                executable,
-                "-B",
-                "-m",
-                "tests.schema_v11.playable_worker",
-                operation,
-                str(self.scope.path),
-                str(self.scope.identity[0]),
-                str(self.scope.identity[1]),
-                str(self.state.get("digest", "new")),
-            ],
+            argv,
             cwd=Path(__file__).parents[2],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            pass_fds=(self.scope.fd,)
+            if isinstance(self.scope, AlphaFiles) and self.scope.fd is not None
+            else (),
         )
         chunks: list[bytes] = []
 
@@ -76,6 +108,11 @@ class Preview:
             process.kill()
             process.wait(timeout=10)
             raise ValueError("preview child timed out") from None
+        except BaseException:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=10)
+            raise
         finally:
             thread.join(timeout=10)
         if code or thread.is_alive():
@@ -83,14 +120,19 @@ class Preview:
         result = json.loads(b"".join(chunks))
         if not isinstance(result, dict) or result.get("pid") != process.pid:
             raise ValueError("actual worker identity required")
-        if operation == "read" and result.get("digest") != self.state.get("digest"):
+        if operation == "read" and self.state and result.get("digest") != self.state.get("digest"):
             raise ValueError("restart changed canonical state")
         self.previous_pid = self.state.get("pid")
         self.state = result
         return self.view()
 
     def act(self, operation: str) -> dict[str, Any]:
-        if operation == "pause":
+        if operation == "shutdown":
+            if not isinstance(self.scope, AlphaFiles):
+                raise ValueError("shutdown is alpha-only")
+            self.paused = True
+            self.stopping = True
+        elif operation == "pause":
             self.paused = True
         elif operation == "play":
             if self.error:
@@ -120,10 +162,15 @@ class Preview:
             error=self.error,
             restarts=self.restarts,
             previous_pid=self.previous_pid,
+            controller_pid=os.getpid(),
+            database_identity=list(self.scope.check("maple.db").stat()[i] for i in (2, 1)),
+            session=self.scope.metadata["session"] if isinstance(self.scope, AlphaFiles) else None,
         )
 
     def close(self) -> None:
-        if not self.error:
+        if isinstance(self.scope, AlphaFiles):
+            self.scope.close()
+        elif not self.error:
             self.scope.cleanup()
 
 
@@ -182,7 +229,7 @@ def handler(preview: Preview, assets: Path, pixi: Path, token: str) -> type[Base
                 self.reply(403, b"Forbidden", "text/plain")
                 return
             operation = self.path[1:]
-            if operation not in {"play", "pause", "tick", "next", "restart"}:
+            if operation not in {"play", "pause", "tick", "next", "restart", "shutdown"}:
                 self.reply(404, b"Not found", "text/plain")
                 return
             try:
@@ -200,13 +247,20 @@ def handler(preview: Preview, assets: Path, pixi: Path, token: str) -> type[Base
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8473)
+    parser.add_argument("--alpha-root", type=Path)
+    parser.add_argument("--initialize", action="store_true")
     args = parser.parse_args()
+
+    def stop(_number: int, _frame: FrameType | None) -> None:
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop)
     root = Path(__file__).parents[3]
     assets = root / "frontend/tools/life-preview"
     pixi = root / "frontend/node_modules/pixi.js/dist/pixi.min.js"
     if not pixi.is_file():
         parser.error("Install existing frontend dependencies with pnpm install --frozen-lockfile")
-    preview = Preview()
+    preview = Preview(args.alpha_root, initialize=args.initialize)
     try:
         server = HTTPServer(
             ("127.0.0.1", args.port), handler(preview, assets, pixi, secrets.token_urlsafe(32))
@@ -217,12 +271,17 @@ def main() -> None:
     server.timeout = 0.2
     print(f"ISOLATED PREVIEW http://127.0.0.1:{server.server_port} — synthetic only", flush=True)
     print(
-        "Each tick saves and exits its worker. Restart verifies a new reader. Ctrl+C ends session.",
+        "Each tick saves and exits its worker. "
+        + (
+            "Ctrl+C stops the controller; alpha state is retained."
+            if args.alpha_root
+            else "Ctrl+C ends the temporary session."
+        ),
         flush=True,
     )
     next_tick = time.monotonic() + 1
     try:
-        while True:
+        while not preview.stopping:
             server.handle_request()
             if not preview.paused and time.monotonic() >= next_tick:
                 try:

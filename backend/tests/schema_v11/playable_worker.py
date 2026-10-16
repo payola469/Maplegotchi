@@ -17,10 +17,11 @@ from typing import Any
 from maplegotchi.core.world.coordinates import GRID_HEIGHT, GRID_WIDTH, T, Tile, tile_to_feet
 from maplegotchi.runtime.canonical_persistence import CanonicalPersistenceRuntime
 from tests.schema_v11 import owned_store as store
-from tests.schema_v11.canonical_binding import image_of
+from tests.schema_v11.alpha_files import AlphaFiles
+from tests.schema_v11.canonical_binding import OwnedBinding, image_of
 from tests.schema_v11.life_simulation import simulation_initial
-from tests.schema_v11.restart_worker import digest
-from tests.schema_v11.test_canonical_runtime import advance, port
+from tests.schema_v11.restart_worker import digest, resources
+from tests.schema_v11.test_canonical_runtime import advance
 
 
 def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
@@ -77,13 +78,21 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
 
 
 def main() -> int:
-    if len(sys.argv) != 6:
+    if len(sys.argv) not in {6, 9}:
         return 2
-    operation, root, device, inode, expected = sys.argv[1:]
+    operation, root, device, inode, expected = sys.argv[1:6]
     if operation not in {"init", "tick", "next", "read"}:
         return 2
-    scope = store.OwnedRoot(Path(root), (int(device), int(inode)))
-    binding = port(scope)
+    scope: store.OwnedRoot | AlphaFiles
+    if len(sys.argv) == 9:
+        scope = AlphaFiles(Path(root), pending=operation == "init")
+        scope.worker(parent=int(sys.argv[6]), token=sys.argv[7], inherited_lock=int(sys.argv[8]))
+        if scope.identity != (int(device), int(inode)):
+            return 3
+    else:
+        scope = store.OwnedRoot(Path(root), (int(device), int(inode)))
+    catalog, context, _ = resources()
+    binding = OwnedBinding(scope, "maple.db", (catalog,), ((1, context),))
     runtime = None
     try:
         if operation == "init":
@@ -96,7 +105,10 @@ def main() -> int:
             advance(runtime, runtime.capture().life.identity.born_at + timedelta(minutes=15))
         else:
             runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
-            if digest(image_of(runtime.capture())) != expected:
+            first_alpha_read = (
+                operation == "read" and isinstance(scope, AlphaFiles) and expected == "restore"
+            )
+            if not first_alpha_read and digest(image_of(runtime.capture())) != expected:
                 raise ValueError("unexpected persisted state")
             if operation != "read":
                 before = runtime.capture()
