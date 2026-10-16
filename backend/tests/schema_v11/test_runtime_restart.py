@@ -63,6 +63,12 @@ def child(root: store.OwnedRoot, operation: str, mode: str) -> tuple[int, int, d
         process.kill()
         process.wait(timeout=10)
         raise AssertionError("owned canonical worker timeout") from None
+    except BaseException:
+        # Parent cancellation must not leave an owned writer running during cleanup.
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=10)
+        raise
     finally:
         thread.join(timeout=10)
     assert not thread.is_alive()
@@ -196,3 +202,34 @@ def test_actual_cross_process_life_continues_like_uninterrupted_reference(
             )
         )
     )
+
+
+def test_parent_cancellation_reaps_only_its_actual_worker(
+    scope: store.OwnedRoot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Inject only the parent's interrupted wait. The child is a real owned OS process;
+    # this does not replace any of the separate cross-process durability proofs.
+    original = subprocess.Popen
+    launched: list[subprocess.Popen[bytes]] = []
+
+    def launch(*args: Any, **kwargs: Any) -> subprocess.Popen[bytes]:
+        process = original(*args, **kwargs)
+        launched.append(process)
+        wait = process.wait
+        first = True
+
+        def cancelled_wait(timeout: float | None = None) -> int:
+            nonlocal first
+            if first:
+                first = False
+                raise KeyboardInterrupt
+            return wait(timeout=timeout)
+
+        monkeypatch.setattr(process, "wait", cancelled_wait)
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", launch)
+    with pytest.raises(KeyboardInterrupt):
+        child(scope, "writer", "birth")
+    assert len(launched) == 1 and launched[0].pid > 0
+    assert launched[0].poll() is not None  # fully reaped before fixture-owned file cleanup

@@ -44,6 +44,7 @@ def main() -> int:
         "entry_b",
         "life_loop",
         "simulation",
+        "boundary_simulation",
         "goal_resume",
         "goal_expiry",
     }:
@@ -73,7 +74,7 @@ def main() -> int:
     try:
         if operation == "writer":
             base = admit(birth_snapshot(), binding.catalogs, binding.contexts)
-            if mode == "simulation":
+            if mode in {"simulation", "boundary_simulation"}:
                 from tests.schema_v11.life_simulation import simulation_initial
 
                 base = simulation_initial(binding)
@@ -83,10 +84,15 @@ def main() -> int:
                 base = initial(binding)
             runtime = CanonicalPersistenceRuntime.create(binding, base, schema_version=11)
             before = runtime.capture()
-            if mode == "simulation":
+            if mode in {"simulation", "boundary_simulation"}:
                 from tests.schema_v11.life_simulation import segment
 
-                trace = segment(runtime, first=True)
+                if mode == "boundary_simulation":
+                    from tests.schema_v11.life_simulation import boundary_segment
+
+                    trace = boundary_segment(runtime)
+                else:
+                    trace = segment(runtime, first=True)
             elif mode in {"goal_resume", "goal_expiry"}:
                 from tests.schema_v11.life_interrupt import interrupt_read
 
@@ -123,10 +129,15 @@ def main() -> int:
             runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
             before = runtime.capture()
             if operation != "reader":
-                if mode == "simulation":
+                if mode in {"simulation", "boundary_simulation"}:
                     from tests.schema_v11.life_simulation import segment
 
-                    trace = segment(runtime, first=False)
+                    if mode == "boundary_simulation":
+                        from tests.schema_v11.life_simulation import boundary_segment
+
+                        trace = boundary_segment(runtime)
+                    else:
+                        trace = segment(runtime, first=False)
                 elif mode in {"goal_resume", "goal_expiry"}:
                     from tests.schema_v11.life_interrupt import continue_response
 
@@ -163,7 +174,7 @@ def main() -> int:
             tick_counter=after.life.rng.tick_counter,
             action_counter=after.life.record.action_counter,
         )
-        if mode == "simulation":
+        if mode in {"simulation", "boundary_simulation"}:
             result["trace"] = trace
             result["simulation_continuation"] = "extended_simulation_unpinned"
         runtime.close()

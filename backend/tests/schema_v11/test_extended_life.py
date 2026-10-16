@@ -310,3 +310,107 @@ def test_expired_suspended_goal_is_abandoned_once_after_response(scope: store.Ow
     assert goal.id in {g.id for g in after.life.goals}
     assert advance(runtime, datetime.fromisoformat(after.life.record.last_updated_at)) is after
     runtime.close()
+
+
+@pytest.mark.parametrize("late_seconds", [0, 1], ids=["on_time", "late"])
+def test_arrival_and_critical_in_one_tick_keep_original_action_audit(
+    scope: store.OwnedRoot, late_seconds: int
+) -> None:
+    """Known arrival origin: preserve old READ facts when starting the urgent response."""
+    from maplegotchi.core.world.legacy_projection import PointRef
+
+    runtime = seeded(scope, 0)
+    try:
+        first = runtime.capture()
+        selected = advance(runtime, first.life.identity.born_at + timedelta(minutes=15))
+        assert selected.life.activity is Activity.READ and selected.life.travel is not None
+        arrival = selected.life.travel.arrives_at
+        now = arrival + timedelta(seconds=late_seconds)
+        original = runtime.legacy(
+            facts(selected),
+            now,
+            origin=PointRef(first.life.record.point_host, first.life.record.point_id),
+        ).point
+        changed = runtime.step(
+            now,
+            BehaviorInputs(server_attention=1),
+            CoreParameters(),
+            facts(selected),
+            expected_revision=selected.life.record.revision,
+            task_effects=port(scope).task_effects,
+        )
+        assert changed.life.record.action_priority == "critical"
+        assert changed.life.activity is Activity.OBSERVE_SERVER
+        assert changed.life.record.action_counter == selected.life.record.action_counter + 1
+        rows = [
+            r
+            for r in image_of(changed).rows("action_event")
+            if r[3] == selected.life.record.action_counter
+        ]
+        arrivals = [r for r in rows if r[5] == "arrived"]
+        starts = [r for r in rows if r[5] == "activity_started"]
+        import json
+
+        assert len(arrivals) == len(starts) == 1
+        assert arrivals[0][6] == starts[0][6] == arrival.isoformat()
+        assert json.loads(str(arrivals[0][8]))["point"] == original.id
+        assert json.loads(str(starts[0][8]))["point"] == original.id
+        assert json.loads(str(starts[0][8]))["activity"] == "read"
+        assert changed.life.suspended_goal == selected.life.active_goal
+        failed = [
+            r
+            for r in image_of(changed).rows("tool_use")
+            if r[4] == selected.life.record.action_counter and r[7] == "read_failed"
+        ]
+        assert len(failed) == 1 and failed[0][12] == "interrupted"
+        assert (
+            runtime.step(
+                now,
+                BehaviorInputs(server_attention=1),
+                CoreParameters(),
+                facts(changed),
+                expected_revision=changed.life.record.revision,
+                task_effects=port(scope).task_effects,
+            )
+            is changed
+        )
+        runtime.close()
+        runtime = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
+        assert runtime.capture() == changed
+    finally:
+        runtime.close()
+
+
+def test_late_arrival_and_ordinary_completion_keep_old_activity_payload(
+    scope: store.OwnedRoot,
+) -> None:
+    import json
+
+    from maplegotchi.core.world.legacy_projection import PointRef
+
+    runtime = seeded(scope, 0)
+    try:
+        first = runtime.capture()
+        selected = advance(runtime, first.life.identity.born_at + timedelta(minutes=15))
+        assert selected.life.activity is Activity.READ and selected.life.travel is not None
+        now = datetime.fromisoformat(selected.life.record.activity_until)
+        point = runtime.legacy(
+            facts(selected),
+            now,
+            origin=PointRef(first.life.record.point_host, first.life.record.point_id),
+        ).point
+        changed = advance(runtime, now)
+        assert changed.life.record.action_counter == 2
+        for kind in ("arrived", "activity_started"):
+            rows = [r for r in image_of(changed).rows("action_event") if r[3] == 1 and r[5] == kind]
+            assert len(rows) == 1 and rows[0][6] == selected.life.travel.arrives_at.isoformat()
+            payload = json.loads(str(rows[0][8]))
+            assert payload["point"] == point.id
+            if kind == "activity_started":
+                assert payload["activity"] == "read"
+        completed = [
+            r for r in image_of(changed).rows("tool_use") if r[4] == 1 and r[7] == "read_completed"
+        ]
+        assert len(completed) == 1
+    finally:
+        runtime.close()

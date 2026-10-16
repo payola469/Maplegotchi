@@ -326,7 +326,10 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
         before.life.activity,
     )
     for event in outcome.actions:
-        target = old_point if event.kind is ActionEventKind.ACTIVITY_COMPLETED else point
+        # A late tick can arrive/start the old action and select/interrupt into a
+        # new one together. Audit facts belong to the event's action, not the final frame.
+        old_action = event.action_id == before.life.record.action_counter
+        target = old_point if old_action else point
         payload: dict[str, Cell] = {"point": target.id, "furniture": target.furniture.value}
         if event.payload:
             payload = dict(event.payload)
@@ -336,7 +339,7 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
                 duration_minutes=float(outcome.minutes) if outcome.minutes is not None else None,
             )
         elif event.kind is ActionEventKind.ACTIVITY_STARTED:
-            payload.update(activity=f.activity.value)
+            payload.update(activity=before.life.activity.value if old_action else f.activity.value)
         elif event.kind is ActionEventKind.WALKING_STARTED:
             # Legacy audit distance remains Legacy geometry, not a grid-step alias.
             from maplegotchi.core.room import shortest_path
