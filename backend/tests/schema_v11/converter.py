@@ -40,7 +40,9 @@ def copy_verified(
         if dst.execute("PRAGMA journal_mode=DELETE").fetchone() != ("delete",):
             raise ConversionError("copy")
     path = scope.check(destination)
-    with path.open("rb") as stream:
+    # Windows _commit/FlushFileBuffers requires a writable handle. r+b neither
+    # creates nor truncates this inode-checked copy; both SQLite handles closed.
+    with path.open("r+b") as stream:
         os.fsync(stream.fileno())
     inject(f"verify_{destination}")
     with opened(scope, destination) as verified:

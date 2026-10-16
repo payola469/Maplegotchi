@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import ast
+import errno
 import hashlib
 import json
+import os
 import sqlite3
+import sys
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -194,13 +197,16 @@ def test_controlled_failure_refuses_without_hybrid_and_retains_copies(
     source: Source, phase: str
 ) -> None:
     owned = guarded(source)
+    reached: list[str] = []
 
     def fail(current: str) -> None:
         if current == phase:
+            reached.append(current)
             raise sqlite3.OperationalError("bounded synthetic fault")
 
     with pytest.raises(ConversionError, match=r"^refused$"):
         convert(source, AT, inject=fail)
+    assert reached == [phase]
     with opened(owned.scope, "source.db") as conn:
         assert store.exact(admit_v10(conn)) == store.exact(owned.baseline)
     for name in ("owner.db", "automatic.db", "target.db"):
@@ -214,14 +220,18 @@ def test_controlled_failure_refuses_without_hybrid_and_retains_copies(
 
 @pytest.mark.parametrize("fault", ["permission", "disk_full"])
 def test_bounded_storage_failure(source: Source, fault: str) -> None:
+    reached: list[str] = []
+
     def fail(phase: str) -> None:
         if phase == "after_rows":
+            reached.append(phase)
             if fault == "permission":
                 raise PermissionError("synthetic read-only filesystem")
             raise sqlite3.OperationalError("database or disk is full")
 
     with pytest.raises(ConversionError, match="refused"):
         convert(source, AT, inject=fail)
+    assert reached == ["after_rows"]
     with opened(guarded(source).scope, "target.db") as conn:
         assert admit_v10(conn) == guarded(source).baseline
 
@@ -229,14 +239,17 @@ def test_bounded_storage_failure(source: Source, fault: str) -> None:
 @pytest.mark.parametrize("phase", ["after_preflight", "after_copies", "after_rows"])
 def test_source_modification_detected_or_fenced(source: Source, phase: str) -> None:
     owned = guarded(source)
+    reached: list[str] = []
 
     def alter(current: str) -> None:
         if current == phase:
+            reached.append(current)
             with opened(owned.scope, "source.db", readonly=False) as conn:
                 conn.execute("UPDATE journal_state SET notices_today=notices_today+1")
 
     with pytest.raises(ConversionError, match="refused"):
         convert(source, AT, inject=alter)
+    assert reached == [phase]
     if phase == "after_rows":
         with opened(owned.scope, "source.db") as conn:
             assert admit_v10(conn) == owned.baseline
@@ -334,7 +347,7 @@ def test_frozen_registry_default_and_source_boundaries() -> None:
         hashlib.sha256((root / "src/maplegotchi/storage/migrations.py").read_bytes()).hexdigest()
         == SOURCE_SHA256
     )
-    tree = ast.parse((root / "src/maplegotchi/storage/migrations.py").read_text())
+    tree = ast.parse((root / "src/maplegotchi/storage/migrations.py").read_text(encoding="utf-8"))
     registry = next(
         n.value
         for n in tree.body
@@ -349,7 +362,7 @@ def test_frozen_registry_default_and_source_boundaries() -> None:
         if isinstance(n, ast.Call) and isinstance(n.args[0], ast.Constant)
     ] == list(range(1, 11))
     for path in (root / "src").rglob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 assert not (node.module or "").startswith("tests.")
             if isinstance(node, ast.Import):
@@ -642,3 +655,111 @@ def test_invalid_source_identity_or_birth_with_frozen_schema(source: Source, fau
     with pytest.raises(ConversionError, match="refused"):
         convert(source, AT)
     assert set(owned.scope._registry()) == {"source.db"}
+
+
+def test_retained_copy_sync_requires_writable_owned_handle(
+    source: Source, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise Windows FlushFileBuffers access rights on every platform.
+
+    Native Windows additionally proves the original readonly-handle failure.
+    Real fsync still executes for all three owned copies; none is bypassed.
+    """
+    owned = guarded(source)
+    original_open = Path.open
+    original_sync = os.fsync
+    streams: dict[int, Any] = {}
+    synced: list[str] = []
+    allowed = {owned.scope.path / n for n in ("owner.db", "automatic.db", "target.db")}
+
+    def tracked(path: Path, *args: Any, **kwargs: Any) -> Any:
+        stream = original_open(path, *args, **kwargs)
+        if path in allowed:
+            assert owned.scope.check(path.name) == path
+            info = os.fstat(stream.fileno())
+            assert [info.st_dev, info.st_ino] == owned.scope._registry()[path.name]
+            streams[stream.fileno()] = stream
+        return stream
+
+    def windows_sync(fd: int) -> None:
+        stream = streams[fd]
+        assert not stream.closed
+        if not stream.writable():
+            raise OSError(errno.EBADF, "synthetic Windows writable-handle requirement")
+        original_sync(fd)
+        synced.append(Path(stream.name).name)
+
+    monkeypatch.setattr(Path, "open", tracked)
+    monkeypatch.setattr(os, "fsync", windows_sync)
+    try:
+        result = convert(source, AT)
+    except ConversionError as refusal:
+        cause = refusal.__context__
+        print(
+            json.dumps(
+                dict(
+                    stage="retained_copy_sync",
+                    error=type(cause).__name__,
+                    errno=getattr(cause, "errno", None),
+                )
+            )
+        )
+        raise
+    assert synced == ["owner.db", "automatic.db", "target.db"]
+    assert all(stream.closed for stream in streams.values())
+    for name in result.copies:
+        with opened(owned.scope, name) as conn:
+            assert admit_v10(conn) == owned.baseline
+    if sys.platform == "win32":
+        # Bounded native evidence: errno only, never path or SQLite payload.
+        with original_open(owned.scope.check("owner.db"), "rb") as readonly:
+            with pytest.raises(OSError) as error:
+                original_sync(readonly.fileno())
+        assert error.value.errno
+        print(
+            json.dumps(dict(stage="readonly_copy_sync", error="OSError", errno=error.value.errno))
+        )
+
+
+@pytest.mark.parametrize("destination", ["owner.db", "automatic.db", "target.db"])
+def test_retained_copy_sync_failure_refuses_before_conversion(
+    source: Source, destination: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owned = guarded(source)
+    original_sync = os.fsync
+    calls: list[str] = []
+    phases: list[str] = []
+
+    def fail_sync(fd: int) -> None:
+        name = ("owner.db", "automatic.db", "target.db")[len(calls)]
+        calls.append(name)
+        if name == destination:
+            raise OSError(errno.EACCES, "synthetic retained-copy sync refusal")
+        original_sync(fd)
+
+    monkeypatch.setattr(os, "fsync", fail_sync)
+    with pytest.raises(ConversionError, match=r"^refused$") as error:
+        convert(source, AT, inject=phases.append)
+    # The public category stays fixed; bounded test-only evidence names the cause.
+    cause = error.value.__context__
+    assert isinstance(cause, OSError) and cause.errno == errno.EACCES
+    assert str(error.value) == "refused" and "after_copies" not in phases
+    assert calls[-1] == destination
+    for name in owned.scope._registry():
+        with opened(owned.scope, name) as conn:
+            assert admit_v10(conn) == owned.baseline
+    with pytest.raises(ConversionError, match="repeat"):
+        convert(source, AT)
+
+
+def test_source_boundary_scan_ignores_windows_default_encoding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run the full source scanner under the failed CI's cp1252 default."""
+    original_read = Path.read_text
+
+    def windows_default(path: Path, encoding: str | None = None, errors: str | None = None) -> str:
+        return original_read(path, encoding=encoding or "cp1252", errors=errors)
+
+    monkeypatch.setattr(Path, "read_text", windows_default)
+    test_frozen_registry_default_and_source_boundaries()
