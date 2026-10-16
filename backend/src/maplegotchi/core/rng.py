@@ -71,6 +71,11 @@ class RngStream:
         self._prefix = f"{stream}:{counter}:".encode()
         self._draws = 0
 
+    @property
+    def draw_count(self) -> int:
+        """Read-only draw position for coordinating pure canonical point selection."""
+        return self._draws
+
     def random(self) -> float:
         """Uniform float in [0.0, 1.0)."""
         digest = hashlib.blake2b(

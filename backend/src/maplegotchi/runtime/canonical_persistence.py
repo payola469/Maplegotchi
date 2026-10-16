@@ -3,7 +3,7 @@
 This owns one canonical snapshot and serialized persistence operations. It is
 not a default heartbeat/Director engine and never constructs MapleState.
 Proposals come from an authorized caller; D01 preflights compatibility
-without installing them. The explicit step method supplies only a bounded ordinary-life MVP.
+without installing them. The explicit step method supplies an isolated canonical life loop.
 Checkpoint is a Save intent, not simulation advancement. Restore
 accepts canonical Travel independently of Legacy presentation availability.
 """
@@ -11,6 +11,7 @@ accepts canonical Travel independently of Legacy presentation availability.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import datetime
 from threading import RLock
@@ -21,6 +22,8 @@ from maplegotchi.core.behavior import BehaviorInputs
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.parameters import GLOBAL_INTERACTION_WINDOW, CoreParameters
 from maplegotchi.core.state import prune_interactions
+from maplegotchi.core.tasks import LIBRARY_CATALOG, SourceRef, Tool, ToolOp, ToolRecord
+from maplegotchi.core.timeline import GoalStarted
 from maplegotchi.core.world.canonical_lifecycle import LifeFrame, LifeLoopBlocked, LifeStep
 from maplegotchi.core.world.canonical_lifecycle import step as life_step
 from maplegotchi.core.world.coordinates import Tile
@@ -46,6 +49,7 @@ from maplegotchi.storage.canonical_v11 import (
     load,
     save,
 )
+from maplegotchi.storage.repositories import encode_event
 
 
 def checkpoint_image(snapshot: CanonicalSnapshot) -> CanonicalSnapshot:
@@ -177,10 +181,17 @@ def _frame(life: CanonicalLife) -> LifeFrame:
         Tile(r.tx, r.ty),
         life.travel,
         Activity(r.route_from_activity) if r.route_from_activity else None,
+        life.priority,
+        datetime.fromisoformat(r.critical_since) if r.critical_since else None,
+        life.active_goal,
+        life.suspended_goal,
+        life.suspended_action,
+        r.goal_counter,
+        life.task,
     )
 
 
-def _life_after(before: CanonicalLife, outcome: LifeStep) -> CanonicalLife:
+def _life_after(before: CanonicalLife, outcome: LifeStep, decision_id: int | None) -> CanonicalLife:
     f, old = outcome.frame, before.record
     document = before.layout.active.layout
     mask = DevelopmentWorld(document.world, document.catalog).mask
@@ -191,6 +202,24 @@ def _life_after(before: CanonicalLife, outcome: LifeStep) -> CanonicalLife:
         row
         for row in before.ledger_rows
         if f.updated_at - datetime.fromisoformat(row[3]) < GLOBAL_INTERACTION_WINDOW
+    )
+    new_goals = tuple(event.goal for event in outcome.events if isinstance(event, GoalStarted))
+    goal_rows = (
+        *before.goal_rows,
+        *(
+            (
+                g.id,
+                old.maple_id,
+                old.revision + 1,
+                g.type.value,
+                g.summary,
+                g.source.value,
+                decision_id,
+                g.started_at.isoformat(),
+                g.horizon_until.isoformat(),
+            )
+            for g in new_goals
+        ),
     )
     record = replace(
         old,
@@ -208,6 +237,16 @@ def _life_after(before: CanonicalLife, outcome: LifeStep) -> CanonicalLife:
         tick_counter=f.rng.tick_counter,
         decision_counter=f.rng.decision_counter,
         action_counter=f.action_id,
+        action_priority=f.priority.value,
+        critical_since=f.critical_since.isoformat() if f.critical_since else None,
+        goal_counter=f.goal_counter,
+        active_goal_id=f.goal.id if f.goal else None,
+        suspended_goal_id=f.suspended_goal.id if f.suspended_goal else None,
+        suspended_action=f.suspended_action.value if f.suspended_action else None,
+        task_tool=f.task.tool.value if f.task else None,
+        task_target=f.task.target if f.task else None,
+        task_title=f.task.title if f.task else None,
+        task_category=f.task.category if f.task else None,
         point_host=f.point.instance_id,
         point_id=f.point.point_id,
         tx=f.tile.tx,
@@ -228,6 +267,16 @@ def _life_after(before: CanonicalLife, outcome: LifeStep) -> CanonicalLife:
             needs=f.needs,
             rng=f.rng,
             activity=f.activity,
+            priority=f.priority,
+            active_goal=f.goal,
+            suspended_goal=f.suspended_goal,
+            suspended_action=f.suspended_action,
+            task=f.task,
+            goal_rows=goal_rows,
+            goals=(*before.goals, *new_goals),
+            decisions=(*before.decisions, (decision_id, old.maple_id, record.revision))
+            if decision_id is not None
+            else before.decisions,
             travel=f.travel,
             reaction=reaction,
             ledger_rows=ledger,
@@ -244,7 +293,12 @@ def _life_after(before: CanonicalLife, outcome: LifeStep) -> CanonicalLife:
 
 def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapshot:
     """Append only existing v10 audit vocabulary. No world_event payload activation."""
-    life = _life_after(before.life, outcome)
+    decision_id = (
+        dict(before.sequences).get("decision", 0) + 1
+        if outcome.minutes is not None and outcome.interruption is None
+        else None
+    )
+    life = _life_after(before.life, outcome, decision_id)
     r, f = life.record, outcome.frame
     values = dict(life_fields(r))
     images = {name: (columns, rows) for name, columns, rows in before.tables}
@@ -274,7 +328,9 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
     for event in outcome.actions:
         target = old_point if event.kind is ActionEventKind.ACTIVITY_COMPLETED else point
         payload: dict[str, Cell] = {"point": target.id, "furniture": target.furniture.value}
-        if event.kind is ActionEventKind.DESTINATION_SELECTED:
+        if event.payload:
+            payload = dict(event.payload)
+        elif event.kind is ActionEventKind.DESTINATION_SELECTED:
             payload.update(
                 activity=f.activity.value,
                 duration_minutes=float(outcome.minutes) if outcome.minutes is not None else None,
@@ -293,32 +349,28 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
             "action_event",
             dict(
                 action_id=event.action_id,
+                goal_id=event.goal_id,
+                priority=event.priority.value if event.priority else None,
                 kind=event.kind.value,
                 at=event.at.isoformat(),
                 payload=wire(payload),
             ),
         )
-    if outcome.changed_at is not None and outcome.previous is not None:
+    for timeline_event in outcome.events:
+        kind, at, payload_text = encode_event(timeline_event)
         append(
             "timeline_event",
             dict(
-                kind="activity_changed",
-                at=outcome.changed_at.isoformat(),
-                payload=wire(dict(previous=outcome.previous.value, current=f.activity.value)),
+                kind=kind,
+                at=at,
+                payload=payload_text,
+                tick_id=f.rng.tick_counter if kind == "downtime_gap" else None,
             ),
         )
-    if outcome.downtime_since is not None:
-        append(
-            "timeline_event",
-            dict(
-                kind="downtime_gap",
-                at=f.updated_at.isoformat(),
-                tick_id=f.rng.tick_counter,
-                payload=wire(dict(since=outcome.downtime_since.isoformat())),
-            ),
-        )
-    if outcome.minutes is not None:
-        decision_id = append(
+    if decision_id is not None:
+        if outcome.minutes is None:
+            raise PersistenceError("invalid")
+        actual_id = append(
             "decision",
             dict(
                 at=f.updated_at.isoformat(),
@@ -327,21 +379,33 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
                 director_name="canonical-mvp",
                 director_version="1",
                 context_summary="synthetic ordinary basic activity profile",
+                proposed_goal_op=outcome.goal_op,
+                proposed_goal_type=f.goal.type.value
+                if outcome.goal_op == "new" and f.goal
+                else None,
+                proposed_goal_summary=f.goal.summary
+                if outcome.goal_op == "new" and f.goal
+                else None,
+                proposed_horizon_minutes=(f.goal.horizon_until - f.goal.started_at).total_seconds()
+                / 60
+                if outcome.goal_op == "new" and f.goal
+                else None,
                 proposed_action=f.activity.value,
                 proposed_duration_minutes=float(outcome.minutes),
                 proposed_reason="MVP ordinary selection",
                 verdict="accepted",
                 executed_by="rule",
                 executed_reason="MVP ordinary selection",
+                goal_id=f.goal.id if f.goal else None,
                 action_id=f.action_id,
                 executed_action=f.activity.value,
                 executed_point=point.id,
                 executed_duration_minutes=outcome.minutes,
             ),
         )
-        life = capture_life(
-            replace(life, decisions=(*life.decisions, (decision_id, r.maple_id, r.revision)))
-        )
+        if actual_id != decision_id:
+            raise PersistenceError("invalid")
+    images["goal"] = images["goal"][0], life.goal_rows
     images["life_state"] = (
         images["life_state"][0],
         (tuple(values[c] for c in images["life_state"][0]),),
@@ -351,6 +415,115 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
         life,
         tuple((name, *images[name]) for name, _, _ in before.tables),
         tuple(sorted(seq.items())),
+    )
+
+
+TaskEffects = Callable[[CanonicalSnapshot, CanonicalLife, datetime], tuple[ToolRecord, ...]]
+
+
+def _task_records(
+    before: CanonicalLife,
+    after: CanonicalLife,
+    now: datetime,
+    records: tuple[ToolRecord, ...],
+) -> tuple[ToolRecord, ...]:
+    """Fail closed on missing/duplicate/foreign provenance from a task capability."""
+    expected = [(before, False), (after, True)]
+    expected = [(life, starting) for life, starting in expected if life.task is not None]
+    if type(records) is not tuple or len(records) != len(expected):
+        raise PersistenceError("invalid")
+    for record, (life, starting) in zip(records, expected, strict=True):
+        task = life.task
+        if task is None or type(record) is not ToolRecord:
+            raise PersistenceError("invalid")
+        until = datetime.fromisoformat(life.record.activity_until)
+        complete = now >= until
+        at = now if starting or not complete else until
+        goal_id = life.active_goal.id if life.active_goal else None
+        if (
+            record.task != task
+            or record.action_id != life.record.action_counter
+            or record.goal_id != goal_id
+            or record.at != at
+        ):
+            raise PersistenceError("invalid")
+        if starting:
+            allowed = (
+                (ToolOp.READ_STARTED, ToolOp.READ_FAILED)
+                if task.tool is Tool.READER
+                else (ToolOp.WRITE_STARTED,)
+            )
+        elif not complete:
+            allowed = (ToolOp.READ_FAILED,) if task.tool is Tool.READER else (ToolOp.WRITE_FAILED,)
+        else:
+            allowed = (
+                (ToolOp.READ_COMPLETED, ToolOp.READ_FAILED)
+                if task.tool is Tool.READER
+                else (ToolOp.WRITE_COMPLETED,)
+            )
+        failed = record.op in (ToolOp.READ_FAILED, ToolOp.WRITE_FAILED)
+        if (
+            record.op not in allowed
+            or record.success == failed
+            or (record.document is not None) != (record.op is ToolOp.WRITE_COMPLETED)
+        ):
+            raise PersistenceError("invalid")
+    return records
+
+
+def _with_tools(snapshot: CanonicalSnapshot, tools: tuple[ToolRecord, ...]) -> CanonicalSnapshot:
+    images = {name: (columns, rows) for name, columns, rows in snapshot.tables}
+    sequences = dict(snapshot.sequences)
+    revision = snapshot.life.record.revision
+
+    def append(name: str, fields: dict[str, Cell]) -> int:
+        columns, rows = images[name]
+        row_id = sequences.get(name, 0) + 1
+        sequences[name] = row_id
+        row: dict[str, Cell] = dict.fromkeys(columns)
+        row.update(id=row_id, maple_id=snapshot.life.record.maple_id, revision=revision)
+        row.update(fields)
+        images[name] = columns, (*rows, tuple(row[c] for c in columns))
+        return row_id
+
+    for record in tools:
+        doc = record.document
+        document_id = None
+        if doc is not None:
+            document_id = append(
+                "document",
+                dict(
+                    kind=doc.kind.value,
+                    title=doc.title,
+                    body=doc.body,
+                    created_at=record.at.isoformat(),
+                    action_id=record.action_id,
+                    goal_id=record.goal_id,
+                    sources=json.dumps(list(doc.sources)),
+                ),
+            )
+        task = record.task
+        append(
+            "tool_use",
+            dict(
+                at=record.at.isoformat(),
+                action_id=record.action_id,
+                goal_id=record.goal_id,
+                tool=task.tool.value,
+                operation=record.op.value,
+                target=task.target,
+                title=task.title,
+                category=task.category,
+                status="success" if record.success else "failure",
+                detail=record.detail,
+                chars=record.chars,
+                document_id=document_id,
+            ),
+        )
+    return CanonicalSnapshot(
+        snapshot.life,
+        tuple((name, *images[name]) for name, _, _ in snapshot.tables),
+        tuple(sorted(sequences.items())),
     )
 
 
@@ -449,11 +622,14 @@ class CanonicalPersistenceRuntime:
         facts: Presentation,
         *,
         expected_revision: int,
+        catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
+        task_effects: TaskEffects | None = None,
     ) -> CanonicalSnapshot:
         """Opt-in synthetic ordinary life loop. Refused/duplicate calls never save.
 
-        Not the default service. Unsupported goals/tasks/priority transitions are
-        explicit blockers; valid persisted states still Restore/checkpoint exactly.
+        Not the default service. Goals/tasks use shared rule semantics. Task
+        effects require an explicit owned read-only capability; state/provenance
+        save together. Unprojectable interrupt origins remain explicit blockers.
         """
         with self._lock:
             self._require_current()
@@ -462,14 +638,8 @@ class CanonicalPersistenceRuntime:
             if life.record.revision != expected_revision:
                 raise PersistenceError("revision")
             _presentation(life, facts)
-            if (
-                life.active_goal is not None
-                or life.suspended_goal is not None
-                or life.task is not None
-                or life.priority.value != "normal"
-                or life.record.critical_since is not None
-            ):
-                raise LifeLoopBlocked("goal_task_priority")
+            if life.record.decision_due_since is not None:
+                raise LifeLoopBlocked("reevaluation_policy")
             document = life.layout.active.layout
             outcome = life_step(
                 _frame(life),
@@ -477,6 +647,7 @@ class CanonicalPersistenceRuntime:
                 now,
                 inputs,
                 params,
+                catalog,
             )
             if outcome is None:
                 return before
@@ -492,12 +663,23 @@ class CanonicalPersistenceRuntime:
                         until=f.until,
                         needs=f.needs,
                         reaction=proposed.life.reaction,
+                        goal=proposed.life.active_goal,
+                        task=proposed.life.task,
                     ),
                     now,
                     PointRef(life.record.point_host, life.record.point_id)
                     if f.travel is not None
                     else None,
                 )
+            if outcome.frame.action_id != life.record.action_counter and (
+                life.task is not None or proposed.life.task is not None
+            ):
+                if task_effects is None:
+                    raise LifeLoopBlocked("task_effects")
+                records = _task_records(
+                    life, proposed.life, now, task_effects(before, proposed.life, now)
+                )
+                proposed = _with_tools(proposed, records)
             return self._save(proposed)
 
     @admitted

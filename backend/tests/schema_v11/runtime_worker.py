@@ -31,6 +31,7 @@ def main() -> int:
         "after_write",
         "before_commit",
         "after_commit",
+        "during_commit",
     }:
         return 2
     if mode not in {
@@ -42,6 +43,7 @@ def main() -> int:
         "entry_a",
         "entry_b",
         "life_loop",
+        "simulation",
     }:
         return 2
     scope = store.OwnedRoot(Path(root), (int(device), int(inode)))
@@ -51,14 +53,35 @@ def main() -> int:
         if phase == operation:
             os._exit(73)
 
-    binding = OwnedBinding(scope, name, (catalog,), ((1, context),), inject=interrupt)
+    def during_commit() -> int:
+        if operation == "during_commit":
+            os._exit(73)
+        return 0
+
+    binding = OwnedBinding(
+        scope,
+        name,
+        (catalog,),
+        ((1, context),),
+        inject=interrupt,
+        commit_progress=during_commit if operation == "during_commit" else None,
+    )
     runtime = None
+    trace: list[dict[str, str | int]] = []
     try:
         if operation == "writer":
             base = admit(birth_snapshot(), binding.catalogs, binding.contexts)
+            if mode == "simulation":
+                from tests.schema_v11.life_simulation import simulation_initial
+
+                base = simulation_initial(binding)
             runtime = CanonicalPersistenceRuntime.create(binding, base, schema_version=11)
             before = runtime.capture()
-            if mode == "life_loop":
+            if mode == "simulation":
+                from tests.schema_v11.life_simulation import segment
+
+                trace = segment(runtime, first=True)
+            elif mode == "life_loop":
                 advance(runtime, before.life.identity.born_at + timedelta(hours=4))
             elif mode == "preflight":
                 proposal = movement_proposal(binding)
@@ -90,7 +113,11 @@ def main() -> int:
             runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
             before = runtime.capture()
             if operation != "reader":
-                if mode == "life_loop":
+                if mode == "simulation":
+                    from tests.schema_v11.life_simulation import segment
+
+                    trace = segment(runtime, first=False)
+                elif mode == "life_loop":
                     travel = before.life.travel
                     if travel is None:
                         return 3
@@ -106,7 +133,7 @@ def main() -> int:
         after = runtime.capture()
         # No implicit time progression. Derivation can use caller-supplied time
         # while persisted counters/timing remain unchanged.
-        result = dict(
+        result: dict[str, object] = dict(
             pid=os.getpid(),
             before=digest(image_of(before)),
             after=digest(image_of(after)),
@@ -120,6 +147,9 @@ def main() -> int:
             tick_counter=after.life.rng.tick_counter,
             action_counter=after.life.record.action_counter,
         )
+        if mode == "simulation":
+            result["trace"] = trace
+            result["simulation_continuation"] = "extended_simulation_unpinned"
         runtime.close()
         runtime = None
         print(json.dumps(result, sort_keys=True))

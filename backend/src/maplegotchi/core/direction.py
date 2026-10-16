@@ -72,7 +72,7 @@ from maplegotchi.core.priority import Priority
 from maplegotchi.core.rng import RngStream
 from maplegotchi.core.room import POINT_BY_ID
 from maplegotchi.core.signals import CRITICAL_ATTENTION, NOTABLE_ATTENTION, Signal, SignalKind
-from maplegotchi.core.state import MapleState
+from maplegotchi.core.state import MapleState, Needs
 from maplegotchi.core.tasks import LIBRARY_CATALOG, SourceRef, Task, rule_task
 from maplegotchi.core.timeline import (
     GoalAbandoned,
@@ -236,9 +236,10 @@ def prepare(
     state, arrival = settle_movement(state, now)
     events: list[LifeEvent] = list(arrival)
     goal = state.goal
-    if goal is not None and goal.expired_at(now):
-        events.append(GoalCompleted(now, goal.id, goal.type, GoalEndReason.HORIZON_REACHED))
-        state = replace(state, goal=None)
+    goal, expired = expire_goal(goal, now)
+    events.extend(expired)
+    if goal is not state.goal:
+        state = replace(state, goal=goal)
     interruption_over = trigger in (
         DecisionTrigger.ACTION_COMPLETED,
         DecisionTrigger.OVERDUE,
@@ -288,10 +289,52 @@ def check_plan(prepared: Prepared, now: datetime, plan: Plan) -> RejectionCode |
 
 def resume_is_relevant(state: MapleState, now: datetime, inputs: BehaviorInputs) -> bool:
     """Rule direction resumes a suspended goal if it has time left and the cause cleared."""
-    suspended = state.suspended_goal
+    return resume_goal_is_relevant(state.suspended_goal, state.needs, now, inputs)
+
+
+def resume_goal_is_relevant(
+    suspended: Goal | None,
+    needs: Needs,
+    now: datetime,
+    inputs: BehaviorInputs,
+) -> bool:
     if suspended is None or suspended.expired_at(now):
         return False
-    return state.needs.energy >= LOW_ENERGY and inputs.server_attention < CRITICAL_ATTENTION
+    return needs.energy >= LOW_ENERGY and inputs.server_attention < CRITICAL_ATTENTION
+
+
+def expire_goal(goal: Goal | None, now: datetime) -> tuple[Goal | None, tuple[LifeEvent, ...]]:
+    if goal is not None and goal.expired_at(now):
+        return None, (GoalCompleted(now, goal.id, goal.type, GoalEndReason.HORIZON_REACHED),)
+    return goal, ()
+
+
+def sample_goal_horizon(rng: RngStream) -> timedelta:
+    return timedelta(
+        minutes=rng.randint(
+            int(GOAL_MIN_HORIZON.total_seconds()) // 60,
+            int(GOAL_MAX_HORIZON.total_seconds()) // 60,
+        )
+    )
+
+
+def suspend_goal(
+    goal: Goal | None,
+    suspended: Goal | None,
+    suspended_action: Activity | None,
+    interrupted: Activity,
+    now: datetime,
+    signal: Signal,
+) -> tuple[Goal | None, Goal | None, Activity | None, tuple[LifeEvent, ...]]:
+    events: list[LifeEvent] = []
+    if goal is not None:
+        if suspended is not None:
+            events.append(
+                GoalAbandoned(now, suspended.id, suspended.type, GoalEndReason.SUPERSEDED)
+            )
+        events.append(GoalSuspended(now, goal.id, goal.type, signal.kind.value))
+        return None, goal, interrupted, tuple(events)
+    return goal, suspended, suspended_action, ()
 
 
 def rule_goal_type(
@@ -302,7 +345,18 @@ def rule_goal_type(
     rng: RngStream,
     intent: GoalType | None = None,
 ) -> GoalType:
-    needs = state.needs
+    return rule_goal_from_needs(state.needs, now, inputs, params, rng, intent)
+
+
+def rule_goal_from_needs(
+    needs: Needs,
+    now: datetime,
+    inputs: BehaviorInputs,
+    params: CoreParameters,
+    rng: RngStream,
+    intent: GoalType | None = None,
+) -> GoalType:
+    """Existing rule goal choice on pure facts, shared across world representations."""
     if needs.energy < LOW_ENERGY or is_night(local_hour(now, params.utc_offset)):
         return GoalType.RECOVER
     if inputs.server_attention >= NOTABLE_ATTENTION:
@@ -346,12 +400,7 @@ def rule_plan(
     choice = choose_next_activity(state, now, inputs, params, rng, bias=bias)
     horizon = None
     if op is GoalOp.NEW:
-        horizon = timedelta(
-            minutes=rng.randint(
-                int(GOAL_MIN_HORIZON.total_seconds()) // 60,
-                int(GOAL_MAX_HORIZON.total_seconds()) // 60,
-            )
-        )
+        horizon = sample_goal_horizon(rng)
     verb = {GoalOp.RESUME: "resume", GoalOp.KEEP: "keep", GoalOp.NEW: "start"}[op]
     task = rule_task(choice.activity, goal_type, catalog, rng)
     return Plan(
@@ -635,13 +684,10 @@ def interrupt(state: MapleState, now: datetime, signal: Signal, rng: RngStream) 
     events: list[LifeEvent] = []
     interrupted = performed_activity(state, now)
     goal, suspended, suspended_action = state.goal, state.suspended_goal, state.suspended_action
-    if goal is not None:
-        if suspended is not None:
-            events.append(
-                GoalAbandoned(now, suspended.id, suspended.type, GoalEndReason.SUPERSEDED)
-            )
-        events.append(GoalSuspended(now, goal.id, goal.type, signal.kind.value))
-        suspended, suspended_action, goal = goal, interrupted, None
+    goal, suspended, suspended_action, goal_events = suspend_goal(
+        goal, suspended, suspended_action, interrupted, now, signal
+    )
+    events.extend(goal_events)
     spec = SPECS[response]
     minutes = rng.randint(spec.min_minutes, spec.max_minutes)
     point = choose_point(response, spec.locations[0], rng)

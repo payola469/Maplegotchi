@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -508,12 +508,15 @@ def advance(runtime: CanonicalPersistenceRuntime, now: datetime) -> CanonicalSna
     from maplegotchi.core.parameters import CoreParameters
 
     before = runtime.capture()
+    binding = cast(OwnedBinding, runtime._port)
     return runtime.step(
         now,
         BehaviorInputs(),
         CoreParameters(heartbeat_interval=timedelta(seconds=1)),
         facts(before),
         expected_revision=before.life.record.revision,
+        catalog=binding.task_catalog(before),
+        task_effects=binding.task_effects,
     )
 
 
@@ -599,17 +602,13 @@ def test_life_step_atomic_failure_no_retry(scope: store.OwnedRoot, phase: str) -
 
 
 @pytest.mark.parametrize("critical", [False, True])
-def test_priority_blocker_never_commits_a_successful_tick(
-    scope: store.OwnedRoot, critical: bool
-) -> None:
+def test_stationary_priority_response_is_immediate(scope: store.OwnedRoot, critical: bool) -> None:
     from maplegotchi.core.behavior import BehaviorInputs
     from maplegotchi.core.parameters import CoreParameters
-    from maplegotchi.core.world.canonical_lifecycle import LifeLoopBlocked
 
     binding = port(scope)
     runtime = CanonicalPersistenceRuntime.create(binding, initial(binding), schema_version=11)
     if not critical:
-        # Explicit synthetic precondition; not claimed as an engine-generated tick.
         runtime.close()
         store.save(
             scope,
@@ -621,17 +620,22 @@ def test_priority_blocker_never_commits_a_successful_tick(
         )
         runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
     before = runtime.capture()
-    with pytest.raises(
-        LifeLoopBlocked, match="critical_interrupt" if critical else "high_interrupt"
-    ):
-        runtime.step(
-            before.life.identity.born_at + timedelta(minutes=5),
-            BehaviorInputs(server_attention=1.0 if critical else 0.0),
-            CoreParameters(),
-            facts(before),
-            expected_revision=before.life.record.revision,
-        )
-    assert runtime.capture() is before and binding.load(schema_version=11) == before
+    now = before.life.identity.born_at + timedelta(seconds=1)
+    after = runtime.step(
+        now,
+        BehaviorInputs(server_attention=1.0 if critical else 0.0),
+        CoreParameters(),
+        facts(before),
+        expected_revision=before.life.record.revision,
+    )
+    assert after.life.activity is (Activity.OBSERVE_SERVER if critical else Activity.SLEEP)
+    assert after.life.record.action_priority == ("critical" if critical else "high")
+    assert after.life.travel is not None and after.life.travel.departed_at == now
+    assert after.life.rng.decision_counter == before.life.rng.decision_counter
+    assert after.life.record.action_counter == before.life.record.action_counter + 1
+    attention = [row for row in image_of(after).rows("action_event") if row[5] == "needs_attention"]
+    assert len(attention) == 1 and attention[0][6] == now.isoformat()
+    assert binding.load(schema_version=11) == after
     runtime.close()
 
 
@@ -663,8 +667,18 @@ def test_stale_actual_life_writer_cannot_overwrite_committed_state(scope: store.
     stale = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
     now = first.capture().life.identity.born_at + timedelta(hours=4)
     committed = advance(first, now)
+    from maplegotchi.core.behavior import BehaviorInputs
+    from maplegotchi.core.parameters import CoreParameters
+
+    old = stale.capture()
     with pytest.raises(PersistenceError, match="revision"):
-        advance(stale, now)
+        stale.step(
+            now,
+            BehaviorInputs(),
+            CoreParameters(),
+            facts(old),
+            expected_revision=old.life.record.revision,
+        )
     with pytest.raises(PersistenceError, match="uncertain"):
         stale.capture()
     assert port(scope).load(schema_version=11) == committed

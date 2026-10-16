@@ -84,14 +84,20 @@ def test_clock_reversal_and_overdue_arrival_are_explicit(world: ResolutionSnapsh
         step(initial(), world, AT - timedelta(seconds=1), BehaviorInputs(), PARAMS)
     started = step(initial(), world, AT + timedelta(minutes=15), BehaviorInputs(), PARAMS)
     assert started is not None
-    with pytest.raises(LifeLoopBlocked, match="arrival_and_overdue"):
-        step(started.frame, world, started.frame.until, BehaviorInputs(), PARAMS)
+    continued = step(started.frame, world, started.frame.until, BehaviorInputs(), PARAMS)
+    assert continued is not None and continued.frame.action_id == 2
+    arrival = [e for e in continued.actions if e.kind.value == "arrived"]
+    assert len(arrival) == 1 and started.frame.travel is not None
+    assert arrival[0].at == started.frame.travel.arrives_at
+    assert (
+        step(continued.frame, world, continued.frame.updated_at, BehaviorInputs(), PARAMS) is None
+    )
 
 
 def test_continuing_same_activity_in_place_preserves_original_start(
     world: ResolutionSnapshot,
 ) -> None:
-    before = replace(initial(), needs=Needs(60, 80, 60, 50), rng=RngState("5e" * 32))
+    before = replace(initial(), needs=Needs(60, 80, 60, 50), rng=RngState(f"{12:064x}"))
     now = before.until
     outcome = step(before, world, now, BehaviorInputs(), PARAMS)
     assert outcome is not None
