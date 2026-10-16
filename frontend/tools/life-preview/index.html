@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="preview-token" content="TOKEN"><title>Maple — First Playable Preview</title>
+<link rel="stylesheet" href="/preview.css"><script src="/pixi.min.js" defer></script><script src="/preview.js" defer></script></head>
+<body><main>
+<header><div><p class="eyebrow">ISOLATED PREVIEW · SYNTHETIC DATA</p><h1>A little room. A real Maple life.</h1><p>Canonical state → grid movement → SQLite save → independent process restore.</p></div><span id="mode" class="pill">Connecting…</span></header>
+<section class="controls" aria-label="Preview controls">
+<button id="play">▶ Live heartbeat</button><button id="pause">Pause</button><button id="tick">Tick +1s</button><button id="next">Next activity</button><button id="restart">Restart runtime</button>
+</section>
+<p id="notice" role="status">Loading the saved canonical state…</p>
+<div class="layout"><section class="room"><div class="room-heading"><h2>Maple’s house</h2><span id="activity">—</span></div><div id="room" role="img" aria-label="Canonical grid room; Maple’s position comes from the runtime"></div><p id="position"></p></section>
+<aside><h2>How Maple feels</h2><div id="needs"></div><hr><p class="eyebrow">RIGHT NOW</p><h3 id="goal">—</h3><p id="task">—</p><p id="clock"></p><p id="saved"></p></aside></div>
+<section class="explain"><h2>Try a small life loop</h2><p>Start the heartbeat and watch Maple walk to the selected activity. Once arrived, <b>Next activity</b> advances the preview clock to its completion and lets the existing rule engine choose again. <b>Restart runtime</b> pauses playback and restores the same saved state in a new OS process.</p><p>Presentation art is a placeholder. This is an isolated canonical runtime preview, not the shipped Room or a production API. No client animation invents movement. Critical/high interrupts during movement remain unsupported and fail closed.</p></section>
+<details><summary>Saved-state / restart evidence</summary><pre id="evidence"></pre></details>
+</main></body></html>
