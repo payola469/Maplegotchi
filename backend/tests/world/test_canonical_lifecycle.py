@@ -70,12 +70,16 @@ def test_mid_edge_priority_cannot_be_delayed(world: ResolutionSnapshot, critical
     started = step(initial(), world, AT + timedelta(minutes=15), BehaviorInputs(), PARAMS)
     assert started is not None and started.frame.travel is not None
     frame = started.frame if critical else replace(started.frame, needs=Needs(60, 5, 60, 50))
-    # Before another tick is due, the supplied urgent signal must still fail closed.
+    assert frame.travel is not None
+    # Urgency does not wait for the next ordinary heartbeat.
     now = frame.travel.departed_at + timedelta(microseconds=100000) if frame.travel else AT
-    with pytest.raises(
-        LifeLoopBlocked, match="critical_interrupt" if critical else "high_interrupt"
-    ):
-        step(frame, world, now, BehaviorInputs(server_attention=1 if critical else 0), PARAMS)
+    outcome = step(frame, world, now, BehaviorInputs(server_attention=1 if critical else 0), PARAMS)
+    assert outcome is not None and outcome.frame.travel is not None
+    assert outcome.frame.travel.current_at(now) == frame.travel.current_at(now)
+    assert outcome.frame.action_id == frame.action_id + 1
+    assert outcome.frame.priority.value == ("critical" if critical else "high")
+    assert "walking_cancelled" in {e.kind.value for e in outcome.actions}
+    assert "arrived" not in {e.kind.value for e in outcome.actions}
     assert frame.travel == started.frame.travel
 
 

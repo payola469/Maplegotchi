@@ -686,10 +686,11 @@ def test_stale_actual_life_writer_cannot_overwrite_committed_state(scope: store.
     first.close()
 
 
-def test_critical_mid_edge_refuses_before_any_database_write(scope: store.OwnedRoot) -> None:
+def test_critical_mid_edge_persists_exact_entry_and_legacy_unavailable(
+    scope: store.OwnedRoot,
+) -> None:
     from maplegotchi.core.behavior import BehaviorInputs
     from maplegotchi.core.parameters import CoreParameters
-    from maplegotchi.core.world.canonical_lifecycle import LifeLoopBlocked
 
     runtime = CanonicalPersistenceRuntime.create(
         port(scope), initial(port(scope)), schema_version=11
@@ -699,16 +700,17 @@ def test_critical_mid_edge_refuses_before_any_database_write(scope: store.OwnedR
     assert travel is not None
     now = travel.departed_at + timedelta(microseconds=100000)
     assert isinstance(travel.current_at(now), EdgeStart)
-    before_bytes = scope.check("maple.db").read_bytes()
-    with pytest.raises(LifeLoopBlocked, match="critical_interrupt"):
-        runtime.step(
-            now,
-            BehaviorInputs(server_attention=1),
-            CoreParameters(),
-            facts(started),
-            expected_revision=started.life.record.revision,
-        )
-    assert runtime.capture() is started
-    assert scope.check("maple.db").read_bytes() == before_bytes
-    assert port(scope).load(schema_version=11) == started
+    committed = runtime.step(
+        now,
+        BehaviorInputs(server_attention=1),
+        CoreParameters(),
+        facts(started),
+        expected_revision=started.life.record.revision,
+        task_effects=port(scope).task_effects,
+    )
+    assert committed.life.travel is not None and committed.life.travel.entry is not None
+    assert committed.life.travel.current_at(now) == travel.current_at(now)
+    assert committed.life.record.revision == started.life.record.revision + 1
+    assert runtime.poll(facts(committed)).legacy.status == "unavailable"
+    assert port(scope).load(schema_version=11) == committed
     runtime.close()

@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-FORMAT = "maple-life-diagnostic-v1"
+FORMAT = "maple-life-diagnostic-v2"
 
 
 def compare(left: dict[str, Any], right: dict[str, Any]) -> None:
@@ -44,7 +44,7 @@ def compare(left: dict[str, Any], right: dict[str, Any]) -> None:
             or portable.get("exact_typed_image_equal") is not True
             or portable.get("duplicate_arrivals") != 0
             or portable.get("mid_edge_restore_verified") is not True
-            or portable.get("critical_mid_edge") != "blocked_without_write:D01_OPEN"
+            or portable.get("critical_mid_edge") != "persisted_exact_entry:D01_APPROVED"
             or type(writers) is not list
             or len(writers) != 6
             or any(type(pid) is not int or pid <= 0 for pid in writers)
@@ -81,18 +81,12 @@ def compare(left: dict[str, Any], right: dict[str, Any]) -> None:
 
 def collect() -> dict[str, Any]:
     # Imports are deliberately deferred: comparison never opens SQLite or imports the app.
-    from datetime import datetime, timedelta
-
-    from maplegotchi.core.behavior import BehaviorInputs
-    from maplegotchi.core.parameters import CoreParameters
-    from maplegotchi.core.world.canonical_lifecycle import LifeLoopBlocked
-    from maplegotchi.core.world.movement import EdgeStart
     from maplegotchi.runtime.canonical_persistence import CanonicalPersistenceRuntime
     from tests.schema_v11 import owned_store as store
     from tests.schema_v11.canonical_binding import image_of
     from tests.schema_v11.life_simulation import boundary_segment, simulation_initial
     from tests.schema_v11.restart_worker import digest, resources
-    from tests.schema_v11.test_canonical_runtime import facts, port
+    from tests.schema_v11.test_canonical_runtime import port
     from tests.schema_v11.test_runtime_restart import child
 
     reference: list[dict[str, str | int]] = []
@@ -131,31 +125,6 @@ def collect() -> dict[str, Any]:
             pids.append(pid)  # child() waits for actual interpreter exit before returning.
             actual_trace.extend(result["trace"])
             assert actual_trace == reference[: len(actual_trace)]
-            if chunk == 0:
-                runtime = CanonicalPersistenceRuntime.restore(port(owned), schema_version=11)
-                try:
-                    before = runtime.capture()
-                    at = datetime.fromisoformat(before.life.record.last_updated_at)
-                    travel = before.life.travel
-                    assert travel is not None and isinstance(travel.current_at(at), EdgeStart)
-                    raw = owned.check("maple.db").read_bytes()
-                    try:
-                        runtime.step(
-                            at + timedelta(seconds=1),
-                            BehaviorInputs(server_attention=1),
-                            CoreParameters(),
-                            facts(before),
-                            expected_revision=before.life.record.revision,
-                            task_effects=port(owned).task_effects,
-                        )
-                    except LifeLoopBlocked as exc:
-                        assert str(exc) == "critical_interrupt"
-                    else:
-                        raise AssertionError("mid-travel critical must remain explicitly blocked")
-                    assert runtime.capture() is before
-                    assert owned.check("maple.db").read_bytes() == raw
-                finally:
-                    runtime.close()
         reader, _, read = child(owned, "reader", "boundary_simulation")
         assert reader not in pids and read["before"] == read["after"] == digest(final)
         catalog, context, _ = resources()
@@ -168,6 +137,14 @@ def collect() -> dict[str, Any]:
         ]
         assert len(arrivals) == len(set(arrivals))
         assert actual.rows("world_event") == ()
+        probe = store.OwnedRoot.new()
+        try:
+            urgent_writer, _, urgent = child(probe, "writer", "urgent_critical")
+            urgent_reader, _, restored = child(probe, "reader", "urgent_critical")
+            assert urgent_writer != urgent_reader
+            assert urgent["after"] == restored["before"] == restored["after"]
+        finally:
+            probe.cleanup()
         return dict(
             portable=dict(
                 trace=reference,
@@ -178,7 +155,7 @@ def collect() -> dict[str, Any]:
                 exact_typed_image_equal=True,
                 duplicate_arrivals=0,
                 mid_edge_restore_verified=True,
-                critical_mid_edge="blocked_without_write:D01_OPEN",
+                critical_mid_edge="persisted_exact_entry:D01_APPROVED",
                 final_revision=life.record.revision,
             ),
             processes=dict(writers=pids, reader=reader, exit_order_verified=True),

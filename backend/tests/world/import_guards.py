@@ -39,7 +39,14 @@ APPROVED = frozenset(
 # Named imports only: permitting requirement_for does not permit live resolve().
 DIRECT = {
     ("maplegotchi/core/world/canonical_lifecycle.py", WORLD + "resolution"): frozenset(
-        {"DecisionContext", "PointKey", "ResolutionSnapshot", "candidates_for", "resolve"}
+        {
+            "DecisionContext",
+            "PointKey",
+            "ResolutionSnapshot",
+            "candidates_for",
+            "resolve",
+            "resolve_urgent",
+        }
     ),
     ("maplegotchi/runtime/canonical_persistence.py", WORLD + "resolution"): frozenset(
         {"PointKey", "ResolutionSnapshot"}

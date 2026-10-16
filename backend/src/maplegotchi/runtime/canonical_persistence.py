@@ -347,10 +347,13 @@ def _step_image(before: CanonicalSnapshot, outcome: LifeStep) -> CanonicalSnapsh
         elif event.kind is ActionEventKind.ACTIVITY_STARTED:
             payload.update(activity=before.life.activity.value if old_action else f.activity.value)
         elif event.kind is ActionEventKind.WALKING_STARTED:
-            # Legacy audit distance remains Legacy geometry, not a grid-step alias.
+            # Legacy distance is unavailable for an unprojectable mid-edge origin.
+            # Never substitute the cancelled destination as the physical start.
             from maplegotchi.core.room import shortest_path
 
-            _, distance = shortest_path(old_point.id, point.id)
+            distance = None
+            if before.life.travel is None or f.updated_at >= before.life.travel.arrives_at:
+                _, distance = shortest_path(old_point.id, point.id)
             payload.update(arrives_at=f.started_at.isoformat(), distance=distance)
         elif event.kind is ActionEventKind.ACTIVITY_COMPLETED:
             payload = {"activity": before.life.activity.value}
@@ -654,11 +657,12 @@ class CanonicalPersistenceRuntime:
         catalog: Sequence[SourceRef] = LIBRARY_CATALOG,
         task_effects: TaskEffects | None = None,
     ) -> CanonicalSnapshot:
-        """Opt-in synthetic ordinary life loop. Refused/duplicate calls never save.
+        """Opt-in synthetic life loop. Refused/duplicate calls never save.
 
         Not the default service. Goals/tasks use shared rule semantics. Task
         effects require an explicit owned read-only capability; state/provenance
-        save together. Unprojectable interrupt origins remain explicit blockers.
+        save together. Approved exact urgency can commit with Legacy unavailable;
+        unsupported clock/provenance/reevaluation stays explicitly fail-closed.
         """
         with self._lock:
             self._require_current()
@@ -683,23 +687,32 @@ class CanonicalPersistenceRuntime:
             proposed = _step_image(before, outcome)
             if outcome.minutes is not None:
                 f = outcome.frame
-                _project(
-                    proposed.life,
-                    replace(
-                        facts,
-                        activity=f.activity,
-                        started_at=f.started_at,
-                        until=f.until,
-                        needs=f.needs,
-                        reaction=proposed.life.reaction,
-                        goal=proposed.life.active_goal,
-                        task=proposed.life.task,
-                    ),
-                    now,
-                    PointRef(life.record.point_host, life.record.point_id)
-                    if f.travel is not None
-                    else None,
-                )
+                try:
+                    _project(
+                        proposed.life,
+                        replace(
+                            facts,
+                            activity=f.activity,
+                            started_at=f.started_at,
+                            until=f.until,
+                            needs=f.needs,
+                            reaction=proposed.life.reaction,
+                            goal=proposed.life.active_goal,
+                            task=proposed.life.task,
+                        ),
+                        now,
+                        PointRef(life.record.point_host, life.record.point_id)
+                        if f.travel is not None
+                        else None,
+                    )
+                except CompatibilityRefusal as error:
+                    # Approved opt-in path: canonical admission stays mandatory;
+                    # Legacy refusal remains explicit on reads, never fake success.
+                    if outcome.interruption is None and str(error) not in {
+                        "mid_edge",
+                        "collapsed_anchor",
+                    }:
+                        raise
             if outcome.frame.action_id != life.record.action_counter and (
                 life.task is not None or proposed.life.task is not None
             ):

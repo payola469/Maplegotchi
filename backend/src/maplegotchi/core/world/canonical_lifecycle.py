@@ -1,7 +1,7 @@
-"""Pure opt-in canonical life transitions. Mid-travel interrupts fail closed.
+"""Pure opt-in canonical life transitions with approved exact urgent rerouting.
 
 No clock/storage/Legacy MapleState construction. Behavioral rules are shared;
-world routing remains canonical. D01 at unprojectable origins is not resolved.
+world routing remains canonical. Unsupported equal-time/reevaluation stays closed.
 """
 
 from collections.abc import Sequence
@@ -54,6 +54,7 @@ from maplegotchi.core.world.resolution import (
     ResolutionSnapshot,
     candidates_for,
     resolve,
+    resolve_urgent,
 )
 
 PROFILE = tuple(Activity)
@@ -105,20 +106,25 @@ def _start(
     minutes: int,
     offset: int,
     *,
-    unique: bool = False,
+    urgent: bool = False,
 ) -> tuple[LifeFrame, tuple[ActionEvent, ...], tuple[LifeEvent, ...], int]:
     context = DecisionContext(frame.rng, frame.point, draw_offset=offset)
-    candidates = candidates_for(activity, world, frame.tile, context)
-    if not candidates:
-        raise LifeLoopBlocked("no_destination")
-    if unique and sum(c.score.total == candidates[0].score.total for c in candidates) != 1:
-        # No silent choice of a new interrupt RNG/point-tie contract.
-        raise LifeLoopBlocked("interrupt_point_tie")
-    selected = resolve(activity, world, frame.tile, context)
-    candidate = selected.selected
-    if candidate is None:
-        raise LifeLoopBlocked("no_destination")
-    travel = Travel(candidate.route, now)
+    if urgent and frame.travel is not None:
+        selected_urgent = resolve_urgent(activity, world, frame.travel, now, context)
+        candidate_urgent = selected_urgent.selected
+        if candidate_urgent is None:
+            raise LifeLoopBlocked("no_destination")
+        travel, key, draws = (
+            candidate_urgent.travel,
+            candidate_urgent.key,
+            selected_urgent.decision_draws,
+        )
+    else:
+        selected = resolve(activity, world, frame.tile, context)
+        candidate = selected.selected
+        if candidate is None:
+            raise LifeLoopBlocked("no_destination")
+        travel, key, draws = Travel(candidate.route, now), candidate.key, selected.decision_draws
     started, until = activity_window(
         frame.activity,
         frame.started_at,
@@ -129,6 +135,9 @@ def _start(
         starts_walk=travel.duration_us > 0,
     )
     action_id = frame.action_id + 1
+    performed = frame.from_activity if frame.travel is not None else frame.activity
+    if performed is None:
+        raise LifeLoopBlocked("provenance")
     goal_id = frame.goal.id if frame.goal else None
     actions = [ActionEvent(ActionEventKind.DESTINATION_SELECTED, now, action_id, goal_id)]
     events: tuple[LifeEvent, ...] = ()
@@ -136,23 +145,23 @@ def _start(
         actions.append(ActionEvent(ActionEventKind.WALKING_STARTED, now, action_id, goal_id))
     else:
         actions.append(ActionEvent(ActionEventKind.ACTIVITY_STARTED, now, action_id, goal_id))
-        if activity is not frame.activity:
-            events = (ActivityChanged(now, frame.activity, activity),)
+        if activity is not performed:
+            events = (ActivityChanged(now, performed, activity),)
     return (
         replace(
             frame,
             activity=activity,
-            point=candidate.key,
+            point=key,
             started_at=started,
             until=until,
             travel=travel if travel.duration_us else None,
-            from_activity=frame.activity if travel.duration_us else None,
-            tile=candidate.route.origin,
+            from_activity=performed if travel.duration_us else None,
+            tile=travel.route.origin,
             action_id=action_id,
         ),
         tuple(actions),
         events,
-        selected.decision_draws,
+        draws,
     )
 
 
@@ -166,9 +175,9 @@ def step(
 ) -> LifeStep | None:
     """Due heartbeat, original-time arrival, and rule action/goal lifecycle.
 
-    Urgent detection never waits for the ordinary tick interval. If the origin
-    cannot pass unchanged D01 admission, the whole candidate is refused, not
-    recorded as a successful tick or queued for after arrival.
+    Urgent detection never waits for the ordinary tick interval. Exact Entry
+    rerouting follows STEP249. Unsupported time/provenance is refused rather
+    than recorded as a successful tick or queued for after arrival.
     """
     require_utc(now)
     if now < before.updated_at:
@@ -227,18 +236,17 @@ def step(
         if before.from_activity is not before.activity and before.from_activity is not None:
             events.append(ActivityChanged(travel.arrives_at, before.from_activity, before.activity))
     if urgent is not None:
-        if frame.travel is not None:
-            raise LifeLoopBlocked(
-                "critical_interrupt" if urgent.priority is Priority.CRITICAL else "high_interrupt"
-            )
         response = RESPONSES.get(urgent.kind)
         if response is None:
             raise LifeLoopBlocked("interrupt_kind")
+        performed = frame.from_activity if frame.travel is not None else frame.activity
+        if performed is None:
+            raise LifeLoopBlocked("provenance")
         goal, suspended, suspended_action, goal_events = suspend_goal(
             frame.goal,
             frame.suspended_goal,
             frame.suspended_action,
-            frame.activity,
+            performed,
             now,
             urgent,
         )
@@ -252,7 +260,9 @@ def step(
             {"signal": urgent.kind.value},
         )
         ended = ActionEvent(
-            ActionEventKind.ACTIVITY_INTERRUPTED,
+            ActionEventKind.WALKING_CANCELLED
+            if frame.travel is not None
+            else ActionEventKind.ACTIVITY_INTERRUPTED,
             now,
             frame.action_id,
             old_goal,
@@ -271,7 +281,12 @@ def step(
         )
         rng = RngStream(frame.rng.seed_hex, "tick", frame.rng.tick_counter)
         minutes = sample_duration(response, rng)
-        frame, started, changed, _ = _start(frame, world, response, now, minutes, 0, unique=True)
+        frame, started, changed, draws = _start(
+            frame, world, response, now, minutes, 0, urgent=True
+        )
+        frame = replace(
+            frame, rng=replace(frame.rng, decision_counter=frame.rng.decision_counter + draws)
+        )
         events.extend(changed)
         return LifeStep(
             frame, (*actions, attention, ended, *started), tuple(events), minutes, urgent

@@ -94,7 +94,10 @@ class TaskWorker:
         for doc in repo.documents(limit=RECENT_DOCUMENTS):
             refs.append(
                 SourceRef(
-                    f"document:{doc.id}", SourceKind.DOCUMENT, one_line(doc.title, 80), doc.kind
+                    f"document:{doc.id}",
+                    SourceKind.DOCUMENT,
+                    one_line(doc.title, 80),
+                    doc.kind.value,
                 )
             )
         if repo.journal(limit=1):

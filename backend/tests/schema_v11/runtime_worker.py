@@ -47,6 +47,10 @@ def main() -> int:
         "boundary_simulation",
         "goal_resume",
         "goal_expiry",
+        "urgent_critical",
+        "urgent_high",
+        "urgent_entry_a",
+        "urgent_entry_b",
     }:
         return 2
     scope = store.OwnedRoot(Path(root), (int(device), int(inode)))
@@ -84,7 +88,13 @@ def main() -> int:
                 base = initial(binding)
             runtime = CanonicalPersistenceRuntime.create(binding, base, schema_version=11)
             before = runtime.capture()
-            if mode in {"simulation", "boundary_simulation"}:
+            if mode.startswith("urgent_"):
+                from tests.schema_v11.urgent_scenario import interrupt as urgent_interrupt
+                from tests.schema_v11.urgent_scenario import prepare as urgent_prepare
+
+                runtime = urgent_prepare(runtime, binding, mode)
+                urgent_interrupt(runtime, binding, mode)
+            elif mode in {"simulation", "boundary_simulation"}:
                 from tests.schema_v11.life_simulation import segment
 
                 if mode == "boundary_simulation":
@@ -129,7 +139,14 @@ def main() -> int:
             runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
             before = runtime.capture()
             if operation != "reader":
-                if mode in {"simulation", "boundary_simulation"}:
+                if mode.startswith("urgent_"):
+                    assert before.life.travel is not None
+                    advance(runtime, before.life.travel.arrives_at)
+                    advance(
+                        runtime,
+                        datetime.fromisoformat(runtime.capture().life.record.activity_until),
+                    )
+                elif mode in {"simulation", "boundary_simulation"}:
                     from tests.schema_v11.life_simulation import segment
 
                     if mode == "boundary_simulation":

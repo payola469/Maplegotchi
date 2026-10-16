@@ -25,7 +25,7 @@ def evidence(platform: str) -> dict[str, Any]:
             exact_typed_image_equal=True,
             duplicate_arrivals=0,
             mid_edge_restore_verified=True,
-            critical_mid_edge="blocked_without_write:D01_OPEN",
+            critical_mid_edge="persisted_exact_entry:D01_APPROVED",
         ),
         processes=dict(writers=list(range(10, 16)), reader=16, exit_order_verified=True),
     )
@@ -69,7 +69,7 @@ def test_mid_edge_restarts_and_three_continuous_runs_have_exact_typed_images() -
     portable = actual["portable"]
     assert portable["ticks"] == 12 and len(portable["trace"]) == 12
     assert portable["mid_edge_restore_verified"] is True
-    assert portable["critical_mid_edge"] == "blocked_without_write:D01_OPEN"
+    assert portable["critical_mid_edge"] == "persisted_exact_entry:D01_APPROVED"
     assert portable["duplicate_arrivals"] == 0
     assert len(actual["processes"]["writers"]) == 6
     assert actual["processes"]["exit_order_verified"] is True
