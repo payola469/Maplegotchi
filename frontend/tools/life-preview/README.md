@@ -1,3 +1,19 @@
+# STEP 247 — versioned committed polling
+
+The Room UI now reads `/local-alpha/v1/state` on this same localhost controller.
+The opt-in `maple-canonical-poll.v1` response includes identity, life/layout
+revision and committed timestamp from a fresh validated SQLite read. Legacy
+projection refusal is explicit unavailable; it never becomes fake Legacy data.
+Disconnected/unavailable UI frames are marked stale and controls are disabled.
+The technical `/state` transport is retained. Existing public API/SSE is unchanged.
+
+After updating this checkout, stop/start the existing controller with the commands
+below to load the new endpoint; do not run init again. This implementation batch
+does not restart or inspect the owner's retained session automatically. The
+persistent alpha remains Linux-only, and R1B-04 still has a mandatory mid-edge
+interrupt ordering gate. See
+[implementation status](../../../docs/implementation/maple-room-step247-contract-implementation.md).
+
 # Persistent synthetic Local Alpha (STEP 244)
 
 On the Linux development host, from the repository root:

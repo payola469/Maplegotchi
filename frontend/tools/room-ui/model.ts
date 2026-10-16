@@ -20,3 +20,18 @@ export function connectionTransition(previous:Frame|undefined, next:Frame):'init
   if(previous.session!==next.session)return 'different';
   return previous.controller_pid===next.controller_pid?'same':'restored';
 }
+
+// Separate opt-in polling envelope. Existing public DTO/SSE types are unchanged.
+interface PollSnapshot {
+  identity:{maple_id:number;born_at:string}; life_revision:number; layout_revision:number;
+  committed_at:string; position:[number,number]; activity:string; needs:Record<string,number>;
+  action_counter:number; tick_counter:number; decision_counter:number;
+}
+export function pollFrame(value:unknown):Frame {
+  const reply=value as {contract_version?:string;source?:string;status?:string;reason?:string;snapshot?:PollSnapshot;display?:Frame & {layout_revision:number}}|null;
+  if(!reply||reply.contract_version!=='maple-canonical-poll.v1'||reply.source!=='opt_in_canonical')throw Error('Unrecognized read contract');
+  if(reply.status!=='available'||!reply.snapshot||!reply.display)throw Error(`Canonical state unavailable (${reply.reason??'read refused'})`);
+  const s=reply.snapshot,f=reply.display;
+  if(f.revision!==s.life_revision||f.layout_revision!==s.layout_revision||Date.parse(f.at)!==Date.parse(s.committed_at)||f.activity!==s.activity||f.action!==s.action_counter||f.tick!==s.tick_counter||f.decision!==s.decision_counter||!Array.isArray(f.position)||f.position.length!==2||f.position.some((n,i)=>n!==s.position[i])||Object.entries(s.needs).some(([k,v])=>f.needs[k]!==v))throw Error('Mixed revision read refused');
+  return f;
+}

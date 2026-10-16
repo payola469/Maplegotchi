@@ -21,7 +21,7 @@ from tests.schema_v11.alpha_files import AlphaFiles
 from tests.schema_v11.canonical_binding import OwnedBinding, image_of
 from tests.schema_v11.life_simulation import simulation_initial
 from tests.schema_v11.restart_worker import digest, resources
-from tests.schema_v11.test_canonical_runtime import advance
+from tests.schema_v11.test_canonical_runtime import advance, facts
 
 
 def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
@@ -41,6 +41,7 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
     )
     return dict(
         label="ISOLATED PREVIEW — synthetic canonical runtime, not production",
+        read=runtime.poll(facts(snapshot)).model_dump(mode="json"),
         pid=os.getpid(),
         digest=digest(image_of(snapshot)),
         revision=life.record.revision,

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime
 from threading import RLock
 
@@ -41,6 +41,12 @@ from maplegotchi.persistence.legacy_admission import CompatibilityRefusal, proje
 from maplegotchi.persistence.life_record import CanonicalLife, Cell, life_fields
 from maplegotchi.persistence.revision_snapshot import LifeReference
 from maplegotchi.persistence.travel_codec import encode_travel_path
+from maplegotchi.runtime.canonical_polling import (
+    CommittedRead,
+    LegacyAvailable,
+    Unavailable,
+    snapshot_read,
+)
 from maplegotchi.runtime.lifecycle import CallGate, RuntimeClosedError, admitted
 from maplegotchi.storage.canonical_v11 import (
     CanonicalSnapshot,
@@ -593,6 +599,26 @@ class CanonicalPersistenceRuntime:
         with self._lock:
             self._require_current()
             return _project(self._snapshot.life, facts, now, origin)
+
+    @admitted
+    def poll(self, facts: Presentation, *, origin: PointRef | None = None) -> CommittedRead:
+        """Read one committed revision; projection refusal is explicit, never a write.
+
+        Not a shipped endpoint. Presentation/origin must be supplied truthfully;
+        missing provenance cannot turn a refused Legacy projection into success.
+        """
+        with self._lock:
+            self._require_current()
+            snapshot = self._snapshot
+            canonical = snapshot_read(snapshot)
+            legacy: LegacyAvailable | Unavailable
+            try:
+                projected = _project(snapshot.life, facts, canonical.committed_at, origin)
+            except CompatibilityRefusal as error:
+                legacy = Unavailable(reason=str(error))
+            else:
+                legacy = LegacyAvailable(data=asdict(projected))
+            return CommittedRead(snapshot=canonical, legacy=legacy)
 
     def _save(self, proposed: CanonicalSnapshot) -> CanonicalSnapshot:
         with self._calls.commit():

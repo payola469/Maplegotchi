@@ -137,3 +137,38 @@ def test_allowlist_contains_exact_python_paths_only() -> None:
 )
 def test_mvp_engine_cannot_activate_default_callers(caller: str) -> None:
     assert violations({caller: "from maplegotchi.core.world.canonical_lifecycle import step"})
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "maplegotchi/runtime/service.py",
+        "maplegotchi/runtime/life.py",
+        "maplegotchi/api/app.py",
+        "maplegotchi/api/stream.py",
+        "maplegotchi/cli.py",
+        "maplegotchi/runtime/future_polling.py",
+    ],
+)
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from maplegotchi.runtime.canonical_polling import snapshot_read",
+        "from maplegotchi.runtime import canonical_polling as hidden",
+    ],
+)
+def test_opt_in_read_module_does_not_activate_shipped_or_future_callers(
+    caller: str, source: str
+) -> None:
+    assert violations({caller: source})
+
+
+def test_polling_permission_does_not_grant_live_resolution_or_projection() -> None:
+    for target in ("resolution", "legacy_projection", "layout_validation"):
+        assert violations(
+            {
+                "maplegotchi/runtime/canonical_polling.py": (
+                    f"from maplegotchi.core.world import {target}"
+                )
+            }
+        )

@@ -1,7 +1,8 @@
 """Static isolation proof for the explicitly approved, dormant canonical boundary.
 
 ADR-0036 pure resolution and ADR-0037 validation/projection permit these exact
-STEP 224-225 dependencies. They do not authorize default runtime/API activation.
+STEP 224-225 dependencies and STEP 247's exact opt-in read module. They do not
+authorize default runtime/API activation.
 Parse source only: never import the modules being checked or open a database.
 """
 
@@ -32,6 +33,7 @@ APPROVED = frozenset(
         "maplegotchi/persistence/legacy_admission.py",
         "maplegotchi/storage/canonical_v11.py",
         "maplegotchi/runtime/canonical_persistence.py",
+        "maplegotchi/runtime/canonical_polling.py",
     }
 )
 # Named imports only: permitting requirement_for does not permit live resolve().
@@ -82,7 +84,11 @@ def restricted(module: str) -> bool:
         or module == "maplegotchi.persistence"
         or module.startswith("maplegotchi.persistence.")
         or module
-        in {"maplegotchi.storage.canonical_v11", "maplegotchi.runtime.canonical_persistence"}
+        in {
+            "maplegotchi.storage.canonical_v11",
+            "maplegotchi.runtime.canonical_persistence",
+            "maplegotchi.runtime.canonical_polling",
+        }
     )
 
 
@@ -111,6 +117,7 @@ def imports(path: str, source: str, modules: set[str]) -> tuple[tuple[str, str |
                     in {
                         "maplegotchi.storage.canonical_v11",
                         "maplegotchi.runtime.canonical_persistence",
+                        "maplegotchi.runtime.canonical_polling",
                     }
                     or base == "maplegotchi.persistence"
                     else (base, alias.name)

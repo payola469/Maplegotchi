@@ -3,7 +3,7 @@ import { artManifest } from '../../src/world-room/generated';
 import { loadAtlasArt, type AtlasArt } from '../../src/world-room/atlas';
 import { clampTranslation, deviceZoom } from '../../src/world-room/camera';
 import { floorVariant, overview, routeSample } from '../../src/world-room/presentation';
-import { currentRoom, human, connectionTransition, type Frame, type Room } from './model';
+import { currentRoom, human, connectionTransition, pollFrame, type Frame, type Room } from './model';
 import './room.css';
 const el=<T extends HTMLElement=HTMLElement>(id:string):T=>{const node=document.getElementById(id);if(!node)throw Error(`Missing ${id}`);return node as T;};
 let token=document.querySelector<HTMLMetaElement>('meta[name="preview-token"]')?.content??'';
@@ -57,7 +57,7 @@ function paint(s:Frame){
 function controls(){for(const op of ['play','pause','tick','next','restart'])el<HTMLButtonElement>(op).disabled=busy||!online||Boolean(state?.error)||(op==='next'&&Boolean(state?.moving));}
 function render(s:Frame){
  const transition=connectionTransition(state,s);
- if(transition==='different'){online=false;el('notice').textContent='Different session detected. Display frozen; reload only after inspecting the controller.';controls();return;}
+ if(transition==='different')throw Error('Different session detected; display frozen');
  if(transition==='restored')needsToken=true;
  state=s;online=true;paint(s);
  el('connection').textContent='Connected · local';el('connection').className='';
@@ -83,10 +83,10 @@ async function request(operation?:string){
  if(busy)return;busy=true;controls();
  try{
   if(operation&&needsToken)await renewToken();
-  const response=await fetch(operation?`/${operation}`:'/state',{...(operation?{method:'POST',headers:{'X-Preview-Token':token}}:{}),signal:AbortSignal.timeout(65000)});
+  const response=await fetch(operation?`/${operation}`:'/local-alpha/v1/state',{...(operation?{method:'POST',headers:{'X-Preview-Token':token}}:{}),signal:AbortSignal.timeout(65000)});
   if(!response.ok)throw Error(`Request refused (${response.status}); command was not retried`);
-  render(await response.json() as Frame);
- }catch(error){online=false;needsToken=true;el('connection').textContent='Offline · last saved frame';el('connection').className='offline';el('notice').className='error';el('notice').textContent=`${error instanceof Error?error.message:'Connection lost'}. Reconnecting read-only; no actions are replayed.`;}
+  const body:unknown=await response.json();render(operation?body as Frame:pollFrame(body));
+ }catch(error){online=false;needsToken=true;el('connection').textContent='Offline / unavailable · last committed frame';el('connection').className='offline';el('mode').textContent='Stale · no live updates';el('saved').textContent=state?`Last confirmed revision ${state.revision}`:'No confirmed state';el('notice').className='error';el('notice').textContent=`${error instanceof Error?error.message:'Connection lost'}. Reconnecting read-only; no actions are replayed.`;}
  finally{busy=false;controls();}
 }
 async function start(){

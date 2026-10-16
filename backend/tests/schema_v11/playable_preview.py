@@ -21,6 +21,7 @@ from threading import Thread
 from types import FrameType
 from typing import Any, cast
 
+from maplegotchi.runtime.canonical_polling import ReadUnavailable
 from tests.schema_v11 import owned_store as store
 from tests.schema_v11.alpha_files import AlphaFiles
 from tests.schema_v11.test_restart_process import worker_interpreter
@@ -53,7 +54,7 @@ class Preview:
                 self.scope.cleanup()
             raise
 
-    def command(self, operation: str) -> dict[str, Any]:
+    def command(self, operation: str, *, install: bool = True) -> dict[str, Any]:
         if operation not in {"init", "tick", "next", "read"}:
             raise ValueError("unknown preview operation")
         self.scope._root()
@@ -122,9 +123,26 @@ class Preview:
             raise ValueError("actual worker identity required")
         if operation == "read" and self.state and result.get("digest") != self.state.get("digest"):
             raise ValueError("restart changed canonical state")
+        if not install:
+            return cast(dict[str, Any], result)
         self.previous_pid = self.state.get("pid")
         self.state = result
         return self.view()
+
+    def poll(self) -> dict[str, Any]:
+        """Fresh read-only worker, never init/tick/retry or cached-as-live success.
+
+        The single controller serializes this with writes; the worker validates
+        the full persisted image and expected digest before exposing any frame.
+        """
+        if self.error:
+            return ReadUnavailable(reason="runtime_stopped").model_dump(mode="json")
+        try:
+            result = self.command("read", install=False)
+            # Display geometry and committed read metadata came from the same capture.
+            return dict(result["read"], display=dict(self.view(), **result))
+        except (ValueError, OSError):
+            return ReadUnavailable(reason="read_refused").model_dump(mode="json")
 
     def act(self, operation: str) -> dict[str, Any]:
         if operation == "shutdown":
@@ -214,6 +232,13 @@ def handler(preview: Preview, assets: Path, pixi: Path, token: str) -> type[Base
                 return
             if self.path == "/state":
                 self.reply(200, json.dumps(preview.view()).encode(), "application/json")
+            elif self.path == "/local-alpha/v1/state":
+                envelope = preview.poll()
+                self.reply(
+                    200 if envelope["status"] == "available" else 503,
+                    json.dumps(envelope).encode(),
+                    "application/json",
+                )
             elif self.path == "/":
                 path = assets.parents[1] / "dist/local-alpha/index.html"
                 # Backend-only validation can inspect the transport without a frontend build.
