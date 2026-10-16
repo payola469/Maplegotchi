@@ -124,3 +124,16 @@ def test_module_mentions_are_not_imports() -> None:
 def test_allowlist_contains_exact_python_paths_only() -> None:
     assert all(path.startswith("maplegotchi/") and path.endswith(".py") for path in APPROVED)
     assert not any("*" in path for path in APPROVED)
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "maplegotchi/runtime/service.py",
+        "maplegotchi/runtime/life.py",
+        "maplegotchi/api/app.py",
+        "maplegotchi/cli.py",
+    ],
+)
+def test_mvp_engine_cannot_activate_default_callers(caller: str) -> None:
+    assert violations({caller: "from maplegotchi.core.world.canonical_lifecycle import step"})

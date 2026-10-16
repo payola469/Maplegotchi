@@ -17,7 +17,7 @@ from maplegotchi.core.activities import SPECS, Activity, RoomLocation
 from maplegotchi.core.daytime import DayPhase, day_phase, local_hour, require_utc
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.rng import RngStream
-from maplegotchi.core.state import MapleState
+from maplegotchi.core.state import MapleState, Needs
 
 # At or below this energy Maple must sleep (hard rule).
 FORCED_SLEEP_ENERGY = 10.0
@@ -58,9 +58,20 @@ def score_activities(
     bias: Mapping[Activity, float] | None = None,
 ) -> dict[Activity, float]:
     """Non-negative desirability score per activity, in Activity declaration order."""
-    energy = state.needs.energy
-    curiosity = state.needs.curiosity
-    mood = state.needs.mood
+    return score_facts(state.needs, state.activity, hour, inputs, bias)
+
+
+def score_facts(
+    needs: Needs,
+    current_activity: Activity,
+    hour: float,
+    inputs: BehaviorInputs,
+    bias: Mapping[Activity, float] | None = None,
+) -> dict[Activity, float]:
+    """The existing scoring rules on scalar facts, independent of world geometry."""
+    energy = needs.energy
+    curiosity = needs.curiosity
+    mood = needs.mood
     phase = day_phase(hour)
     scores = dict.fromkeys(Activity, 0.0)
 
@@ -93,8 +104,8 @@ def score_activities(
         scores[Activity.SLEEP] = max(scores[Activity.SLEEP], 20.0)
         scores[Activity.REST] = max(scores[Activity.REST], 20.0)
 
-    if state.activity is not Activity.SLEEP:
-        scores[state.activity] *= REPEAT_PENALTY
+    if current_activity is not Activity.SLEEP:
+        scores[current_activity] *= REPEAT_PENALTY
 
     # A goal's soft preference (ADR-0026 §6): multiplies, so hard rules (zeros) stay.
     if bias:
@@ -123,8 +134,7 @@ def choose_next_activity(
 ) -> ActivityChoice:
     require_utc(now, "now")
     hour = local_hour(now, params.utc_offset)
-    pool = candidates(score_activities(state, hour, inputs, bias))
-    activity = rng.weighted_choice(list(pool), list(pool.values()))
+    activity = sample_activity(score_activities(state, hour, inputs, bias), rng)
     spec = SPECS[activity]
 
     if activity is state.activity and state.location in spec.locations:
@@ -132,5 +142,17 @@ def choose_next_activity(
     else:
         location = spec.locations[rng.randint(0, len(spec.locations) - 1)]
 
-    minutes = rng.randint(spec.min_minutes, spec.max_minutes)
+    minutes = sample_duration(activity, rng)
     return ActivityChoice(activity, location, now + timedelta(minutes=minutes))
+
+
+def sample_activity(scores: Mapping[Activity, float], rng: RngStream) -> Activity:
+    """Existing candidate cutoff and weighted draw, shared by both world lanes."""
+    pool = candidates(dict(scores))
+    return rng.weighted_choice(list(pool), list(pool.values()))
+
+
+def sample_duration(activity: Activity, rng: RngStream) -> int:
+    """Existing activity duration draw; callers retain their original draw order."""
+    spec = SPECS[activity]
+    return rng.randint(spec.min_minutes, spec.max_minutes)

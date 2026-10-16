@@ -175,3 +175,56 @@ def test_choose_requires_utc() -> None:
             PARAMS,
             RngStream(SEED, "t", 0),
         )
+
+
+def test_pre_extraction_baseline_vectors_are_bit_identical() -> None:
+    """864 frozen vectors from the accepted PR33 tree, including next RNG draw."""
+    import hashlib
+    import json
+    from dataclasses import asdict
+    from datetime import timedelta
+
+    from maplegotchi.core.activities import Activity
+    from maplegotchi.core.behavior import BehaviorInputs, choose_next_activity, score_activities
+    from maplegotchi.core.movement import begin_activity
+    from maplegotchi.core.needs import evolve_through
+    from maplegotchi.core.rng import RngStream
+    from maplegotchi.core.room import points_for
+    from maplegotchi.core.signals import classify_signals
+    from tests.core.support import PARAMS, SEED, at_local, make_state, needs
+
+    rows = []
+    for activity in Activity:
+        for energy in (5.0, 20.0, 80.0):
+            for hour in (4, 12, 23):
+                now = at_local(hour)
+                state = make_state(at=now, activity=activity, state_needs=needs(energy=energy))
+                inputs = BehaviorInputs()
+                for counter in range(4):
+                    rng = RngStream(SEED, "decision", counter)
+                    choice = choose_next_activity(state, now, inputs, PARAMS, rng)
+                    rows.append(
+                        [
+                            score_activities(state, hour, inputs),
+                            choice.activity,
+                            choice.location,
+                            choice.until.isoformat(),
+                            rng.random(),
+                        ]
+                    )
+                for target in (Activity.SLEEP, Activity.REST):
+                    point = points_for(target, SPECS[target].locations[0])[0]
+                    moved = begin_activity(
+                        state, now, target, point, now + timedelta(minutes=30)
+                    ).state
+                    for secs in (0, 1, 15, 300):
+                        t = now + timedelta(seconds=secs)
+                        rows.append(
+                            [
+                                asdict(evolve_through(moved, t, timedelta(seconds=secs))),
+                                [s.kind for s in classify_signals(state, t, inputs)],
+                            ]
+                        )
+    assert hashlib.sha256(
+        json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest() == ("03cafe0db97f8a745247a8f5c546e92d95c82c13c696b79995042ccb66c9a1c3")

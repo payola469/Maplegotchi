@@ -141,3 +141,58 @@ def test_interrupted_runtime_save_classified_by_new_process(
             sort_keys=True,
         )
     )
+
+
+def test_actual_cross_process_life_continues_like_uninterrupted_reference(
+    scope: store.OwnedRoot,
+) -> None:
+    from datetime import datetime, timedelta
+
+    from maplegotchi.runtime.canonical_persistence import CanonicalPersistenceRuntime
+    from tests.schema_v11.canonical_binding import image_of
+    from tests.schema_v11.test_canonical_runtime import advance, initial, port
+
+    a, _, written = child(scope, "writer", "life_loop")
+    assert written["tick_counter"] == 1 and written["action_counter"] == 1
+    b, _, continued = child(scope, "resave", "life_loop")
+    assert a != b and continued["before"] == written["after"]
+    assert continued["tick_counter"] == 5 and continued["action_counter"] == 2
+    c, _, read = child(scope, "reader", "life_loop")
+    assert c not in (a, b)
+    assert read["before"] == read["after"] == continued["after"]
+    assert read["simulation_continuation"] == "ordinary_mvp_continued"
+    reference_root = store.OwnedRoot.new()
+    try:
+        binding = port(reference_root)
+        runtime = CanonicalPersistenceRuntime.create(binding, initial(binding), schema_version=11)
+        try:
+            started = advance(runtime, runtime.capture().life.identity.born_at + timedelta(hours=4))
+            travel = started.life.travel
+            assert travel is not None
+            advance(runtime, travel.departed_at + timedelta(seconds=1))
+            advance(runtime, travel.arrives_at)
+            advance(runtime, travel.arrives_at + timedelta(seconds=1))
+            advance(runtime, datetime.fromisoformat(runtime.capture().life.record.activity_until))
+            assert digest(image_of(runtime.capture())) == continued["after"]
+        finally:
+            runtime.close()
+    finally:
+        reference_root.cleanup()
+    catalog, context, _ = resources()
+    actual, life = store.load(scope, "maple.db", (catalog,), ((1, context),))
+    assert life.record.action_counter == 2
+    assert sum(row[5] == "arrived" for row in actual.rows("action_event")) == 1
+    assert actual.rows("world_event") == ()
+    print(
+        json.dumps(
+            dict(
+                writer_pid=a,
+                continuing_reader_pid=b,
+                final_reader_pid=c,
+                ticks=continued["tick_counter"],
+                actions=continued["action_counter"],
+                revision=continued["revision"],
+                digest=continued["after"],
+            )
+        )
+    )

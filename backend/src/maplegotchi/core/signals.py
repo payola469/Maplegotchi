@@ -20,7 +20,7 @@ from enum import StrEnum
 from maplegotchi.core.behavior import FORCED_SLEEP_ENERGY, BehaviorInputs
 from maplegotchi.core.daytime import require_utc
 from maplegotchi.core.priority import RANK, Priority
-from maplegotchi.core.state import MapleState
+from maplegotchi.core.state import MapleState, Needs
 
 # Server attention at or above this is a serious problem (a failed service,
 # disk >= 95 %, temperature >= 85 C: see core/attention.py).
@@ -67,7 +67,11 @@ def classify_signals(
 ) -> tuple[Signal, ...]:
     """What is going on, most urgent first. Pure; no signal changes state by itself."""
     require_utc(now, "now")
-    needs = state.needs
+    return signals_from_needs(state.needs, inputs)
+
+
+def signals_from_needs(needs: Needs, inputs: BehaviorInputs) -> tuple[Signal, ...]:
+    """Shared priority classification without a legacy world state."""
     found: list[Signal] = []
     if inputs.server_attention >= CRITICAL_ATTENTION:
         found.append(Signal(SignalKind.SERVER_PROBLEM))

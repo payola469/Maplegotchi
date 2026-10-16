@@ -500,3 +500,201 @@ def test_zero_walk_preflight_is_not_a_state_change(scope: store.OwnedRoot) -> No
     assert runtime.capture() is before
     assert binding.load(schema_version=11) == before
     runtime.close()
+
+
+# STEP238: actual ordinary-life transitions; no historical database access.
+def advance(runtime: CanonicalPersistenceRuntime, now: datetime) -> CanonicalSnapshot:
+    from maplegotchi.core.behavior import BehaviorInputs
+    from maplegotchi.core.parameters import CoreParameters
+
+    before = runtime.capture()
+    return runtime.step(
+        now,
+        BehaviorInputs(),
+        CoreParameters(heartbeat_interval=timedelta(seconds=1)),
+        facts(before),
+        expected_revision=before.life.record.revision,
+    )
+
+
+def test_actual_life_tick_move_arrive_restart_continue(scope: store.OwnedRoot) -> None:
+    binding = port(scope)
+    raw = birth_snapshot()
+    runtime = CanonicalPersistenceRuntime.create(
+        binding, admit(raw, binding.catalogs, binding.contexts), schema_version=11
+    )
+    born = runtime.capture().life.identity.born_at
+    started = advance(runtime, born + timedelta(hours=4))
+    assert started.life.rng.tick_counter == started.life.rng.decision_counter == 1
+    assert started.life.record.action_counter == 1
+    assert started.life.needs.energy < 80
+    completed = next(
+        row for row in image_of(started).rows("action_event") if row[5] == "activity_completed"
+    )
+    assert completed[6] == (born + timedelta(minutes=15)).isoformat()
+    assert completed[8] == '{"activity":"idle"}'
+    decision_columns = image_of(started).table("decision").columns
+    decision = dict(zip(decision_columns, image_of(started).rows("decision")[0], strict=True))
+    assert type(decision["proposed_duration_minutes"]) is float
+    downtime = next(
+        row for row in image_of(started).rows("timeline_event") if row[4] == "downtime_gap"
+    )
+    assert downtime[6] == '{"since":"' + born.isoformat() + '"}'
+    travel = started.life.travel
+    assert travel is not None and travel.duration_us > 0
+    before_bytes = scope.check("maple.db").read_bytes()
+    assert advance(runtime, born + timedelta(hours=4)) is started
+    assert scope.check("maple.db").read_bytes() == before_bytes
+    runtime.close()
+    runtime = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
+    assert runtime.capture() == started
+    midway = travel.departed_at + timedelta(seconds=1)
+    walking = advance(runtime, midway)
+    assert walking.life.travel == travel
+    assert walking.life.record.action_counter == 1
+    arrived = advance(runtime, travel.arrives_at)
+    assert arrived.life.travel is None
+    assert (arrived.life.record.tx, arrived.life.record.ty) == (
+        travel.route.destination.tx,
+        travel.route.destination.ty,
+    )
+    actions = image_of(arrived).rows("action_event")
+    assert sum(row[5] == "arrived" for row in actions) == 1
+    assert sum(row[5] == "activity_started" for row in actions) == 1
+    again = advance(runtime, travel.arrives_at + timedelta(seconds=1))
+    assert image_of(again).rows("action_event") == actions
+    continued = advance(runtime, datetime.fromisoformat(again.life.record.activity_until))
+    assert continued.life.record.action_counter == 2
+    assert continued.life.rng.decision_counter == 2
+    assert continued.life.identity_row == started.life.identity_row
+    assert len(image_of(continued).rows("decision")) == 2
+    assert image_of(continued).rows("world_event") == ()
+    runtime.close()
+    restored = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
+    assert restored.capture() == continued
+    restored.close()
+
+
+@pytest.mark.parametrize("phase", ["after_write", "before_commit", "after_commit"])
+def test_life_step_atomic_failure_no_retry(scope: store.OwnedRoot, phase: str) -> None:
+    def fail(at: str) -> None:
+        if at == phase:
+            raise PersistenceError("uncertain")
+
+    runtime = CanonicalPersistenceRuntime.create(
+        port(scope, inject=fail), initial(port(scope)), schema_version=11
+    )
+    before = runtime.capture()
+    with pytest.raises(PersistenceError):
+        advance(runtime, before.life.identity.born_at + timedelta(minutes=15))
+    with pytest.raises(PersistenceError, match="uncertain"):
+        runtime.capture()
+    runtime.close()
+    reopened = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
+    after = reopened.capture()
+    assert after.life.record.revision == 1 + int(phase == "after_commit")
+    assert len(image_of(after).rows("decision")) == int(phase == "after_commit")
+    assert (after == before) == (phase != "after_commit")
+    reopened.close()
+
+
+@pytest.mark.parametrize("critical", [False, True])
+def test_priority_blocker_never_commits_a_successful_tick(
+    scope: store.OwnedRoot, critical: bool
+) -> None:
+    from maplegotchi.core.behavior import BehaviorInputs
+    from maplegotchi.core.parameters import CoreParameters
+    from maplegotchi.core.world.canonical_lifecycle import LifeLoopBlocked
+
+    binding = port(scope)
+    runtime = CanonicalPersistenceRuntime.create(binding, initial(binding), schema_version=11)
+    if not critical:
+        # Explicit synthetic precondition; not claimed as an engine-generated tick.
+        runtime.close()
+        store.save(
+            scope,
+            binding.name,
+            life_changes(birth_snapshot(), revision=2, energy=5.0),
+            expected_revision=1,
+            catalogs=binding.catalogs,
+            contexts=binding.contexts,
+        )
+        runtime = CanonicalPersistenceRuntime.restore(binding, schema_version=11)
+    before = runtime.capture()
+    with pytest.raises(
+        LifeLoopBlocked, match="critical_interrupt" if critical else "high_interrupt"
+    ):
+        runtime.step(
+            before.life.identity.born_at + timedelta(minutes=5),
+            BehaviorInputs(server_attention=1.0 if critical else 0.0),
+            CoreParameters(),
+            facts(before),
+            expected_revision=before.life.record.revision,
+        )
+    assert runtime.capture() is before and binding.load(schema_version=11) == before
+    runtime.close()
+
+
+def test_life_step_revision_and_shutdown_guards(scope: store.OwnedRoot) -> None:
+    from maplegotchi.core.behavior import BehaviorInputs
+    from maplegotchi.core.parameters import CoreParameters
+
+    runtime = CanonicalPersistenceRuntime.create(
+        port(scope), initial(port(scope)), schema_version=11
+    )
+    old = runtime.capture()
+    with pytest.raises(PersistenceError, match="revision"):
+        runtime.step(
+            old.life.identity.born_at + timedelta(minutes=15),
+            BehaviorInputs(),
+            CoreParameters(),
+            facts(old),
+            expected_revision=2,
+        )
+    assert runtime.capture() is old
+    runtime.begin_shutdown()
+    with pytest.raises(RuntimeClosedError):
+        advance(runtime, old.life.identity.born_at + timedelta(minutes=15))
+    runtime.close()
+
+
+def test_stale_actual_life_writer_cannot_overwrite_committed_state(scope: store.OwnedRoot) -> None:
+    first = CanonicalPersistenceRuntime.create(port(scope), initial(port(scope)), schema_version=11)
+    stale = CanonicalPersistenceRuntime.restore(port(scope), schema_version=11)
+    now = first.capture().life.identity.born_at + timedelta(hours=4)
+    committed = advance(first, now)
+    with pytest.raises(PersistenceError, match="revision"):
+        advance(stale, now)
+    with pytest.raises(PersistenceError, match="uncertain"):
+        stale.capture()
+    assert port(scope).load(schema_version=11) == committed
+    stale.close()
+    first.close()
+
+
+def test_critical_mid_edge_refuses_before_any_database_write(scope: store.OwnedRoot) -> None:
+    from maplegotchi.core.behavior import BehaviorInputs
+    from maplegotchi.core.parameters import CoreParameters
+    from maplegotchi.core.world.canonical_lifecycle import LifeLoopBlocked
+
+    runtime = CanonicalPersistenceRuntime.create(
+        port(scope), initial(port(scope)), schema_version=11
+    )
+    started = advance(runtime, runtime.capture().life.identity.born_at + timedelta(hours=4))
+    travel = started.life.travel
+    assert travel is not None
+    now = travel.departed_at + timedelta(microseconds=100000)
+    assert isinstance(travel.current_at(now), EdgeStart)
+    before_bytes = scope.check("maple.db").read_bytes()
+    with pytest.raises(LifeLoopBlocked, match="critical_interrupt"):
+        runtime.step(
+            now,
+            BehaviorInputs(server_attention=1),
+            CoreParameters(),
+            facts(started),
+            expected_revision=started.life.record.revision,
+        )
+    assert runtime.capture() is started
+    assert scope.check("maple.db").read_bytes() == before_bytes
+    assert port(scope).load(schema_version=11) == started
+    runtime.close()

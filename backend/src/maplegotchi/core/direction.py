@@ -213,7 +213,11 @@ def decision_due(state: MapleState, now: datetime) -> DecisionTrigger | None:
 
 def allowed_actions(state: MapleState) -> tuple[Activity, ...]:
     """Core's hard rules on what may be chosen now (ADR-0026 §5)."""
-    energy = state.needs.energy
+    return allowed_energy(state.needs.energy)
+
+
+def allowed_energy(energy: float) -> tuple[Activity, ...]:
+    """Shared hard energy rules; canonical callers cannot weaken forced sleep."""
     if energy <= FORCED_SLEEP_ENERGY:
         return (Activity.SLEEP,)
     if energy < LOW_ENERGY:
