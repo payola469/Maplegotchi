@@ -44,6 +44,8 @@ def main() -> int:
         "entry_b",
         "life_loop",
         "simulation",
+        "goal_resume",
+        "goal_expiry",
     }:
         return 2
     scope = store.OwnedRoot(Path(root), (int(device), int(inode)))
@@ -75,12 +77,20 @@ def main() -> int:
                 from tests.schema_v11.life_simulation import simulation_initial
 
                 base = simulation_initial(binding)
+            elif mode in {"goal_resume", "goal_expiry"}:
+                from tests.schema_v11.life_interrupt import initial
+
+                base = initial(binding)
             runtime = CanonicalPersistenceRuntime.create(binding, base, schema_version=11)
             before = runtime.capture()
             if mode == "simulation":
                 from tests.schema_v11.life_simulation import segment
 
                 trace = segment(runtime, first=True)
+            elif mode in {"goal_resume", "goal_expiry"}:
+                from tests.schema_v11.life_interrupt import interrupt_read
+
+                interrupt_read(runtime, binding)
             elif mode == "life_loop":
                 advance(runtime, before.life.identity.born_at + timedelta(hours=4))
             elif mode == "preflight":
@@ -117,6 +127,10 @@ def main() -> int:
                     from tests.schema_v11.life_simulation import segment
 
                     trace = segment(runtime, first=False)
+                elif mode in {"goal_resume", "goal_expiry"}:
+                    from tests.schema_v11.life_interrupt import continue_response
+
+                    continue_response(runtime, expired=mode == "goal_expiry")
                 elif mode == "life_loop":
                     travel = before.life.travel
                     if travel is None:
@@ -142,6 +156,8 @@ def main() -> int:
             simulation_continuation=(
                 "ordinary_mvp_continued"
                 if mode == "life_loop"
+                else "stationary_goal_continued"
+                if mode in {"goal_resume", "goal_expiry"}
                 else "blocked:no_canonical_transition_engine"
             ),
             tick_counter=after.life.rng.tick_counter,
