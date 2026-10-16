@@ -11,6 +11,9 @@ operation=$1
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo=$(CDPATH= cd -- "$script_dir/../../.." && pwd)
 mkdir -p "$repo/var"
+if [ "$operation" != stop ]; then
+  (cd "$repo/frontend" && node tools/art/cli.mjs && ./node_modules/.bin/vite build --config tools/room-ui/vite.config.mjs)
+fi
 cd "$repo/backend"
 export PYTHONPATH=src
 module=tests.schema_v11.playable_preview

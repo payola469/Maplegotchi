@@ -134,3 +134,29 @@ This checks real position/needs changes, actual worker PIDs/exit order, unchange
 SQLite bytes after restart, arrival/action continuation and local HTTP mutation
 admission (host/origin/token/body/transfer-encoding). Existing core/world/extended
 life and frontend regressions stay separate. No production migration is executed.
+
+## Maple Room UI v1 (STEP 245)
+
+`alpha.sh start` now builds the isolated Room UI from the existing processed atlas
+and restores the same session. Open `/` for Room UI and `/technical` for the
+unchanged technical controls. Start and Stop commands above are unchanged.
+Existing locked Node/frontend dependencies are required. No raw art is served.
+Backend-only runs without a UI build retain the technical transport fallback.
+
+The Room uses the accepted Final Design Spec geometry, ADR-0040/0041 integer
+pixel zoom and existing warm UI tokens. It reuses the original programmer atlas
+(`art/README.md`); art/palette/faces remain provisional. There are no new art
+assets, final-art claims or day-phase tint decisions. On narrow screens Overview
+falls back to room buttons and a focused view, without fractional shrinking.
+
+Read-only polling reconnects automatically after a controller restart. Mutation
+controls refresh the new controller token before the next user command; failed
+commands are never replayed automatically. A different session freezes the
+view. Browser refresh/close never initializes a life. The main page has heartbeat
+and pause; clock advance, worker restore and state diagnostics stay in Development
+tools. Face overlays are neutral placeholder art (sleep has the sleep overlay),
+not a newly inferred expression/mood policy. Mood bars are the actual saved needs.
+
+Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, followed by
+`pnpm exec tsc -p tools/room-ui/tsconfig.json` and
+`pnpm exec vite build --config tools/room-ui/vite.config.mjs`.

@@ -34,6 +34,11 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
         travel.position_at(now) if travel else tile_to_feet(Tile(life.record.tx, life.record.ty))
     )
     types = {item.id: item for item in document.catalog.catalog.types}
+    point = next(
+        item.template
+        for item in document.catalog.points
+        if item.instance_id == life.record.point_host and item.template.id == life.record.point_id
+    )
     return dict(
         label="ISOLATED PREVIEW — synthetic canonical runtime, not production",
         pid=os.getpid(),
@@ -42,6 +47,11 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
         layout_revision=life.record.layout_revision,
         at=now.isoformat(),
         activity=life.activity.value,
+        visual=dict(
+            pose=point.pose.value,
+            facing=(point.occupy_direction if point.occupy else point.facing).value,
+            offset=[point.occupy.x, point.occupy.y] if point.occupy else [0, 0],
+        ),
         until=life.record.activity_until,
         needs=asdict(life.needs),
         action=life.record.action_counter,
@@ -50,7 +60,7 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
         goal=asdict(life.active_goal) if life.active_goal else None,
         task=asdict(life.task) if life.task else None,
         position=position,
-        travel=asdict(travel) if travel else None,
+        travel=dict(asdict(travel), arrives_at=travel.arrives_at.isoformat()) if travel else None,
         moving=travel is not None and now < travel.arrives_at,
         destination=[life.record.point_host, life.record.point_id],
         grid=[GRID_WIDTH, GRID_HEIGHT, T],
@@ -63,6 +73,10 @@ def frame(runtime: CanonicalPersistenceRuntime) -> dict[str, Any]:
             dict(
                 id=item.id,
                 type=item.type_id,
+                art_id=types[item.type_id].art_id,
+                surface=types[item.type_id].surface.value,
+                mount_y_px=types[item.type_id].mount_y_px,
+                room_id=item.room_id,
                 x=item.origin.tx,
                 y=item.origin.ty,
                 w=types[item.type_id].footprint.w,

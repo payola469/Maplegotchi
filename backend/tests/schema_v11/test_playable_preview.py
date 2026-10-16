@@ -18,6 +18,11 @@ def test_playable_tick_movement_activity_and_process_restart() -> None:
         initial = preview.state.copy()
         assert initial["activity"] == "write" and initial["moving"]
         assert initial["revision"] == 2
+        assert initial["visual"]["pose"] == "sit_write"
+        assert initial["visual"]["facing"] == "up"
+        assert len(initial["visual"]["offset"]) == 2
+        assert initial["travel"]["arrives_at"]
+        assert any(item["art_id"] for item in initial["objects"])
         walking_bytes = preview.scope.check("maple.db").read_bytes()
         with pytest.raises(ValueError, match="finish ordinary movement first"):
             preview.act("next")
@@ -97,3 +102,40 @@ def test_preview_mutations_require_exact_local_origin_and_capability(change: str
         del request.headers[key]
     request.headers[key] = value
     assert not request.admitted(mutation=True)
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/", 200),
+        ("/technical", 200),
+        ("/room-ui/assets/room-test.js", 200),
+        ("/room-ui/assets/../secret.js", 404),
+        ("/room-ui/assets/raw.meta.json", 404),
+        ("/room-ui/assets/room-test.js?token=anything", 404),
+        ("/art/export/test.png", 404),
+    ],
+)
+def test_room_ui_serves_only_processed_bundle_and_keeps_technical_transport(
+    tmp_path: Path, path: str, expected: int
+) -> None:
+    assets = tmp_path / "frontend/tools/life-preview"
+    assets.mkdir(parents=True)
+    (assets / "index.html").write_text("technical TOKEN", encoding="utf-8")
+    bundle = tmp_path / "frontend/dist/local-alpha"
+    (bundle / "assets").mkdir(parents=True)
+    (bundle / "index.html").write_text("room TOKEN", encoding="utf-8")
+    (bundle / "assets/room-test.js").write_text("// processed", encoding="utf-8")
+    (bundle / "assets/raw.meta.json").write_text("{}", encoding="utf-8")
+    cls = handler(cast(Preview, None), assets, tmp_path / "unused", "test-token")
+    request: Any = object.__new__(cls)
+    request.server = cast(HTTPServer, SimpleNamespace(server_port=8473))
+    request.headers = {"Host": "127.0.0.1:8473"}
+    request.path = path
+    replies: list[tuple[int, bytes, str]] = []
+    request.reply = lambda code, body, kind: replies.append((code, body, kind))
+    request.do_GET()
+    assert replies[0][0] == expected
+    if path in ("/", "/technical"):
+        assert b"test-token" in replies[0][1]
+        assert (b"technical" if path == "/technical" else b"room") in replies[0][1]

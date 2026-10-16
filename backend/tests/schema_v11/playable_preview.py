@@ -215,11 +215,40 @@ def handler(preview: Preview, assets: Path, pixi: Path, token: str) -> type[Base
             if self.path == "/state":
                 self.reply(200, json.dumps(preview.view()).encode(), "application/json")
             elif self.path == "/":
+                path = assets.parents[1] / "dist/local-alpha/index.html"
+                # Backend-only validation can inspect the transport without a frontend build.
+                if not path.is_file():
+                    path = assets / "index.html"
+                body = path.read_text(encoding="utf-8").replace("TOKEN", token)
+                self.reply(200, body.encode(), "text/html; charset=utf-8")
+            elif self.path.startswith("/room-ui/assets/"):
+                # Direct children of the generated bundle only; never raw art or arbitrary paths.
+                name = self.path.removeprefix("/room-ui/assets/")
+                directory = assets.parents[1] / "dist/local-alpha/assets"
+                if not directory.is_dir():
+                    self.reply(404, b"Room UI build unavailable", "text/plain")
+                    return
+                allowed = {
+                    item.name: item
+                    for item in directory.iterdir()
+                    if item.is_file() and not item.is_symlink()
+                }
+                if name not in allowed or Path(name).suffix not in {".js", ".css", ".png"}:
+                    self.reply(404, b"Not found", "text/plain")
+                    return
+                kind = {".js": "text/javascript", ".css": "text/css", ".png": "image/png"}[
+                    Path(name).suffix
+                ]
+                self.reply(200, allowed[name].read_bytes(), kind)
+            elif self.path == "/technical":
                 body = (assets / "index.html").read_text(encoding="utf-8").replace("TOKEN", token)
                 self.reply(200, body.encode(), "text/html; charset=utf-8")
             elif self.path in {"/preview.js", "/preview.css", "/pixi.min.js"}:
                 path = pixi if self.path == "/pixi.min.js" else assets / self.path[1:]
                 kind = "text/css" if self.path.endswith(".css") else "text/javascript"
+                if not path.is_file():
+                    self.reply(404, b"Frontend build/dependencies unavailable", "text/plain")
+                    return
                 self.reply(200, path.read_bytes(), kind)
             else:
                 self.reply(404, b"Not found", "text/plain")
@@ -258,8 +287,6 @@ def main() -> None:
     root = Path(__file__).parents[3]
     assets = root / "frontend/tools/life-preview"
     pixi = root / "frontend/node_modules/pixi.js/dist/pixi.min.js"
-    if not pixi.is_file():
-        parser.error("Install existing frontend dependencies with pnpm install --frozen-lockfile")
     preview = Preview(args.alpha_root, initialize=args.initialize)
     try:
         server = HTTPServer(
