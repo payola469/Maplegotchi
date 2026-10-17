@@ -63,6 +63,12 @@ def child(root: store.OwnedRoot, operation: str, mode: str) -> tuple[int, int, d
         process.kill()
         process.wait(timeout=10)
         raise AssertionError("owned canonical worker timeout") from None
+    except BaseException:
+        # Parent cancellation must not leave an owned writer running during cleanup.
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=10)
+        raise
     finally:
         thread.join(timeout=10)
     assert not thread.is_alive()
@@ -141,3 +147,89 @@ def test_interrupted_runtime_save_classified_by_new_process(
             sort_keys=True,
         )
     )
+
+
+def test_actual_cross_process_life_continues_like_uninterrupted_reference(
+    scope: store.OwnedRoot,
+) -> None:
+    from datetime import datetime, timedelta
+
+    from maplegotchi.runtime.canonical_persistence import CanonicalPersistenceRuntime
+    from tests.schema_v11.canonical_binding import image_of
+    from tests.schema_v11.test_canonical_runtime import advance, initial, port
+
+    a, _, written = child(scope, "writer", "life_loop")
+    assert written["tick_counter"] == 1 and written["action_counter"] == 1
+    b, _, continued = child(scope, "resave", "life_loop")
+    assert a != b and continued["before"] == written["after"]
+    assert continued["tick_counter"] == 5 and continued["action_counter"] == 2
+    c, _, read = child(scope, "reader", "life_loop")
+    assert c not in (a, b)
+    assert read["before"] == read["after"] == continued["after"]
+    assert read["simulation_continuation"] == "ordinary_mvp_continued"
+    reference_root = store.OwnedRoot.new()
+    try:
+        binding = port(reference_root)
+        runtime = CanonicalPersistenceRuntime.create(binding, initial(binding), schema_version=11)
+        try:
+            started = advance(runtime, runtime.capture().life.identity.born_at + timedelta(hours=4))
+            travel = started.life.travel
+            assert travel is not None
+            advance(runtime, travel.departed_at + timedelta(seconds=1))
+            advance(runtime, travel.arrives_at)
+            advance(runtime, travel.arrives_at + timedelta(seconds=1))
+            advance(runtime, datetime.fromisoformat(runtime.capture().life.record.activity_until))
+            assert digest(image_of(runtime.capture())) == continued["after"]
+        finally:
+            runtime.close()
+    finally:
+        reference_root.cleanup()
+    catalog, context, _ = resources()
+    actual, life = store.load(scope, "maple.db", (catalog,), ((1, context),))
+    assert life.record.action_counter == 2
+    assert sum(row[5] == "arrived" for row in actual.rows("action_event")) == 1
+    assert actual.rows("world_event") == ()
+    print(
+        json.dumps(
+            dict(
+                writer_pid=a,
+                continuing_reader_pid=b,
+                final_reader_pid=c,
+                ticks=continued["tick_counter"],
+                actions=continued["action_counter"],
+                revision=continued["revision"],
+                digest=continued["after"],
+            )
+        )
+    )
+
+
+def test_parent_cancellation_reaps_only_its_actual_worker(
+    scope: store.OwnedRoot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Inject only the parent's interrupted wait. The child is a real owned OS process;
+    # this does not replace any of the separate cross-process durability proofs.
+    original = subprocess.Popen
+    launched: list[subprocess.Popen[bytes]] = []
+
+    def launch(*args: Any, **kwargs: Any) -> subprocess.Popen[bytes]:
+        process = original(*args, **kwargs)
+        launched.append(process)
+        wait = process.wait
+        first = True
+
+        def cancelled_wait(timeout: float | None = None) -> int:
+            nonlocal first
+            if first:
+                first = False
+                raise KeyboardInterrupt
+            return wait(timeout=timeout)
+
+        monkeypatch.setattr(process, "wait", cancelled_wait)
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", launch)
+    with pytest.raises(KeyboardInterrupt):
+        child(scope, "writer", "birth")
+    assert len(launched) == 1 and launched[0].pid > 0
+    assert launched[0].poll() is not None  # fully reaped before fixture-owned file cleanup

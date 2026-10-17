@@ -63,6 +63,20 @@ jobs:
       - run: uv run mypy
       - run: uv run lint-imports
       - run: uv run pytest
+      - name: "Synthetic canonical life diagnostic evidence (not a D05 pin)"
+        env:
+          LIFE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          LIFE_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          uv run --no-sync python -B -m tests.schema_v11.life_evidence \
+            --output "$RUNNER_TEMP/maple-life-evidence.json" \
+            --source-sha "$LIFE_SOURCE_SHA" --checkout-sha "$LIFE_CHECKOUT_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canonical-life-${{ matrix.os }}
+          path: ${{ runner.temp }}/maple-life-evidence.json
+          if-no-files-found: error
+          retention-days: 1
 
   shell:
     name: shellcheck (deploy + scripts)
@@ -156,7 +170,7 @@ jobs:
 
   art-compare:
     name: atlas byte equality (Linux vs Windows)
-    needs: [frontend, art-windows]
+    needs: [frontend, art-windows, backend]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -164,7 +178,8 @@ jobs:
         env:
           LINUX_RESULT: ${{ needs.frontend.result }}
           WINDOWS_RESULT: ${{ needs.art-windows.result }}
-        run: test "$LINUX_RESULT" = success && test "$WINDOWS_RESULT" = success
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        run: test "$LINUX_RESULT" = success && test "$WINDOWS_RESULT" = success && test "$BACKEND_RESULT" = success
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -179,3 +194,17 @@ jobs:
           path: var/artifacts/windows
       - name: Rehash actual files and compare all generated outputs
         run: node frontend/tools/art/reproducibility.mjs compare var/artifacts/windows var/artifacts/linux
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: canonical-life-ubuntu-latest
+          path: var/artifacts/life-linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: canonical-life-windows-latest
+          path: var/artifacts/life-windows
+      - name: Compare independently produced canonical life diagnostics (D05 remains OPEN)
+        run: >-
+          python3 backend/tests/schema_v11/life_evidence.py --compare
+          var/artifacts/life-linux/maple-life-evidence.json
+          var/artifacts/life-windows/maple-life-evidence.json

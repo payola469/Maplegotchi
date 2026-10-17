@@ -1,6 +1,6 @@
 """STEP 220 owned synthetic files only; not a shipped repository or migration.
 
-The capability is a newly created private directory plus an explicit inode
+The OwnedRoot capability is a newly created private directory plus an explicit inode
 registry. Children receive that capability from their parent, never a free DB
 path. No existing database is adopted. Unknown files prevent cleanup. SQLite
 WAL/FULL is verified, not a guarantee against arbitrary hardware/filesystems.
@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 from maplegotchi.core.activities import Activity
 from maplegotchi.core.timeline import Born
@@ -45,6 +45,17 @@ class StoreError(ValueError):
 
     def __init__(self, category: Category) -> None:
         super().__init__(category)
+
+
+class OwnedFiles(Protocol):
+    """Explicit file admission capability; SQL never discovers/adopts a path.
+
+    OwnedRoot retains its fresh-execution policy. The opt-in local alpha supplies
+    a separately admitted persistent development capability with controller locking.
+    """
+
+    def check(self, name: str) -> Path: ...
+    def reserve(self, name: str) -> Path: ...
 
 
 @dataclass(frozen=True)
@@ -202,7 +213,9 @@ def _integrity(conn: sqlite3.Connection) -> None:
 
 
 @contextmanager
-def connect(scope: OwnedRoot, name: str, *, readonly: bool = False) -> Iterator[sqlite3.Connection]:
+def connect(
+    scope: OwnedFiles, name: str, *, readonly: bool = False
+) -> Iterator[sqlite3.Connection]:
     path = scope.check(name)
     conn = sqlite3.connect(
         path.as_uri() + ("?mode=ro" if readonly else "?mode=rw"), uri=True, isolation_level=None
@@ -417,7 +430,7 @@ def load_connection(
 
 
 def load(
-    scope: OwnedRoot,
+    scope: OwnedFiles,
     name: str,
     catalogs: tuple[CatalogSnapshot, ...],
     contexts: tuple[tuple[int, LayoutContext], ...],
@@ -442,7 +455,7 @@ def _insert(
 
 
 def create(
-    scope: OwnedRoot,
+    scope: OwnedFiles,
     name: str,
     snapshot: Snapshot,
     catalogs: tuple[CatalogSnapshot, ...],
@@ -508,7 +521,7 @@ def create(
 
 
 def save(
-    scope: OwnedRoot,
+    scope: OwnedFiles,
     name: str,
     snapshot: Snapshot,
     *,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Final
 
 from maplegotchi.core.activities import Activity
@@ -30,6 +31,7 @@ from maplegotchi.core.world.coordinates import Tile, require_integer
 from maplegotchi.core.world.layout import WorldLayout, build_layout
 from maplegotchi.core.world.lighting import LightingPartition, LightingZone
 from maplegotchi.core.world.model import Door, Region, RegionKind, RegionStatus
+from maplegotchi.core.world.movement import EdgeStart, Travel, reroute
 from maplegotchi.core.world.pathfinding import Route, find_route
 from maplegotchi.core.world.walkability import Walkability, derive_walkability, validate_safe_layout
 
@@ -323,21 +325,16 @@ class Resolution:
         return "no_candidate" if self.selected is None else None
 
 
-def candidates_for(
-    activity: Activity, snapshot: ResolutionSnapshot, position: Tile, context: DecisionContext
-) -> tuple[Candidate, ...]:
-    """Canonical score ordering; no RNG draw, mutation, recovery or type-name inference."""
+def _providers(
+    activity: Activity, snapshot: ResolutionSnapshot
+) -> tuple[tuple[ResolvedPoint, int], ...]:
+    """Shared capability/admission filters, independent of movement origin."""
     requirement = requirement_for(activity)
-    if not isinstance(snapshot, ResolutionSnapshot) or not isinstance(position, Tile):
-        raise ValueError("expected ResolutionSnapshot and Tile")
-    if not isinstance(context, DecisionContext):
-        raise ValueError("expected DecisionContext")
     rooms = {room.id: room for room in snapshot.world.regions}
     hosts = {host.id: host for host in snapshot.catalog.instances}
     use = {item.instance_id: item.usable for item in snapshot.instances}
     availability = {item.point: item for item in snapshot.points}
-    preferred = {item.point for item in context.preferences}
-    result: list[Candidate] = []
+    result: list[tuple[ResolvedPoint, int]] = []
     for point in snapshot.catalog.points:
         host = hosts[point.instance_id]
         room = rooms[host.room_id]
@@ -356,6 +353,22 @@ def candidates_for(
             )
         ):
             continue
+        result.append((point, tier))
+    return tuple(result)
+
+
+def candidates_for(
+    activity: Activity, snapshot: ResolutionSnapshot, position: Tile, context: DecisionContext
+) -> tuple[Candidate, ...]:
+    """Canonical score ordering; no RNG draw, mutation, recovery or type-name inference."""
+    if not isinstance(snapshot, ResolutionSnapshot) or not isinstance(position, Tile):
+        raise ValueError("expected ResolutionSnapshot and Tile")
+    if not isinstance(context, DecisionContext):
+        raise ValueError("expected DecisionContext")
+    preferred = {item.point for item in context.preferences}
+    result: list[Candidate] = []
+    for point, tier in _providers(activity, snapshot):
+        key = point_key(point)
         target = Tile(point.template.approach.x, point.template.approach.y)
         route = find_route(snapshot.mask, position, target).route
         if route is not None:
@@ -372,6 +385,63 @@ def candidates_for(
                 )
             )
     return tuple(sorted(result, key=lambda item: (item.score.total, item.key)))
+
+
+@dataclass(frozen=True, slots=True)
+class UrgentCandidate:
+    point: ResolvedPoint
+    travel: Travel
+    score: int
+
+    @property
+    def key(self) -> PointKey:
+        return point_key(self.point)
+
+
+@dataclass(frozen=True, slots=True)
+class UrgentResolution:
+    candidates: tuple[UrgentCandidate, ...]
+    selected: UrgentCandidate | None
+    decision_draws: int
+
+
+def resolve_urgent(
+    activity: Activity,
+    snapshot: ResolutionSnapshot,
+    previous: Travel,
+    now: datetime,
+    context: DecisionContext,
+) -> UrgentResolution:
+    """STEP249 exact cost; endpoint path choice stays inside existing reroute.
+
+    Enumerate providers without inventing a Tile origin. A mid-edge plan is not
+    an occupied interaction point, so stickiness is zero. One decision draw at
+    offset zero only for equal best scores; caller atomically owns its counter.
+    """
+    if context.draw_offset != 0:
+        raise ValueError("urgent decision offset must be zero")
+    current = previous.current_at(now)
+    preferred = {item.point for item in context.preferences}
+    result: list[UrgentCandidate] = []
+    for point, tier in _providers(activity, snapshot):
+        target = Tile(point.template.approach.x, point.template.approach.y)
+        travel = reroute(snapshot.mask, previous, target, now).travel
+        if travel is None:
+            continue
+        key = point_key(point)
+        sticky = int(not isinstance(current, EdgeStart) and key == context.current_point)
+        weighted = Score(tier, travel.route.total_steps, sticky, int(key in preferred))
+        score = weighted.total * travel.step_us + (travel.entry.duration_us if travel.entry else 0)
+        result.append(UrgentCandidate(point, travel, score))
+    ordered = tuple(sorted(result, key=lambda item: (item.score, item.key)))
+    if not ordered:
+        return UrgentResolution((), None, 0)
+    tied = tuple(item for item in ordered if item.score == ordered[0].score)
+    selected = tied[0]
+    if len(tied) > 1:
+        rng = RngStream(context.rng.seed_hex, "decision", context.rng.decision_counter + 1)
+        selected = tied[rng.randint(0, len(tied) - 1)]
+    return UrgentResolution(ordered, selected, int(len(tied) > 1))
 
 
 def resolve(

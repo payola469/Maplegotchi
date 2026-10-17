@@ -508,7 +508,8 @@ def test_structural_no_object_type_dispatch_or_live_callers() -> None:
         isinstance(n, ast.Attribute) and n.attr == "type_id"
         for f in tree.body
         if isinstance(f, ast.FunctionDef)
-        and f.name in {"resolve", "candidates_for", "requirement_for", "allowed_activities"}
+        and f.name
+        in {"resolve", "resolve_urgent", "candidates_for", "requirement_for", "allowed_activities"}
         for n in ast.walk(f)
     )
     assert not any(

@@ -42,7 +42,7 @@ from maplegotchi.core.needs import (
 from maplegotchi.core.parameters import CoreParameters
 from maplegotchi.core.rng import RngStream
 from maplegotchi.core.signals import SignalKind, classify_signals, interrupts
-from maplegotchi.core.state import NEED_MAX, MapleState, prune_interactions
+from maplegotchi.core.state import NEED_MAX, MapleState, Needs, prune_interactions
 from maplegotchi.core.timeline import DowntimeGap, LifeEvent
 
 __all__ = [
@@ -73,9 +73,20 @@ class TickResult:
 
 def wakes_rested(state: MapleState, now: datetime, params: CoreParameters) -> bool:
     """A meaningful early completion: fully rested in daytime ends sleep."""
-    fully_rested = state.needs.energy >= NEED_MAX
+    return wakes_rested_facts(state.activity, state.needs, state.route is not None, now, params)
+
+
+def wakes_rested_facts(
+    activity: Activity,
+    needs: Needs,
+    travelling: bool,
+    now: datetime,
+    params: CoreParameters,
+) -> bool:
+    """Existing sleep completion rule, shared without any legacy world representation."""
+    fully_rested = needs.energy >= NEED_MAX
     daytime = not is_night(local_hour(now, params.utc_offset))
-    return state.activity is Activity.SLEEP and state.route is None and fully_rested and daytime
+    return activity is Activity.SLEEP and not travelling and fully_rested and daytime
 
 
 def heartbeat(

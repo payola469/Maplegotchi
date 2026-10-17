@@ -51,20 +51,47 @@ def evolve_through(state: MapleState, now: datetime, elapsed: timedelta) -> Need
     (ADR-0027). Without a route this is exactly `evolve_needs` over the window.
     """
     route = state.route
-    if route is None:
-        return evolve_needs(state.needs, state.activity, elapsed)
-    start = now - elapsed
-    walk_start = min(max(route.departed_at, start), now)
-    walk_end = min(max(route.arrives_at, walk_start), now)
-    segments = (
-        (route.from_activity, walk_start - start),
-        (Activity.WALK, walk_end - walk_start),
-        (state.activity, now - walk_end),
+    return evolve_segments(
+        state.needs,
+        state.activity,
+        now,
+        elapsed,
+        departed_at=route.departed_at if route else None,
+        arrives_at=route.arrives_at if route else None,
+        from_activity=route.from_activity if route else None,
     )
-    needs = state.needs
-    for activity, span in segments:
-        if span > timedelta(0):  # zero spans are skipped: relaxing by 0 h is not exact
-            needs = evolve_needs(needs, activity, span)
+
+
+def evolve_segments(
+    needs: Needs,
+    activity: Activity,
+    now: datetime,
+    elapsed: timedelta,
+    *,
+    departed_at: datetime | None = None,
+    arrives_at: datetime | None = None,
+    from_activity: Activity | None = None,
+) -> Needs:
+    """Shared exact needs dynamics over explicit movement timing; no world geometry."""
+    if elapsed < timedelta(0):
+        raise ValueError("elapsed must be >= 0")
+    if departed_at is None:
+        if arrives_at is not None or from_activity is not None:
+            raise ValueError("incomplete movement timing")
+        return evolve_needs(needs, activity, elapsed)
+    if arrives_at is None or from_activity is None or arrives_at < departed_at:
+        raise ValueError("incomplete movement timing")
+    start = now - elapsed
+    walk_start = min(max(departed_at, start), now)
+    walk_end = min(max(arrives_at, walk_start), now)
+    segments = (
+        (from_activity, walk_start - start),
+        (Activity.WALK, walk_end - walk_start),
+        (activity, now - walk_end),
+    )
+    for segment_activity, span in segments:
+        if span > timedelta(0):
+            needs = evolve_needs(needs, segment_activity, span)
     return needs
 
 

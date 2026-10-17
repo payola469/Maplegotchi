@@ -1,7 +1,8 @@
 """Static isolation proof for the explicitly approved, dormant canonical boundary.
 
 ADR-0036 pure resolution and ADR-0037 validation/projection permit these exact
-STEP 224-225 dependencies. They do not authorize default runtime/API activation.
+STEP 224-225 dependencies and STEP 247's exact opt-in read module. They do not
+authorize default runtime/API activation.
 Parse source only: never import the modules being checked or open a database.
 """
 
@@ -21,6 +22,7 @@ APPROVED = frozenset(
         "maplegotchi/core/world/legacy_projection.py",
         "maplegotchi/core/world/layout_validation.py",
         "maplegotchi/core/world/resolution.py",
+        "maplegotchi/core/world/canonical_lifecycle.py",
         "maplegotchi/persistence/__init__.py",
         "maplegotchi/persistence/boundary.py",
         "maplegotchi/persistence/layout_codec.py",
@@ -31,10 +33,24 @@ APPROVED = frozenset(
         "maplegotchi/persistence/legacy_admission.py",
         "maplegotchi/storage/canonical_v11.py",
         "maplegotchi/runtime/canonical_persistence.py",
+        "maplegotchi/runtime/canonical_polling.py",
     }
 )
 # Named imports only: permitting requirement_for does not permit live resolve().
 DIRECT = {
+    ("maplegotchi/core/world/canonical_lifecycle.py", WORLD + "resolution"): frozenset(
+        {
+            "DecisionContext",
+            "PointKey",
+            "ResolutionSnapshot",
+            "candidates_for",
+            "resolve",
+            "resolve_urgent",
+        }
+    ),
+    ("maplegotchi/runtime/canonical_persistence.py", WORLD + "resolution"): frozenset(
+        {"PointKey", "ResolutionSnapshot"}
+    ),
     ("maplegotchi/core/world/layout_validation.py", WORLD + "legacy_projection"): frozenset(
         {"DevelopmentWorld", "PointRef", "project_point"}
     ),
@@ -70,11 +86,16 @@ def module_name(path: str) -> str:
 
 def restricted(module: str) -> bool:
     return (
-        module in SENSITIVE
+        module == WORLD + "canonical_lifecycle"
+        or module in SENSITIVE
         or module == "maplegotchi.persistence"
         or module.startswith("maplegotchi.persistence.")
         or module
-        in {"maplegotchi.storage.canonical_v11", "maplegotchi.runtime.canonical_persistence"}
+        in {
+            "maplegotchi.storage.canonical_v11",
+            "maplegotchi.runtime.canonical_persistence",
+            "maplegotchi.runtime.canonical_polling",
+        }
     )
 
 
@@ -103,6 +124,7 @@ def imports(path: str, source: str, modules: set[str]) -> tuple[tuple[str, str |
                     in {
                         "maplegotchi.storage.canonical_v11",
                         "maplegotchi.runtime.canonical_persistence",
+                        "maplegotchi.runtime.canonical_polling",
                     }
                     or base == "maplegotchi.persistence"
                     else (base, alias.name)

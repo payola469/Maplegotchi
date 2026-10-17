@@ -17,10 +17,14 @@ and the state change commit together or not at all.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol
 
+from maplegotchi.core.activities import Activity
+from maplegotchi.core.goals import Goal
+from maplegotchi.core.identity import Identity
 from maplegotchi.core.memory import Memory, MemoryQuery, Tier, retrieve
-from maplegotchi.core.state import MapleState
 from maplegotchi.core.tasks import (
     JOURNAL_SOURCE,
     LIBRARY_CATALOG,
@@ -47,6 +51,33 @@ RECENT_DOCUMENTS = 5
 RECENT_JOURNAL = 5
 
 
+class TaskState(Protocol):
+    """Only immutable behavioral facts used by task effects; no world geometry."""
+
+    @property
+    def action_id(self) -> int: ...
+    @property
+    def activity_until(self) -> datetime: ...
+    @property
+    def activity(self) -> Activity: ...
+    @property
+    def goal(self) -> Goal | None: ...
+    @property
+    def task(self) -> Task | None: ...
+    @property
+    def identity(self) -> Identity: ...
+
+
+@dataclass(frozen=True, slots=True)
+class TaskFacts:
+    action_id: int
+    activity_until: datetime
+    activity: Activity
+    goal: Goal | None
+    task: Task | None
+    identity: Identity
+
+
 class SourceUnavailable(LookupError):
     pass
 
@@ -63,7 +94,10 @@ class TaskWorker:
         for doc in repo.documents(limit=RECENT_DOCUMENTS):
             refs.append(
                 SourceRef(
-                    f"document:{doc.id}", SourceKind.DOCUMENT, one_line(doc.title, 80), doc.kind
+                    f"document:{doc.id}",
+                    SourceKind.DOCUMENT,
+                    one_line(doc.title, 80),
+                    doc.kind.value,
                 )
             )
         if repo.journal(limit=1):
@@ -114,8 +148,8 @@ class TaskWorker:
     def effects(
         self,
         repo: LifeRepository,
-        before: MapleState,
-        after: MapleState,
+        before: TaskState,
+        after: TaskState,
         now: datetime,
         *,
         server_line: str | None = None,
@@ -133,11 +167,11 @@ class TaskWorker:
             records.append(self._start(repo, after, new, now))
         return tuple(records)
 
-    def _goal_id(self, state: MapleState) -> int | None:
+    def _goal_id(self, state: TaskState) -> int | None:
         return state.goal.id if state.goal else None
 
     def _start(
-        self, repo: LifeRepository, state: MapleState, task: Task, now: datetime
+        self, repo: LifeRepository, state: TaskState, task: Task, now: datetime
     ) -> ToolRecord:
         if task.tool is Tool.WRITER:
             return ToolRecord(
@@ -169,7 +203,7 @@ class TaskWorker:
     def _finish(
         self,
         repo: LifeRepository,
-        state: MapleState,
+        state: TaskState,
         task: Task,
         now: datetime,
         completed: bool,
@@ -217,7 +251,7 @@ class TaskWorker:
     def writing_inputs(
         self,
         repo: LifeRepository,
-        state: MapleState,
+        state: TaskState,
         now: datetime,
         server_line: str | None,
         memories: Sequence[str] = (),
@@ -245,7 +279,7 @@ class TaskWorker:
 
 
 def relevant_memories(
-    repo: LifeRepository, state: MapleState, now: datetime, *, limit: int = 5
+    repo: LifeRepository, state: TaskState, now: datetime, *, limit: int = 5
 ) -> tuple[Memory, ...]:
     """A few memories relevant to what Maple is doing now (never the archive)."""
     goal = state.goal

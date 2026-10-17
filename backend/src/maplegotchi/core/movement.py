@@ -13,7 +13,7 @@ action selected -> destination resolved -> walk -> arrive -> activity begins.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from maplegotchi.core.activities import Activity, RoomLocation
 from maplegotchi.core.audit import ActionEvent, ActionEventKind
@@ -141,6 +141,28 @@ def choose_point(
     return candidates[rng.randint(0, len(candidates) - 1)]
 
 
+def activity_window(
+    previous: Activity,
+    previous_started_at: datetime,
+    activity: Activity,
+    now: datetime,
+    arrives_at: datetime,
+    duration: timedelta,
+    *,
+    starts_walk: bool,
+    was_walking: bool = False,
+) -> tuple[datetime, datetime]:
+    """Shared activity timing: continuing in place retains the original start."""
+    if duration <= timedelta(0):
+        raise ValueError("an activity needs a positive duration")
+    started = (
+        arrives_at
+        if starts_walk
+        else (now if was_walking or activity is not previous else previous_started_at)
+    )
+    return started, arrives_at + duration
+
+
 def begin_activity(
     state: MapleState,
     now: datetime,
@@ -176,9 +198,17 @@ def begin_activity(
         # Already standing at the point (possibly passing through it mid-walk). A new
         # activity begins now; the same, already-begun activity simply continues.
         events: tuple[LifeEvent, ...] = ()
-        started = state.activity_started_at
+        started, until = activity_window(
+            state.activity,
+            state.activity_started_at,
+            activity,
+            now,
+            now,
+            duration,
+            starts_walk=False,
+            was_walking=walking,
+        )
         if walking or activity is not state.activity:
-            started = now
             if performed is not activity:
                 events = (ActivityChanged(at=now, previous=performed, current=activity),)
         new_state = replace(
@@ -188,20 +218,29 @@ def begin_activity(
             point_id=point.id,
             route=None,
             activity_started_at=started,
-            activity_until=now + duration,
+            activity_until=until,
             last_updated_at=now,
         )
         return MovementResult(new_state, events, None, cancelled)
 
     arrives = route.arrives_at
+    started, until = activity_window(
+        state.activity,
+        state.activity_started_at,
+        activity,
+        now,
+        arrives,
+        duration,
+        starts_walk=True,
+    )
     new_state = replace(
         state,
         activity=activity,
         location=point.location,
         point_id=point.id,
         route=route,
-        activity_started_at=arrives,
-        activity_until=arrives + duration,
+        activity_started_at=started,
+        activity_until=until,
         last_updated_at=now,
     )
     return MovementResult(new_state, (), route, cancelled)
